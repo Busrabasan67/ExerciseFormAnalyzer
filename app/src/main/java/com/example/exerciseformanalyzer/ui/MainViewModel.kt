@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.exerciseformanalyzer.MainApplication // EKLENDİ
 import com.example.exerciseformanalyzer.analysis.AnalysisPipeline
 import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.pose.PoseLandmarkerHelper
@@ -16,14 +17,6 @@ import kotlinx.coroutines.launch
 
 /**
  * Ana ekranın ViewModel'i — MVVM mimarisinin merkezi.
- *
- * Sorumluluklar:
- * 1. PoseLandmarkerHelper'ı başlatır ve yaşam döngüsünü yönetir
- * 2. CameraX'ten gelen frame'leri MediaPipe'a yönlendirir
- * 3. Pose sonuçlarını AnalysisPipeline'a iletir
- * 4. UI durumunu StateFlow ile yayınlar
- *
- * AndroidViewModel kullanılır çünkü MediaPipe için Context gereklidir.
  */
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -31,12 +24,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val TAG = "MainViewModel"
     }
 
-    // ── UI Durumu ────────────────────────────────────────────────────────────
+    // ── VERİTABANI BAĞLANTISI (YENİ ÖZELLİK) ──────────────────────────────────
+    private val workoutRepository = (application as MainApplication).workoutRepository
+    // ────────────────────────────────────────────────────────────────────────────
 
+    // ── UI Durumu ────────────────────────────────────────────────────────────
     private val _uiState = MutableStateFlow<ExerciseUiState>(ExerciseUiState.Loading)
     val uiState: StateFlow<ExerciseUiState> = _uiState.asStateFlow()
 
-    // Landmark overlay için kullanılacak PoseFrame
     private val _currentPoseFrame = MutableStateFlow<PoseFrame?>(null)
     val currentPoseFrame: StateFlow<PoseFrame?> = _currentPoseFrame.asStateFlow()
 
@@ -44,7 +39,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val error: StateFlow<String?> = _error.asStateFlow()
 
     // ── Session State ────────────────────────────────────────────────────────
-    
     private val _isSessionActive = MutableStateFlow(false)
     val isSessionActive: StateFlow<Boolean> = _isSessionActive.asStateFlow()
 
@@ -53,24 +47,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _sessionDurationSec = MutableStateFlow(0L)
     val sessionDurationSec: StateFlow<Long> = _sessionDurationSec.asStateFlow()
-    
+
     private val _workoutSummary = MutableStateFlow<WorkoutSummary?>(null)
     val workoutSummary: StateFlow<WorkoutSummary?> = _workoutSummary.asStateFlow()
-    
+
     private var sessionTimerJob: kotlinx.coroutines.Job? = null
-    
-    // Summary Stats
+
     private var totalAnalysisSamples = 0
     private var correctAnalysisSamples = 0
     private val errorFrequency = mutableMapOf<String, Int>()
 
     // ── Pipeline ─────────────────────────────────────────────────────────────
-
     private val analysisPipeline = AnalysisPipeline()
-
     private var poseLandmarkerHelper: PoseLandmarkerHelper? = null
 
-    // Son kareye ait timestamp — backpressure için kontrol
     @Volatile private var lastProcessedTimestamp = -1L
 
     init {
@@ -94,29 +84,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * CameraX'ten gelen her frame buradan geçer.
-     */
     fun onFrameAvailable(bitmap: Bitmap, timestampMs: Long) {
         if (_isPaused.value || _workoutSummary.value != null || timestampMs <= lastProcessedTimestamp) return
         lastProcessedTimestamp = timestampMs
         poseLandmarkerHelper?.detectAsync(bitmap, timestampMs)
     }
 
-    /**
-     * MediaPipe sonucu geldiğinde çağrılır (MediaPipe callback thread'i).
-     * Coroutine ile Default dispatcher'a geçerek analiz yapılır.
-     */
     private fun handlePoseResult(poseFrame: PoseFrame) {
         viewModelScope.launch(Dispatchers.Default) {
             try {
                 if (_isPaused.value || _workoutSummary.value != null) return@launch
-                
+
                 _currentPoseFrame.value = poseFrame
                 val result = analysisPipeline.process(poseFrame)
                 _uiState.value = ExerciseUiState.Analyzing(result)
-                
-                // İstatistikleri topla (Kişi ekrandaysa ve model aktif analiz yapıyorsa)
+
                 if (result.isPersonVisible && result.trackingQuality != TrackingQuality.LOST) {
                     totalAnalysisSamples++
                     if (result.formFeedback.isCorrect) {
@@ -132,7 +114,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** PoseLandmarker hazır olduğunda kameraya izin verildiğini bildirir. */
     fun onCameraReady() {
         if (_uiState.value is ExerciseUiState.Loading) {
             _uiState.value = ExerciseUiState.Ready
@@ -147,10 +128,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         analysisPipeline.targetExercise = type
         if (type != null) {
             analysisPipeline.reset()
-            analysisPipeline.targetExercise = type 
             _uiState.value = ExerciseUiState.Ready
-            
-            // Session'ı başlat
+
             _isSessionActive.value = true
             _isPaused.value = false
             _sessionDurationSec.value = 0L
@@ -158,11 +137,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             totalAnalysisSamples = 0
             correctAnalysisSamples = 0
             errorFrequency.clear()
-            
+
             startTimer()
         }
     }
-    
+
     private fun startTimer() {
         sessionTimerJob?.cancel()
         sessionTimerJob = viewModelScope.launch {
@@ -174,29 +153,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-    
+
     fun togglePause() {
         _isPaused.value = !_isPaused.value
     }
-    
+
     fun endWorkout() {
         _isSessionActive.value = false
         sessionTimerJob?.cancel()
-        
-        // Özeti hesapla
+
         val finalResult = analysisPipeline.lastAnalysisResult
         val exercise = analysisPipeline.targetExercise ?: finalResult?.exerciseType ?: ExerciseType.UNKNOWN
         val reps = finalResult?.repetitionState?.count ?: 0
         val accuracy = if (totalAnalysisSamples > 0) ((correctAnalysisSamples.toFloat() / totalAnalysisSamples) * 100).toInt() else 0
         val commonErr = errorFrequency.maxByOrNull { it.value }?.key
-        
-        _workoutSummary.value = WorkoutSummary(
+
+        val summary = WorkoutSummary(
             exercise = exercise,
             totalReps = reps,
             durationSeconds = _sessionDurationSec.value,
             accuracyPercentage = accuracy,
             mostCommonError = commonErr
         )
+        _workoutSummary.value = summary
+
+        // ── YENİ ÖZELLİK: VERİTABANINA KAYDET ────────────────────────────────
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                workoutRepository.saveWorkoutResult(
+                    userId = 1,
+                    exerciseId = 1,
+                    score = accuracy,
+                    reps = reps,
+                    time = _sessionDurationSec.value.toInt(), // 'durationSeconds' yerine 'time' yazdık
+                    feedback = commonErr ?: "Mükemmel Form"
+                )
+                Log.d(TAG, "Antrenman başarıyla veritabanına kaydedildi.")
+            } catch (e: Exception) {
+                Log.e(TAG, "Veritabanı kayıt hatası: ${e.message}")
+            }
+        }
+        // ────────────────────────────────────────────────────────────────────
     }
 
     fun resetSession() {
@@ -215,19 +212,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 }
 
-/**
- * UI'ın tüm olası durumları — sealed class ile tip güvenli state yönetimi.
- */
 sealed class ExerciseUiState {
-    /** Uygulama başlıyor veya model yükleniyor */
     object Loading : ExerciseUiState()
-
-    /** Kamera ve model hazır, egzersiz bekleniyor */
     object Ready : ExerciseUiState()
-
-    /** Aktif analiz yapılıyor */
     data class Analyzing(val result: AnalysisResult) : ExerciseUiState()
-
-    /** Hata durumu */
     data class Error(val message: String) : ExerciseUiState()
 }

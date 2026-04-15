@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -99,4 +100,18 @@ dependencies {
     // Debug
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+
+// --- VERİTABANI VE GÜVENLİK KÜTÜPHANELERİ ---
+    // Room Database
+    val room_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+    ksp("androidx.room:room-compiler:$room_version")
+
+    // Şifre Hashleme (BCrypt)
+    implementation("org.mindrot:jbcrypt:0.4")
+
+    // Arka Plan Senkronizasyonu (WorkManager)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 }
