@@ -42,6 +42,9 @@ class ExerciseClassifier {
         // --- Gövde duruşuna göre ön eleme ---
 
         return when {
+            // Plank (önkol) tespiti: yatay gövde ve önkol yerde
+            isPlankPosition(frame, angles, torso) -> ExerciseType.PLANK
+
             // Şınav pozisyonu: gövde yatay (~80-90°) + dirsek aktif + ayakların yerde olması
             isPushUpPosition(frame, angles, torso) -> ExerciseType.PUSH_UP
 
@@ -51,8 +54,14 @@ class ExerciseClassifier {
             // Dumbbell row: gövde 45° eğik + tek kol hareketi
             isDumbbellRowPosition(frame, angles, torso) -> ExerciseType.DUMBBELL_ROW
 
-            // Biceps Curl: dik gövde, düz dizler ve aktif dirsek hareketi
+            // Biceps Curl: dik gövde, dirsekler sırta yapışık
             isBicepsCurlPosition(frame, angles, torso) -> ExerciseType.BICEPS_CURL
+
+            // Shoulder Press: dik gövde, dirsekler havada (omuz hizasında veya üstünde), eller yukarıda
+            isShoulderPressPosition(frame, angles, torso) -> ExerciseType.SHOULDER_PRESS
+
+            // Lateral Raise: dik gövde, omuz açısı artmış, dirsekler düz/hafif bükülü
+            isLateralRaisePosition(frame, angles, torso) -> ExerciseType.LATERAL_RAISE
 
             // Squat: dik gövde + aktif diz fleksiyonu
             isSquatPosition(frame, angles, torso) -> ExerciseType.SQUAT
@@ -60,6 +69,59 @@ class ExerciseClassifier {
 
             else -> ExerciseType.UNKNOWN
         }
+    }
+
+    /**
+     * Plank pozisyon tespiti (Önkol Plank):
+     * - Gövde yatay (~60° - 110°)
+     * - Omuzlar dirsekten belirgin şekilde yukarıda
+     * - Dirsek ve bilek yaklaşık aynı yatay hizada (önkollar yerde)
+     * - Ayaklar yerde/görünür
+     */
+    private fun isPlankPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        if (torso < 60f) return false
+
+        val lShoulder = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_SHOULDER)
+        val lElbow = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_ELBOW)
+        val lWrist = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_WRIST)
+        val rShoulder = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_SHOULDER)
+        val rElbow = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_ELBOW)
+        val rWrist = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_WRIST)
+
+        val isLeftVisible = lShoulder != null && lElbow != null && lWrist != null
+        val isRightVisible = rShoulder != null && rElbow != null && rWrist != null
+
+        if (!isLeftVisible && !isRightVisible) return false
+
+        val shoulder: Landmark
+        val elbow: Landmark
+        val wrist: Landmark
+
+        // Görünürlüğe göre baskın kolu seç (Yandan hangisi kameraya yakınsa)
+        if (isLeftVisible && (!isRightVisible || lElbow!!.visibility >= rElbow!!.visibility)) {
+            shoulder = lShoulder!!
+            elbow = lElbow!!
+            wrist = lWrist!!
+        } else {
+            shoulder = rShoulder!!
+            elbow = rElbow!!
+            wrist = rWrist!!
+        }
+
+        // 1. Omuz, dirsekten belirgin şekilde yüksekte olmalı (y değeri düşük olmalı)
+        if (shoulder.y > elbow.y - 0.03f) return false
+
+        // 2. Dirsek ve bilek yaklaşık aynı Y hizasında olmalı (Önkollar yerde)
+        val forearmVertDist = Math.abs(elbow.y - wrist.y)
+        val upperArmVertDist = Math.abs(shoulder.y - elbow.y)
+
+        // Eğer bilek, dirseğin çok altındaysa (şınavdaki gibi yerdeyken dirsek havadaysa) plank değildir
+        if (forearmVertDist > upperArmVertDist * 0.7f) return false
+
+        // 3. Ayakların pozisyonu yere yakın olmalı (Push up kontrolüyle benzer)
+        val feetVisible = frame.isVisible(PoseLandmarkIndex.LEFT_ANKLE) || frame.isVisible(PoseLandmarkIndex.RIGHT_ANKLE)
+
+        return feetVisible
     }
 
     /**
@@ -113,33 +175,119 @@ class ExerciseClassifier {
     }
 
     /**
-     * Squat pozisyon tespiti:
-     * - Gövde görece dik (<35°)
-     * - Diz bükülüyor
+     * Lateral Raise (Yana Açış) tespiti:
+     * - Gövde oldukça dik (> 60°)
+     * - Omuz açısı > 35° (kollar gövdeden ayrılıyor demek)
+     * - Dirsekler nispeten düz (>120°). Shoulder Press gibi bükük olmamalı.
+     * - Bilek ile dirsek yaklaşık aynı yüksekliktedir.
      */
-    private fun isSquatPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
-        if (torso > 50f) return false  // Gövde çok eğik (push-up veya row olabilir)
+    private fun isLateralRaisePosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        if (torso < 60f) return false
 
-        val kneeAngle = angles.leftKneeAngle ?: angles.rightKneeAngle ?: return false
-        // Diz bükülüyor VEYA zaten bükülü
-        return kneeAngle < 170f
+        val shoulderAngle = angles.leftShoulderAngle ?: angles.rightShoulderAngle ?: return false
+        val elbowAngle = angles.leftElbowAngle ?: angles.rightElbowAngle ?: return false
+
+        // Kollar gövdenin yanında asılıyken omuz açısı düşüktür. Yukarı kalktığında Lateral Raise başlar.
+        if (shoulderAngle < 35f) return false // Vücuda çok bitişik, hareket başlamamış veya başka hareket
+
+        // Dirsek düz veya hafif bükülü olmalı. Row veya curl gibi katlanmış olamaz.
+        if (elbowAngle < 120f) return false 
+
+        return true
     }
 
     /**
-     * Biceps Curl pozisyon tespiti:
-     * - Gövde oldukça dik (<35°)
-     * - Dizler düz (~170°+)
-     * - Dirsek bükülü (aktif hareket halindeyse tanınmasını kolaylaştırır)
+     * Squat pozisyon tespiti:
+     * - Gövde görece dik (<50°) — önden görünümde eşik biraz gevşetilir
+     * - Her iki diz görünüyor (frontal) VEYA baskın diz görünüyor (side)
+     * - Diz bükülüyor
+     *
+     * Önden görünümde: sol VE sağ diz koordinatları her ikisi de görünürse frontal squat.
+     * Yandan görünümde: tek taraf görünür, klasik lateral analiz.
+     */
+    private fun isSquatPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        val bodyProfile = AngleUtils.detectBodyProfile(frame)
+        val isFrontal = bodyProfile == BodyProfile.FRONTAL
+
+        // Gövde eğimi eşiği: önden görünümde projeksiyon hatası olabileceğinden biraz geniş tut
+        val maxTorso = if (isFrontal) 58f else 50f
+        if (torso > maxTorso) return false
+
+        return if (isFrontal) {
+            // Önden: her iki diz de görünür mü?
+            val lKneeVisible = frame.isVisible(PoseLandmarkIndex.LEFT_KNEE)
+            val rKneeVisible = frame.isVisible(PoseLandmarkIndex.RIGHT_KNEE)
+            val lHipVisible  = frame.isVisible(PoseLandmarkIndex.LEFT_HIP)
+            val rHipVisible  = frame.isVisible(PoseLandmarkIndex.RIGHT_HIP)
+
+            if (!(lKneeVisible || rKneeVisible)) return false
+            if (!(lHipVisible || rHipVisible)) return false
+
+            // En az bir diz açısı mevcut ve bükülüyor
+            val kneeAngle = angles.leftKneeAngle ?: angles.rightKneeAngle ?: return false
+            kneeAngle < 175f
+        } else {
+            // Yandan: baskın (tek görünür) tarafın diz açısı
+            val kneeAngle = angles.leftKneeAngle ?: angles.rightKneeAngle ?: return false
+            kneeAngle < 170f
+        }
+    }
+
+    /**
+     * Biceps Curl tespiti:
+     * - Gövde dik (~70-90° arası)
+     * - Dirsekler vücudun yanında sabit (omuz y değeri dirsek y değerinden oldukça küçük, yani dirsek kalçaya daha yakın)
+     * - Bilek, dirsekten yukarı doğru hareketli
      */
     private fun isBicepsCurlPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
-        if (torso > 35f) return false // Hafif eğilmeye izin var ama fazla olmamalı
+        if (torso < 60f) return false // Çok eğik duruyorsa curl değildir
 
-        val kneeAngle = angles.leftKneeAngle ?: angles.rightKneeAngle ?: return false
-        if (kneeAngle < 160f) return false // Diz çok bükülüyorsa squat veya squat hazırlığı olabilir
+        val lShoulder = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_SHOULDER) ?: return false
+        val lElbow = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_ELBOW) ?: return false
+        
+        // Curl yaparken dirsek aşağıda omuzun çok altında olur (kalçaya yakındır)
+        if (lElbow.y < lShoulder.y + 0.1f) return false 
 
         val elbowAngle = angles.leftElbowAngle ?: angles.rightElbowAngle ?: return false
-        // Ayaktasınız ve en az bir dirsek hareket ediyor (170'ten daha kapalı)
-        return elbowAngle < 170f
+        // Dirsek ne tamamen açık ne tamamen kilitli
+        return elbowAngle in 30f..170f
+    }
+
+    /**
+     * Shoulder Press tespiti:
+     * - Gövde dik (~60-90° arası, oturarak veya ayakta)
+     * - Dirsekler oldukça havada (omuz hizasında veya üzerinde)
+     * - Bilekler dirseğin üzerinde (yukarı doğru itiş)
+     */
+    private fun isShoulderPressPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        if (torso < 50f) return false // Eğik durularak omuz presi yapılmaz
+
+        val lShoulder = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_SHOULDER)
+        val lElbow = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_ELBOW)
+        val lWrist = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_WRIST)
+
+        val rShoulder = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_SHOULDER)
+        val rElbow = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_ELBOW)
+        val rWrist = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_WRIST)
+
+        // En az bir kol güvenilir şekilde görülmeli
+        val isLeftVisible = lShoulder != null && lElbow != null && lWrist != null
+        val isRightVisible = rShoulder != null && rElbow != null && rWrist != null
+
+        if (!isLeftVisible && !isRightVisible) return false
+
+        val shoulder = if (isLeftVisible) lShoulder!! else rShoulder!!
+        val elbow = if (isLeftVisible) lElbow!! else rElbow!!
+        val wrist = if (isLeftVisible) lWrist!! else rWrist!!
+
+        // Dirsek Y ekseninde (Y aşağı doğrudur) omuzun etrafında bir yerde olmalıdır.
+        // Biceps Curl'ün aksine dirsek kalçaya yapışık (çok aşağıda) değildir.
+        if (elbow.y > shoulder.y + 0.2f) return false // Dirsek çok aşağıda, bu shoulder press başlangıcı olamaz
+
+        // Bilek, dirseğin üstünde veya onunla yaklaşık aynı hizada olmalıdır (yere doğru değil yukarıda)
+        if (wrist.y > elbow.y + 0.05f) return false // Bilek sarkmışsa (örn omuz silkme) omuz presi değildir
+
+        return true
     }
 
     private fun addToHistory(type: ExerciseType) {

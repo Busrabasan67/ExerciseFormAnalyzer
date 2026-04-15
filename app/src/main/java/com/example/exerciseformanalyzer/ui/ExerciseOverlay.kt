@@ -110,6 +110,9 @@ fun PoseSkeletonOverlay(
             return Offset(lm.x * width, lm.y * height)
         }
 
+        // Karın ve Kalça (Core) aktivasyon bölgesini görselleştir
+        drawCoreActivationRegion(this, ::lm, skeletonColor)
+
         // İskelet bağlantıları
         drawSkeletonConnections(this, ::lm, skeletonColor)
 
@@ -169,6 +172,34 @@ private fun drawSkeletonConnections(
             cap = StrokeCap.Round
         )
     }
+}
+
+/** 
+ * Karın ve Gövde (Core) aktivasyon bölgesini belirginleştirmek için
+ * dört omuz-kalça köşesini birleştiren yarı saydam bir çokgen (polygon) çizer.
+ */
+private fun drawCoreActivationRegion(
+    scope: DrawScope,
+    lm: (Int) -> Offset?,
+    color: Color
+) {
+    val lShoulder = lm(11) ?: return
+    val rShoulder = lm(12) ?: return
+    val rHip = lm(24) ?: return
+    val lHip = lm(23) ?: return
+
+    val path = androidx.compose.ui.graphics.Path().apply {
+        moveTo(lShoulder.x, lShoulder.y)
+        lineTo(rShoulder.x, rShoulder.y)
+        lineTo(rHip.x, rHip.y)
+        lineTo(lHip.x, lHip.y)
+        close()
+    }
+
+    scope.drawPath(
+        path = path,
+        color = color.copy(alpha = 0.25f) // Core bölgesini çokgenle renklendir (yarı saydam)
+    )
 }
 
 // ─── Durum Overlay'leri ────────────────────────────────────────────────────────
@@ -248,8 +279,9 @@ private fun AnalyzingOverlay(
             }
         }
 
-        // Alt panel — form feedback + tekrar sayısı
+        // Alt panel — form feedback + tekrar sayısı veya saniye
         BottomFeedbackPanel(
+            exerciseType = result.exerciseType,
             feedback = result.formFeedback,
             repState = result.repetitionState,
             isPersonVisible = result.isPersonVisible,
@@ -331,6 +363,7 @@ private fun TopInfoPanel(
 
 @Composable
 private fun BottomFeedbackPanel(
+    exerciseType: ExerciseType,
     feedback: FormFeedback,
     repState: RepetitionState,
     isPersonVisible: Boolean,
@@ -356,8 +389,12 @@ private fun BottomFeedbackPanel(
             // Form durumu göstergesi
             FormStatusIndicator(isCorrect = feedback.isCorrect, confidence = feedback.confidence)
 
-            // Tekrar sayısı
-            RepCountBadge(count = repState.count)
+            // Tekrar sayısı veya saniye (Plank için)
+            if (exerciseType == ExerciseType.PLANK) {
+                TimerBadge(seconds = repState.count)
+            } else {
+                RepCountBadge(count = repState.count)
+            }
         }
 
         // Hata mesajı veya olumlu geri bildirim
@@ -425,6 +462,26 @@ private fun RepCountBadge(count: Int) {
         )
         Text(
             text = "tekrar",
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 12.sp
+        )
+    }
+}
+
+@Composable
+private fun TimerBadge(seconds: Int) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        val m = seconds / 60
+        val s = seconds % 60
+        val timeStr = if (m > 0) String.format("%d:%02d", m, s) else "$s"
+        Text(
+            text = timeStr,
+            color = Color.White,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Text(
+            text = "saniye",
             color = Color.White.copy(alpha = 0.7f),
             fontSize = 12.sp
         )

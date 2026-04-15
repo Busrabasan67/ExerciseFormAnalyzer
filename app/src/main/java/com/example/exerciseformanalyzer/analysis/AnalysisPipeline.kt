@@ -25,7 +25,10 @@ class AnalysisPipeline {
         ExerciseType.PUSH_UP to PushUpEvaluator(),
         ExerciseType.SIT_UP to SitUpEvaluator(),
         ExerciseType.DUMBBELL_ROW to DumbbellRowEvaluator(),
-        ExerciseType.BICEPS_CURL to BicepsCurlEvaluator()
+        ExerciseType.BICEPS_CURL to BicepsCurlEvaluator(),
+        ExerciseType.PLANK to PlankEvaluator(),
+        ExerciseType.SHOULDER_PRESS to ShoulderPressEvaluator(),
+        ExerciseType.LATERAL_RAISE to LateralRaiseEvaluator()
     )
 
     private var currentExerciseType: ExerciseType = ExerciseType.UNKNOWN

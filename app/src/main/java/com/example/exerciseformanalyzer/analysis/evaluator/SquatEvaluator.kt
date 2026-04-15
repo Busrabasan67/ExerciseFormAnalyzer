@@ -3,6 +3,7 @@ package com.example.exerciseformanalyzer.analysis.evaluator
 import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
+import kotlin.math.abs
 
 /**
  * Squat form değerlendirme ve tekrar sayacı.
@@ -14,10 +15,16 @@ import com.example.exerciseformanalyzer.util.AngleUtils
  *   BOTTOM → GOING_UP (diz açılmaya başladığında)
  *   GOING_UP → TOP (tekrar tam ayakta durulduğunda → tekrar sayılır)
  *
+ * Kamera açısı algılama:
+ *   - FRONTAL   : Kullanıcı kameraya dönük. Diz açısı her iki tarafın ortalamasıyla,
+ *                 valgus X koordinatlarıyla, gövde eğimi omuz genişliğiyle ölçülür.
+ *   - SIDE      : Kullanıcı yan durumda. Diz açısı görünür taraftan, gövde eğimi
+ *                 omuz-kalça vektörüyle ölçülür. Valgus kontrolü devre dışı.
+ *
  * Form kontrolleri:
  *   1. Yeterince derine inme (diz açısı)
- *   2. Gövde eğimi (aşırı öne yatma)
- *   3. Diz valgus (dizlerin içeri kapanması)
+ *   2. Gövde eğimi (aşırı öne yatma) — görünüme göre uyarlanır
+ *   3. Diz valgus (dizlerin içeri kapanması) — yalnızca önden görünümde
  */
 class SquatEvaluator : ExerciseEvaluator {
 
@@ -26,6 +33,12 @@ class SquatEvaluator : ExerciseEvaluator {
     private var repState = RepetitionState()
     private var smoothedKneeAngle: Float? = null
     private var didReachDepth = false
+
+    // Kötü form analizi için hata sayacı
+    private var badFormFrames = 0
+
+    // Önden/yandan algılama için son profil
+    private var lastBodyProfile: BodyProfile = BodyProfile.FRONTAL
 
     override fun evaluate(
         frame: PoseFrame,
@@ -37,7 +50,12 @@ class SquatEvaluator : ExerciseEvaluator {
             return poorTrackingFeedback()
         }
 
-        val rawKneeAngle = AngleUtils.dominantKneeAngle(angles, frame)
+        // Kamera açısını algıla (önden mi yandan mı?)
+        lastBodyProfile = AngleUtils.detectBodyProfile(frame)
+        val isFrontal = lastBodyProfile == BodyProfile.FRONTAL
+
+        // Diz açısını al: önden görünümde her iki diz de görünürse ortalamasını kullan
+        val rawKneeAngle = resolveKneeAngle(angles, frame, isFrontal)
             ?: return poorTrackingFeedback()
 
         // EMA yumuşatma — titreme azaltma
@@ -48,10 +66,7 @@ class SquatEvaluator : ExerciseEvaluator {
         val kneeAngle = smoothedKneeAngle!!
         val currentTimeMs = frame.timestampMs
 
-        // FSM güncelleme
-        updateFSM(kneeAngle, currentTimeMs)
-
-        // Form hataları değerlendirme
+        // Form hataları değerlendirme (FSM update'ten önce, current phase'i bilmek için)
         val errors = mutableListOf<String>()
         var score = 100
 
@@ -63,19 +78,28 @@ class SquatEvaluator : ExerciseEvaluator {
             }
         }
 
-        // 2. Gövde eğimi kontrolü
-        val torso = angles.torsoInclination
-        if (torso != null && torso > AnalysisConstants.SQUAT_MAX_TORSO_LEAN) {
-            errors.add("Göğsünü daha dik tut")
+        // 2. Gövde eğimi kontrolü — görünüme göre farklı eşik
+        checkTorsoLean(frame, angles, isFrontal)?.let { error ->
+            errors.add(error)
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
         }
 
-        // 3. Diz valgus kontrolü (dizlerin içeri kapanması)
-        val kneeValgus = detectKneeValgus(frame)
-        if (kneeValgus) {
-            errors.add("Dizlerini dışarı doğru yönlendir")
-            score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
+        // 3. Diz valgus kontrolü — YALNIZCA ÖNDEN görünümde anlamlı
+        if (isFrontal) {
+            val kneeValgus = detectKneeValgus(frame)
+            if (kneeValgus) {
+                errors.add("Dizlerini dışarı doğru yönlendir")
+                score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
+            }
         }
+
+        // Hareket esnasında sürekli hata yapılıp yapılmadığını takip et
+        if (repState.phase != RepetitionPhase.IDLE && repState.phase != RepetitionPhase.TOP) {
+            if (errors.isNotEmpty()) badFormFrames++
+        }
+
+        // FSM güncelleme — Eğer hatalı yapıldıysa tekrar geçerli sayılmaz
+        updateFSM(kneeAngle, currentTimeMs)
 
         val primaryError = errors.firstOrNull()
         val isCorrect = errors.isEmpty()
@@ -90,6 +114,73 @@ class SquatEvaluator : ExerciseEvaluator {
         )
     }
 
+    /**
+     * Kamera açısına göre diz açısını belirler.
+     * - Frontal: 2D yansıma hatalı olabileceği için Y eksenindeki kalça-diz-bilek dikey
+     *            oranını kullanarak gerçek derinliği yansıtan bir psödo-açı hesaplar.
+     * - Yan: Görünür olan tarafın 2D diz açısını (AngleUtils) doğrudan kullanır.
+     */
+    private fun resolveKneeAngle(angles: JointAngles, frame: PoseFrame, isFrontal: Boolean): Float? {
+        return if (isFrontal) {
+            calculateFrontalDepthAngle(frame) ?: AngleUtils.dominantKneeAngle(angles, frame)
+        } else {
+            // Yandan: sadece görünür olan tarafı kullan
+            AngleUtils.dominantKneeAngle(angles, frame)
+        }
+    }
+
+    /**
+     * Önden squat derinliğini ölçmek için Y ekseni mesafe oranını hesaplar.
+     * 2D kamerada derinlik (Z) kaybolduğundan, gerçek açı yerine kalçanın
+     * yere/dizlere ne kadar yaklaştığını dikey piksellerden ölçer.
+     * 1.0 = tam ayakta, 0.0 = tam çömelmiş (kalça ve diz aynı yatay hizada)
+     */
+    private fun calculateFrontalDepthAngle(frame: PoseFrame): Float? {
+        val lHip = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_HIP) ?: return null
+        val rHip = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_HIP) ?: return null
+        val lKnee = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_KNEE) ?: return null
+        val rKnee = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_KNEE) ?: return null
+        val lAnkle = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_ANKLE) ?: return null
+        val rAnkle = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_ANKLE) ?: return null
+
+        val hipY = (lHip.y + rHip.y) / 2f
+        val kneeY = (lKnee.y + rKnee.y) / 2f
+        val ankleY = (lAnkle.y + rAnkle.y) / 2f
+
+        // Kalça ve diz arasındaki dikey mesafe
+        val thighDistY = kneeY - hipY
+        // Diz ve ayak bileği arasındaki dikey mesafe
+        val calfDistY = ankleY - kneeY
+
+        if (calfDistY <= 0.01f) return 180f // 0'a bölme koruması
+
+        // thightDistY / calfDistY: ayaktayken ~1.0, çömelince ~0'a yaklaşır
+        val ratio = (thighDistY / calfDistY).coerceIn(-0.5f, 1.5f)
+
+        // FSM'e uyumlu pseudo-angle: ratio 1.0 -> 180°, ratio 0.0 -> 90°
+        return 90f + (ratio * 90f)
+    }
+
+    /**
+     * Gövde eğimini kamera açısına göre kontrol eder:
+     * - Yandan: torsoInclination direkt kullanılır (yan profilde güvenilir).
+     * - Önden: Omuz genişliğinin kalça genişliğine oranıyla eğim hissedilir;
+     *           ancak 2D önden görünümde torsoInclination çok güvenilir değildir,
+     *           bu yüzden eşiği biraz gevşetiriz.
+     * Hata mesajı döner, yoksa null.
+     */
+    private fun checkTorsoLean(frame: PoseFrame, angles: JointAngles, isFrontal: Boolean): String? {
+        val torso = angles.torsoInclination ?: return null
+        val threshold = if (isFrontal) {
+            // Önden görünümde omuz genişliği farkına bakarak torso dönümünü sınırla
+            // Eşiği biraz artır çünkü 2D projeksiyon hatası olabilir
+            AnalysisConstants.SQUAT_MAX_TORSO_LEAN + 10f
+        } else {
+            AnalysisConstants.SQUAT_MAX_TORSO_LEAN
+        }
+        return if (torso > threshold) "Göğsünü daha dik tut" else null
+    }
+
     private fun updateFSM(kneeAngle: Float, currentTimeMs: Long) {
         val minDuration = AnalysisConstants.MIN_PHASE_DURATION_MS
         val timeSinceLastChange = currentTimeMs - repState.lastPhaseChangeMs
@@ -98,9 +189,10 @@ class SquatEvaluator : ExerciseEvaluator {
 
         val newPhase = when (repState.phase) {
             RepetitionPhase.IDLE, RepetitionPhase.TOP -> {
-                if (kneeAngle < AnalysisConstants.SQUAT_KNEE_ANGLE_DOWN_MAX + 20f)
+                if (kneeAngle < AnalysisConstants.SQUAT_KNEE_ANGLE_DOWN_MAX + 20f) {
+                    badFormFrames = 0 // Yeni bir tekrara başlarken hata sayacını sıfırla
                     RepetitionPhase.GOING_DOWN
-                else repState.phase
+                } else repState.phase
             }
             RepetitionPhase.GOING_DOWN -> {
                 when {
@@ -108,7 +200,7 @@ class SquatEvaluator : ExerciseEvaluator {
                         didReachDepth = true
                         RepetitionPhase.BOTTOM
                     }
-                    kneeAngle >= AnalysisConstants.SQUAT_KNEE_ANGLE_UP_MIN -> RepetitionPhase.TOP
+                    kneeAngle >= AnalysisConstants.SQUAT_KNEE_ANGLE_UP_MIN -> RepetitionPhase.TOP // Eksik tekrar
                     else -> repState.phase
                 }
             }
@@ -119,7 +211,10 @@ class SquatEvaluator : ExerciseEvaluator {
             }
             RepetitionPhase.GOING_UP -> {
                 if (kneeAngle >= AnalysisConstants.SQUAT_KNEE_ANGLE_UP_MIN) {
-                    val newCount = repState.count + 1
+                    // Hatalı form sayacı eşiği aştıysa bu tekrar SIHHATLİ bir tekrar DEĞİLDİR (sayma)
+                    val isValidRep = badFormFrames <= AnalysisConstants.FEEDBACK_MAJORITY_THRESHOLD
+                    val newCount = if (isValidRep) repState.count + 1 else repState.count
+                    
                     repState = RepetitionState(count = newCount, phase = RepetitionPhase.TOP, lastPhaseChangeMs = currentTimeMs)
                     didReachDepth = false
                     return
@@ -177,5 +272,7 @@ class SquatEvaluator : ExerciseEvaluator {
         repState = RepetitionState()
         smoothedKneeAngle = null
         didReachDepth = false
+        badFormFrames = 0
+        lastBodyProfile = BodyProfile.FRONTAL
     }
 }
