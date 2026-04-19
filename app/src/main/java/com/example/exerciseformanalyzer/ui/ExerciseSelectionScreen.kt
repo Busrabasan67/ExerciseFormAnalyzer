@@ -1,0 +1,113 @@
+package com.example.exerciseformanalyzer.ui
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.example.exerciseformanalyzer.R
+import com.example.exerciseformanalyzer.model.ExerciseType
+
+/**
+ * Hareket seçim ekranı — kamera AÇILMADAN önce gösterilir.
+ * Kullanıcı hareket seçtikten sonra kamera ekranına geçilir.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExerciseSelectionScreen(
+    onExerciseSelected: (ExerciseType?) -> Unit,
+    onNavigateBack: () -> Unit
+) {
+    val exercises: List<Pair<ExerciseType, Int>> = listOf(
+        Pair(ExerciseType.SQUAT, R.string.ex_squat),
+        Pair(ExerciseType.PUSH_UP, R.string.ex_pushup),
+        Pair(ExerciseType.LUNGE, R.string.ex_lunge),
+        Pair(ExerciseType.BICEPS_CURL, R.string.ex_biceps_curl),
+        Pair(ExerciseType.SHOULDER_PRESS, R.string.ex_shoulder_press),
+        Pair(ExerciseType.PLANK, R.string.ex_plank)
+    )
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.select_exercise_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.back_button))
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Text(
+                    text = stringResource(R.string.select_exercise_subtitle),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
+            items(exercises) { (type, nameRes) ->
+                ExerciseOptionCard(
+                    name = stringResource(nameRes),
+                    onClick = { onExerciseSelected(type) }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { onExerciseSelected(null) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Filled.FitnessCenter, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.auto_detect))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExerciseOptionCard(name: String, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.FitnessCenter,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}

@@ -1,6 +1,7 @@
 <resources>
-    <!-- Uygulamanın teması — Material3 ile tam ekran kamera görünümü için -->
-    <style name="Theme.ExerciseFormAnalyzer" parent="android:Theme.Material.Light.NoActionBar">
+    <!-- AppCompatActivity için Theme.AppCompat tabanlı bir tema zorunlu. -->
+    <!-- Compose tüm UI'ı render eder; bu tema sadece Activity için şart. -->
+    <style name="Theme.ExerciseFormAnalyzer" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowTranslucentStatus">true</item>
         <item name="android:windowTranslucentNavigation">true</item>
     </style>

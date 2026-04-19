@@ -1,17 +1,18 @@
 package com.example.exerciseformanalyzer
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.exerciseformanalyzer.ui.CameraPreviewScreen
 import com.example.exerciseformanalyzer.ui.MainViewModel
 import com.example.exerciseformanalyzer.ui.PermissionScreen
@@ -19,21 +20,16 @@ import com.example.exerciseformanalyzer.ui.theme.ExerciseFormAnalyzerTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
-import kotlinx.coroutines.launch
 
 /**
  * Uygulamanın tek Activity'si — Compose + MVVM mimarisi.
+ * AppCompatActivity: per-app locale switching için gerekli.
  *
- * Sorumlulukları:
- * 1. Edge-to-edge tam ekran ayarı
- * 2. Kamera izin akışı (Accompanist Permissions)
- * 3. ViewModel bağlantısı
- * 4. Compose içerik ayarı
+ * NOT: Dil değişimi artık MainActivity'den değil, MainViewModel.setLanguage()
+ * içinden direkt AppCompatDelegate üzerinden yapılıyor. Bu sayede
+ * Activity onCreate → collect → setApplicationLocales → recreate döngüsü oluşmuyor.
  */
-class MainActivity : ComponentActivity() {
-
-    // ViewModel Activity yaşam döngüsüne bağlı
-    //private val viewModel: MainViewModel by viewModels()
+class MainActivity : AppCompatActivity() {
 
     private val viewModel: MainViewModel by viewModels {
         ViewModelProvider.AndroidViewModelFactory.getInstance(application)
@@ -44,36 +40,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        //oluşturduğumuz tablolar veri eklemedn gözükmediği için onları
-        // zorunlu olarak oluşturmamızı sağladım sonradan yorum satırına aldım
-//        val app = application as MainApplication
-//        lifecycleScope.launch {
-//            // Veritabanına boş bir sorgu atarak onu uyanmaya zorluyoruz
-//            app.database.userDao().getAllPatients()
-//        }
-
-
-        //tabloları oluşturuken içine veri ekelyip görmek için yazılan kod
-//        val app = application as MainApplication
-//        lifecycleScope.launch {
-//            // 1. Önce veritabanında kullanıcı var mı diye bakıyoruz
-//            val currentUsers = app.database.userDao().getAllPatients()
-//
-//            // 2. Eğer liste boşsa, otomatik olarak seni eklesin
-//            if (currentUsers.isEmpty()) {
-//                val newUser = com.example.exerciseformanalyzer.data.local.entity.UserEntity(
-//                    fullName = "Zeynep Can",
-//                    email = "zeynep@duzce.edu.tr",
-//                    passwordHash = "123456", // Şimdilik basit bir şifre
-//                    role = "STUDENT",
-//                    isSynced = false
-//                )
-//                app.database.userDao().insertUser(newUser)
-//                android.util.Log.d("DB_TEST", "Kullanıcı başarıyla eklendi!")
-//            }
-//        }
         setContent {
-            ExerciseFormAnalyzerTheme {
+            val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+            ExerciseFormAnalyzerTheme(darkTheme = isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -84,18 +53,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-@OptIn(ExperimentalPermissionsApi::class)
-@Composable
-fun ExerciseAnalyzerApp(viewModel: MainViewModel) {
-    val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
-
-    if (cameraPermissionState.status.isGranted) {
-        CameraPreviewScreen(viewModel = viewModel)
-    } else {
-        PermissionScreen(
-            onRequestPermission = { cameraPermissionState.launchPermissionRequest() }
-        )
-    }
-}
-

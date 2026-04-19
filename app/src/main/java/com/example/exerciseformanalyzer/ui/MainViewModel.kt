@@ -13,7 +13,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+import com.example.exerciseformanalyzer.R
 
 /**
  * Ana ekranın ViewModel'i — MVVM mimarisinin merkezi.
@@ -26,6 +31,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── VERİTABANI BAĞLANTISI (YENİ ÖZELLİK) ──────────────────────────────────
     private val workoutRepository = (application as MainApplication).workoutRepository
+    
+    // ── TEMA VE DİL PREFERENCES ──────────────────────────────────────────────────
+    private val preferencesRepository = (application as MainApplication).userPreferencesRepository
+
+    val isDarkMode: StateFlow<Boolean> = preferencesRepository.isDarkMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val currentLanguage: StateFlow<String> = preferencesRepository.language
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "tr")
+
+    fun setDarkMode(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            preferencesRepository.setDarkMode(enabled)
+        }
+    }
+
+    fun setLanguage(langCode: String) {
+        // 1. DataStore'a kaydet (tercih kalıcı olsun)
+        viewModelScope.launch(Dispatchers.IO) {
+            preferencesRepository.setLanguage(langCode)
+        }
+        // 2. Locale'i hemen uygula (Main thread'de — Activity recreation tetikler)
+        //    setApplicationLocales sisteme de kaydeder; uygulama sonraki açılışta da bu diyle açılır.
+        val newLocale = LocaleListCompat.forLanguageTags(langCode)
+        AppCompatDelegate.setApplicationLocales(newLocale)
+    }
     // ────────────────────────────────────────────────────────────────────────────
 
     // ── UI Durumu ────────────────────────────────────────────────────────────
@@ -207,7 +238,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     score = accuracy,
                     reps = reps,
                     durationSeconds = _sessionDurationSec.value,
-                    feedback = commonErr ?: "Mükemmel Form"
+                    feedback = commonErr ?: getApplication<Application>().getString(R.string.perfect_form)
                 )
                 Log.d(TAG, "Antrenman Room ve Firebase'e kaydedildi (uid=$firebaseUid).")
             } catch (e: Exception) {
