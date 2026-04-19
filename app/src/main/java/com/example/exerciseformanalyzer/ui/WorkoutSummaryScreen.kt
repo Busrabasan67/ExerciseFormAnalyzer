@@ -51,7 +51,7 @@ fun WorkoutSummaryScreen(
                     fontWeight = FontWeight.Medium
                 )
                 
-                Divider(modifier = Modifier.padding(vertical = 16.dp), color = Color.DarkGray)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = Color.DarkGray)
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -61,7 +61,16 @@ fun WorkoutSummaryScreen(
                     val mins = summary.durationSeconds / 60
                     val secs = summary.durationSeconds % 60
                     SummaryStatCard("Süre", String.format("%02d:%02d", mins, secs), Color(0xFF42A5F5))
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
                     SummaryStatCard("Doğruluk", "%${summary.accuracyPercentage}", if (summary.accuracyPercentage > 80) Color(0xFF66BB6A) else Color(0xFFEF5350))
+                    SummaryStatCard("Kalori", "${summary.caloriesBurned.toInt()} kcal", Color(0xFFFFA726))
                 }
                 
                 if (summary.mostCommonError != null) {
