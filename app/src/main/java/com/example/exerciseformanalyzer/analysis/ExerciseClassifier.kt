@@ -182,7 +182,7 @@ class ExerciseClassifier {
      * - Bilek ile dirsek yaklaşık aynı yüksekliktedir.
      */
     private fun isLateralRaisePosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
-        if (torso < 60f) return false
+        if (torso > 60f) return false
 
         val shoulderAngle = angles.leftShoulderAngle ?: angles.rightShoulderAngle ?: return false
         val elbowAngle = angles.leftElbowAngle ?: angles.rightElbowAngle ?: return false
@@ -225,11 +225,11 @@ class ExerciseClassifier {
 
             // En az bir diz açısı mevcut ve bükülüyor
             val kneeAngle = angles.leftKneeAngle ?: angles.rightKneeAngle ?: return false
-            kneeAngle < 175f
+            kneeAngle <= 180f
         } else {
             // Yandan: baskın (tek görünür) tarafın diz açısı
             val kneeAngle = angles.leftKneeAngle ?: angles.rightKneeAngle ?: return false
-            kneeAngle < 170f
+            kneeAngle <= 180f
         }
     }
 
@@ -240,7 +240,7 @@ class ExerciseClassifier {
      * - Bilek, dirsekten yukarı doğru hareketli
      */
     private fun isBicepsCurlPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
-        if (torso < 60f) return false // Çok eğik duruyorsa curl değildir
+        if (torso > 60f) return false // Çok eğik duruyorsa curl değildir
 
         val lShoulder = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_SHOULDER) ?: return false
         val lElbow = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_ELBOW) ?: return false
@@ -250,7 +250,7 @@ class ExerciseClassifier {
 
         val elbowAngle = angles.leftElbowAngle ?: angles.rightElbowAngle ?: return false
         // Dirsek ne tamamen açık ne tamamen kilitli
-        return elbowAngle in 30f..170f
+        return elbowAngle in 30f..180f
     }
 
     /**
@@ -260,7 +260,7 @@ class ExerciseClassifier {
      * - Bilekler dirseğin üzerinde (yukarı doğru itiş)
      */
     private fun isShoulderPressPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
-        if (torso < 50f) return false // Eğik durularak omuz presi yapılmaz
+        if (torso > 50f) return false // Eğik durularak omuz presi yapılmaz
 
         val lShoulder = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_SHOULDER)
         val lElbow = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_ELBOW)

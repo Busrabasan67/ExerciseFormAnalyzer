@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import com.example.exerciseformanalyzer.R
@@ -92,10 +94,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val analysisPipeline = AnalysisPipeline()
     private var poseLandmarkerHelper: PoseLandmarkerHelper? = null
 
+    // Tek-ışçi frame kuyruğu — en fazla 8 kare bekletilir, dolunca en eskisi düşürülür
+    private val frameChannel = Channel<PoseFrame>(capacity = 8, onUndeliveredElement = null)
     @Volatile private var lastProcessedTimestamp = -1L
+    @Volatile private var lastChannelTimestamp = -1L
+    // Tekrar sayıcı monotoni garanti—bu değerin altına hiçbir zaman düşülemez
+    @Volatile private var maxRepCount = 0
 
     init {
         initPoseLandmarker()
+        startAnalysisProcessor()
     }
 
     private fun initPoseLandmarker() {
@@ -121,28 +129,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         poseLandmarkerHelper?.detectAsync(bitmap, timestampMs)
     }
 
-    private fun handlePoseResult(poseFrame: PoseFrame) {
+    /**
+     * Tek işçi coroutine: frameChannel'ı FIFO sırasıyla tüketir.
+     * Hiçbir eski frame evaluator'ın FSM durumunu bozamaz.
+     */
+    private fun startAnalysisProcessor() {
         viewModelScope.launch(Dispatchers.Default) {
-            try {
-                if (_isPaused.value || _workoutSummary.value != null) return@launch
+            frameChannel.consumeEach { poseFrame ->
+                try {
+                    if (_isPaused.value || _workoutSummary.value != null) return@consumeEach
+                    // Kuyrukta beklerken daha yeni bir frame geldiyse bu kareyi atla
+                    if (poseFrame.timestampMs < lastProcessedTimestamp) return@consumeEach
+                    lastProcessedTimestamp = poseFrame.timestampMs
 
-                _currentPoseFrame.value = poseFrame
-                val result = analysisPipeline.process(poseFrame)
-                _uiState.value = ExerciseUiState.Analyzing(result)
+                    val result = analysisPipeline.process(poseFrame)
 
-                if (result.isPersonVisible && result.trackingQuality != TrackingQuality.LOST) {
-                    totalAnalysisSamples++
-                    if (result.formFeedback.isCorrect) {
-                        correctAnalysisSamples++
-                    } else if (result.formFeedback.primaryError != null) {
-                        val err = result.formFeedback.primaryError
-                        errorFrequency[err] = errorFrequency.getOrDefault(err, 0) + 1
+                    // Monotoni garantiı: sayaç hiçbir zaman azalmaz
+                    val rawCount = result.repetitionState.count
+                    val safeCount = maxOf(maxRepCount, rawCount)
+                    maxRepCount = safeCount
+                    val safeResult = if (safeCount != rawCount) {
+                        result.copy(
+                            repetitionState = result.repetitionState.copy(count = safeCount)
+                        )
+                    } else result
+
+                    _currentPoseFrame.value = poseFrame
+                    _uiState.value = ExerciseUiState.Analyzing(safeResult)
+
+                    if (result.isPersonVisible && result.trackingQuality != TrackingQuality.LOST) {
+                        totalAnalysisSamples++
+                        if (result.formFeedback.isCorrect) {
+                            correctAnalysisSamples++
+                        } else if (result.formFeedback.primaryError != null) {
+                            val err = result.formFeedback.primaryError
+                            errorFrequency[err] = errorFrequency.getOrDefault(err, 0) + 1
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Analiz hatası: ${e.message}", e)
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Analiz hatası: ${e.message}", e)
             }
         }
+    }
+
+    private fun handlePoseResult(poseFrame: PoseFrame) {
+        // Zaten daha yeni bir frame kanalda işlemekteyse bunu gönderme
+        if (poseFrame.timestampMs <= lastChannelTimestamp) return
+        lastChannelTimestamp = poseFrame.timestampMs
+        frameChannel.trySend(poseFrame) // doluysa sessizce atılır (DROP)
     }
 
     fun onCameraReady() {
@@ -159,6 +194,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         analysisPipeline.targetExercise = type
         if (type != null) {
             analysisPipeline.reset()
+            maxRepCount = 0  // Yeni seans: sayaç sıfırlanır
+            lastProcessedTimestamp = -1L
+            lastChannelTimestamp = -1L
             _uiState.value = ExerciseUiState.Ready
 
             _isSessionActive.value = true

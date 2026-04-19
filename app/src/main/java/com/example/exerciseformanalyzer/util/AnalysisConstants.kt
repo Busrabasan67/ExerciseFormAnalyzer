@@ -48,14 +48,14 @@ object AnalysisConstants {
 
     /** Squatın "aşağı" fazında kabul edilen maksimum diz açısı (derece)
      *  İnsan anatomisinde tam squat ~70°, paralel squat ~90° */
-    const val SQUAT_KNEE_ANGLE_DOWN_MAX = 100f
+    const val SQUAT_KNEE_ANGLE_DOWN_MAX = 110f
 
     /** Squatın "yukarı" fazında beklenen minimum diz açısı (derece)
      *  Tam duruşta diz açısı ~160-170° */
-    const val SQUAT_KNEE_ANGLE_UP_MIN = 155f
+    const val SQUAT_KNEE_ANGLE_UP_MIN = 145f
 
     /** Geçerli bir squat teki için asgari diz fleksiyonu (derece) — yetersiz derine inmeyi tespit eder */
-    const val SQUAT_MIN_DEPTH_ANGLE = 100f
+    const val SQUAT_MIN_DEPTH_ANGLE = 110f
 
     /** Squatta gövde eğiminin maksimum kabul edilebilir değeri (derece, yataydan)
      *  Bu değerin altı gövdenin aşırı öne eğildiğini gösterir */
@@ -68,10 +68,10 @@ object AnalysisConstants {
     // ─── Push-up Eşikleri ────────────────────────────────────────────────────
 
     /** Şınavın "aşağı" fazında kabul edilen maksimum dirsek açısı (derece) */
-    const val PUSH_UP_ELBOW_ANGLE_DOWN_MAX = 100f
+    const val PUSH_UP_ELBOW_ANGLE_DOWN_MAX = 110f
 
     /** Şınavın "yukarı" fazında beklenen minimum dirsek açısı (derece) */
-    const val PUSH_UP_ELBOW_ANGLE_UP_MIN = 155f
+    const val PUSH_UP_ELBOW_ANGLE_UP_MIN = 145f
 
     /** Vücudun düz hattının bozulduğunu gösteren maksimum kalça sapması
      *  (omuz-kalça-ayak bileği hizasından kalçanın sapma oranı) */
@@ -107,7 +107,7 @@ object AnalysisConstants {
     const val BICEPS_CURL_ELBOW_ANGLE_TOP_MAX = 60f
 
     /** Biceps Curl'de düz kol pozisyonu için beklenen minimum dirsek açısı */
-    const val BICEPS_CURL_ELBOW_ANGLE_BOTTOM_MIN = 150f
+    const val BICEPS_CURL_ELBOW_ANGLE_BOTTOM_MIN = 145f
 
     /** Momentum kullanımını tespit etmek için omuz açısı toleransı */
     const val BICEPS_CURL_MAX_SHOULDER_SWING = 30f

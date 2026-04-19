@@ -34,8 +34,6 @@ class SquatEvaluator : ExerciseEvaluator {
     private var smoothedKneeAngle: Float? = null
     private var didReachDepth = false
 
-    // Kötü form analizi için hata sayacı
-    private var badFormFrames = 0
 
     // Önden/yandan algılama için son profil
     private var lastBodyProfile: BodyProfile = BodyProfile.FRONTAL
@@ -94,9 +92,7 @@ class SquatEvaluator : ExerciseEvaluator {
         }
 
         // Hareket esnasında sürekli hata yapılıp yapılmadığını takip et
-        if (repState.phase != RepetitionPhase.IDLE && repState.phase != RepetitionPhase.TOP) {
-            if (errors.isNotEmpty()) badFormFrames++
-        }
+        // (Eski badFormFrames takibi kaldırıldı, skor düşürümü FormFeedback'te kalmaya devam ediyor)
 
         // FSM güncelleme — Eğer hatalı yapıldıysa tekrar geçerli sayılmaz
         updateFSM(kneeAngle, currentTimeMs)
@@ -190,7 +186,6 @@ class SquatEvaluator : ExerciseEvaluator {
         val newPhase = when (repState.phase) {
             RepetitionPhase.IDLE, RepetitionPhase.TOP -> {
                 if (kneeAngle < AnalysisConstants.SQUAT_KNEE_ANGLE_DOWN_MAX + 20f) {
-                    badFormFrames = 0 // Yeni bir tekrara başlarken hata sayacını sıfırla
                     RepetitionPhase.GOING_DOWN
                 } else repState.phase
             }
@@ -211,9 +206,8 @@ class SquatEvaluator : ExerciseEvaluator {
             }
             RepetitionPhase.GOING_UP -> {
                 if (kneeAngle >= AnalysisConstants.SQUAT_KNEE_ANGLE_UP_MIN) {
-                    // Hatalı form sayacı eşiği aştıysa bu tekrar SIHHATLİ bir tekrar DEĞİLDİR (sayma)
-                    val isValidRep = badFormFrames <= AnalysisConstants.FEEDBACK_MAJORITY_THRESHOLD
-                    val newCount = if (isValidRep) repState.count + 1 else repState.count
+                    // Tekrar tamamlandı — Her zaman sayılır
+                    val newCount = repState.count + 1
                     
                     repState = RepetitionState(count = newCount, phase = RepetitionPhase.TOP, lastPhaseChangeMs = currentTimeMs)
                     didReachDepth = false
@@ -272,7 +266,6 @@ class SquatEvaluator : ExerciseEvaluator {
         repState = RepetitionState()
         smoothedKneeAngle = null
         didReachDepth = false
-        badFormFrames = 0
         lastBodyProfile = BodyProfile.FRONTAL
     }
 }

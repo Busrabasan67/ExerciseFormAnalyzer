@@ -69,10 +69,15 @@ class AnalysisPipeline {
         // 6. Egzersizi sınıflandır (Eğer targetExercise belirlendiyse otomatik algılamayı ez!)
         val detectedType = targetExercise ?: classifier.classify(frame, angles)
 
-        // 7. Egzersiz değişti mi? — evaluator sıfırla
-        if (detectedType != currentExerciseType && detectedType != ExerciseType.UNKNOWN) {
-            evaluators[currentExerciseType]?.reset()
-            currentExerciseType = detectedType
+        // 7. Egzersiz değişti mi?
+        //    targetExercise belirlenmişse UNKNOWN'a asla düşme — evaluator'ı kaybetme!
+        val resolvedType = if (detectedType == ExerciseType.UNKNOWN) {
+            targetExercise ?: currentExerciseType
+        } else {
+            detectedType
+        }
+        if (resolvedType != currentExerciseType) {
+            currentExerciseType = resolvedType
         }
 
         // 8. Uygun egzersiz-spesifik kritik landmarkları seç
@@ -175,8 +180,8 @@ class AnalysisPipeline {
     fun reset() {
         classifier.reset()
         evaluators.values.forEach { it.reset() }
-        currentExerciseType = ExerciseType.UNKNOWN
+        // targetExercise belirlenmişse sıfır sonrası hemen doğru evaluator'a kilitlen
+        currentExerciseType = targetExercise ?: ExerciseType.UNKNOWN
         lastAnalysisResult = null
-        // NOT: targetExercise değerini resetlemiyoruz, böylece antrenman bitene kadar kilitli kalır. 
     }
 }
