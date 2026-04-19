@@ -78,6 +78,7 @@ class MainApplication : Application() {
         // WorkManager — Periyodik senkronizasyon ayarı
         // Sadece internet bağlantısı varken çalışır
         scheduleSyncWorker()
+        scheduleTaskMarkMissedWorker()
     }
 
     private fun scheduleSyncWorker() {
@@ -97,6 +98,25 @@ class MainApplication : Application() {
             SyncWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             syncRequest
+        )
+    }
+
+    private fun scheduleTaskMarkMissedWorker() {
+        val constraints = Constraints.Builder()
+            .setRequiresBatteryNotLow(true) // Çok acil değil, pil bitikse çalışmasın
+            .build()
+
+        val checkRequest = PeriodicWorkRequestBuilder<com.example.exerciseformanalyzer.worker.TaskMarkMissedWorker>(
+            repeatInterval = 1,
+            repeatIntervalTimeUnit = TimeUnit.HOURS
+        )
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "task_mark_missed_worker",
+            ExistingPeriodicWorkPolicy.KEEP,
+            checkRequest
         )
     }
 }
