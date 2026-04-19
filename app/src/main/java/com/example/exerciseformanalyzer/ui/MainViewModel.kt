@@ -168,26 +168,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val accuracy = if (totalAnalysisSamples > 0) ((correctAnalysisSamples.toFloat() / totalAnalysisSamples) * 100).toInt() else 0
         val commonErr = errorFrequency.maxByOrNull { it.value }?.key
 
-        val summary = WorkoutSummary(
-            exercise = exercise,
-            totalReps = reps,
-            durationSeconds = _sessionDurationSec.value,
-            accuracyPercentage = accuracy,
-            mostCommonError = commonErr
-        )
-        _workoutSummary.value = summary
-
         // ── YENİ ÖZELLİK: VERİTABANI + FİREBASE'E KAYDET ──────────────────────
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 // Firebase UID — giriş yoksa boş string (offline kullanım için güvenli)
                 val firebaseUid = (getApplication<MainApplication>())
                     .authRepository.currentUid ?: ""
+                    
+                val userDao = (getApplication<MainApplication>()).database.userDao()
+                val user = if (firebaseUid.isNotEmpty()) userDao.getUserByUid(firebaseUid) else null
+                
+                val localUserId = user?.id ?: 1
+                val weightKg = user?.weightKg ?: 70f
+                
+                // Kalori hesapla
+                val calories = com.example.exerciseformanalyzer.domain.CalorieCalculator.calculateForSession(
+                    exerciseType = exercise,
+                    weightKg = weightKg,
+                    durationSeconds = _sessionDurationSec.value
+                )
+
+                // UI İçin Özeti Güncelle (Kalori ile)
+                val summary = WorkoutSummary(
+                    exercise = exercise,
+                    totalReps = reps,
+                    durationSeconds = _sessionDurationSec.value,
+                    accuracyPercentage = accuracy,
+                    mostCommonError = commonErr,
+                    caloriesBurned = calories
+                )
+                _workoutSummary.value = summary
 
                 workoutRepository.saveWorkoutResult(
                     userUid = firebaseUid,
-                    localUserId = 1,           // TODO: Giriş yapıldıkça Room'daki gerçek ID kullanılacak
-                    exerciseType = exercise,   // CalorieCalculator için ExerciseType gerekli
+                    localUserId = localUserId,           
+                    exerciseType = exercise,   
                     exerciseId = 1,            // TODO: Seçilen gerçek egzersiz ID'si bağlanacak
                     score = accuracy,
                     reps = reps,
@@ -197,6 +212,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "Antrenman Room ve Firebase'e kaydedildi (uid=$firebaseUid).")
             } catch (e: Exception) {
                 Log.e(TAG, "Veritabanı kayıt hatası: ${e.message}")
+                // Hata olsa bile basic summary göster
+                val summary = WorkoutSummary(
+                    exercise = exercise,
+                    totalReps = reps,
+                    durationSeconds = _sessionDurationSec.value,
+                    accuracyPercentage = accuracy,
+                    mostCommonError = commonErr,
+                    caloriesBurned = 0f
+                )
+                _workoutSummary.value = summary
             }
         }
         // ────────────────────────────────────────────────────────────────────

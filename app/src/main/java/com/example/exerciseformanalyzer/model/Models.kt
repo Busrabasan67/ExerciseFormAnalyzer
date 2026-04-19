@@ -185,5 +185,6 @@ data class WorkoutSummary(
     val totalReps: Int,
     val durationSeconds: Long,
     val accuracyPercentage: Int,
-    val mostCommonError: String?
+    val mostCommonError: String?,
+    val caloriesBurned: Float = 0f
 )

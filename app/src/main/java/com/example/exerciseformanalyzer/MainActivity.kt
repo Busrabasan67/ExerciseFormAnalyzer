@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ExerciseAnalyzerApp(viewModel = viewModel)
+                    com.example.exerciseformanalyzer.ui.navigation.AppNavigation(mainViewModel = viewModel)
                 }
             }
         }
