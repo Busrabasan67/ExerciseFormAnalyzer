@@ -91,12 +91,11 @@ fun ExerciseAnalyzerApp(viewModel: MainViewModel) {
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
 
     if (cameraPermissionState.status.isGranted) {
-        // İzin verildi — kamera ekranına geç
         CameraPreviewScreen(viewModel = viewModel)
     } else {
-        // İzin isteme ekranı
         PermissionScreen(
             onRequestPermission = { cameraPermissionState.launchPermissionRequest() }
         )
     }
 }
+

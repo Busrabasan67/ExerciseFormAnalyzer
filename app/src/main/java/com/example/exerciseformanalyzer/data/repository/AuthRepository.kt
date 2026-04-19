@@ -1,35 +1,147 @@
 package com.example.exerciseformanalyzer.data.repository
-//Giriş/Kayıt işlemleri
-//Uygulamanın geri kalanı (ViewModel, UI ve Yapay Zeka) sadece bu dosyalarla konuşacak.
-//Arayüz ile Veritabanı Arasındaki Köprü (Repository)
+
+// AuthRepository — Kimlik doğrulama işlemleri için tek giriş noktası
+//
+// Veri akışı:
+//   Firebase Auth (kimlik doğrulama) → Firestore (profil kayıt) → Room (lokal cache)
+//
+// ViewModel bu repository'yi kullanır; UI Firebase SDK'ya doğrudan erişmez.
+
 import com.example.exerciseformanalyzer.data.local.dao.UserDao
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
-import org.mindrot.jbcrypt.BCrypt // Şifreleme kütüphanesi
+import com.example.exerciseformanalyzer.data.remote.FirebaseAuthService
+import com.example.exerciseformanalyzer.data.remote.FirestoreService
+import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
+import com.google.firebase.auth.FirebaseUser
 
-class AuthRepository(private val userDao: UserDao) {
-
-    suspend fun registerUser(fullName: String, email: String, plainPassword: String, role: String): Boolean {
-        // Şifreyi güvenlik için hashliyoruz
-        val hashedPassword = BCrypt.hashpw(plainPassword, BCrypt.gensalt())
-
-        val newUser = UserEntity(
-            fullName = fullName,
-            email = email,
-            passwordHash = hashedPassword,
-            role = role
-        )
-        userDao.insertUser(newUser)
-        return true // Gelecekte buraya Firebase eklenecek
-    }
-
-    suspend fun loginWithEmail(email: String, plainPassword: String): UserEntity? {
-        val user = userDao.getUserByEmail(email)
-        if (user != null && user.passwordHash != null) {
-            // Girilen şifre ile veritabanındaki hash'i karşılaştırıyoruz
-            if (BCrypt.checkpw(plainPassword, user.passwordHash)) {
-                return user // Giriş başarılı
-            }
-        }
-        return null // Giriş başarısız
-    }
+// Sonuç sarmalayıcı — ViewModel'de when{} ile kolayca işlenir
+sealed class AuthResult<out T> {
+    data class Success<T>(val data: T) : AuthResult<T>()
+    data class Error(val message: String) : AuthResult<Nothing>()
+    object Loading : AuthResult<Nothing>()
 }
+
+class AuthRepository(
+    private val userDao: UserDao,
+    private val authService: FirebaseAuthService,
+    private val firestoreService: FirestoreService
+) {
+
+    // Şu an giriş yapmış kullanıcının UID'si
+    val currentUid: String? get() = authService.currentUid
+    val isLoggedIn: Boolean get() = authService.isLoggedIn()
+
+    /**
+     * Email ve şifre ile yeni kayıt.
+     * 1. Firebase Auth'ta hesap oluştur
+     * 2. Firestore'a profil kaydet
+     * 3. Room cache'e yaz (isSynced = true çünkü Firestore'a gitti)
+     */
+    suspend fun registerWithEmail(
+        fullName: String,
+        email: String,
+        password: String,
+        role: String
+    ): AuthResult<FirebaseUser> {
+        return try {
+            val firebaseUser = authService.registerWithEmail(email, password)
+
+            val profile = FirestoreUser(
+                uid = firebaseUser.uid,
+                fullName = fullName,
+                email = email,
+                role = role
+            )
+            firestoreService.saveUserProfile(firebaseUser.uid, profile)
+
+            // Lokal cache'e yaz
+            cacheUserLocally(firebaseUser.uid, profile)
+
+            AuthResult.Success(firebaseUser)
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Kayıt sırasında bilinmeyen hata oluştu.")
+        }
+    }
+
+    /**
+     * Email ve şifre ile giriş.
+     * 1. Firebase Auth ile doğrula
+     * 2. Firestore'dan profili çek
+     * 3. Room cache'i güncelle
+     */
+    suspend fun loginWithEmail(email: String, password: String): AuthResult<FirebaseUser> {
+        return try {
+            val firebaseUser = authService.loginWithEmail(email, password)
+            syncUserProfileFromFirestore(firebaseUser.uid)
+            AuthResult.Success(firebaseUser)
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Giriş sırasında bilinmeyen hata oluştu.")
+        }
+    }
+
+    /**
+     * Google Sign-In ile giriş.
+     * Google Activity'den dönen idToken burada işlenir.
+     */
+    suspend fun loginWithGoogle(idToken: String): AuthResult<FirebaseUser> {
+        return try {
+            val firebaseUser = authService.loginWithGoogle(idToken)
+
+            // Firestore'da profil var mı kontrol et; yoksa oluştur
+            val existingProfile = firestoreService.getUserProfile(firebaseUser.uid)
+            if (existingProfile == null) {
+                val newProfile = FirestoreUser(
+                    uid = firebaseUser.uid,
+                    fullName = firebaseUser.displayName ?: "",
+                    email = firebaseUser.email ?: "",
+                    role = "PATIENT"  // Google ile ilk girişte default rol
+                )
+                firestoreService.saveUserProfile(firebaseUser.uid, newProfile)
+                cacheUserLocally(firebaseUser.uid, newProfile)
+            } else {
+                cacheUserLocally(firebaseUser.uid, existingProfile)
+            }
+
+            AuthResult.Success(firebaseUser)
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Google girişi sırasında hata oluştu.")
+        }
+    }
+
+    /**
+     * Oturumu kapatır ve lokal UID cache'ini temizlemez
+     * (uygulama offline açılabilmeli; clearUserCache ayrı çağrılabilir).
+     */
+    fun signOut() {
+        authService.signOut()
+    }
+
+    /**
+     * Firestore'daki kullanıcı profilini Room'a yazarak lokal cache'i günceller.
+     * Cihaz değişimi veya uygulama yeniden kurulumunda çağrılır.
+     */
+    suspend fun syncUserProfileFromFirestore(uid: String) {
+        val profile = firestoreService.getUserProfile(uid) ?: return
+        cacheUserLocally(uid, profile)
+    }
+
+    // --- PRIVATE ---
+
+    private suspend fun cacheUserLocally(uid: String, profile: FirestoreUser) {
+        val entity = UserEntity(
+            uid = uid,
+            fullName = profile.fullName,
+            email = profile.email,
+            role = profile.role,
+            age = profile.age,
+            weightKg = profile.weightKg,
+            heightCm = profile.heightCm,
+            diseasesJson = profile.diseases.joinToString(","),
+            isSmoker = profile.isSmoker,
+            isDrinker = profile.isDrinker,
+            expertUid = profile.expertId,
+            isSynced = true  // Firestore'dan geldiği için senkronize
+        )
+        userDao.insertUser(entity) // OnConflictStrategy.REPLACE ile günceller
+    }
+}

@@ -13,3 +13,11 @@ Thumbs.db
 .cxx/
 *.jks
 *.keystore
+
+# Firebase (Hassas Bilgi)
+app/google-services.json
+
+# Local configuration
+secrets.properties
+captures/
+.navigation/

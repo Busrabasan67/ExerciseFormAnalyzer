@@ -1,60 +1,132 @@
 package com.example.exerciseformanalyzer.worker
-//İnternet gelince verileri buluta atacak sınıf
-//İnternet Denetçisi ve Bulut Aktarıcısı
-//Arka planda çalışır. İnternet bağlantısı sağlandığında, isSynced = false olan tüm verileri toplar, buluta yollar ve ardından yerelde true yapar.
+
+// SyncWorker — Offline-first senkronizasyon işçisi
 //
-//(Not: Firebase kodlarını yorum satırı olarak bıraktım, Firebase'e geçtiğinizde oraları açacaksınız).
+// Ne zaman çalışır?
+//   WorkManager tarafından ağ bağlantısı sağlandığında otomatik tetiklenir.
+//   Kısıtlaması: NETWORK_CONNECTED (sadece internette çalışır).
+//
+// Ne yapar?
+//   1. Room'da isSynced = false olan raporları bulur
+//   2. Firestore'a yükler
+//   3. Başarılı olursa isSynced = true, firebaseDocId günceller
+//   4. Plan ve görevleri de aynı şekilde senkronize eder
 
 import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.exerciseformanalyzer.data.local.AppDatabase
-import com.example.exerciseformanalyzer.data.local.entity.WorkoutPlanEntity
-import com.example.exerciseformanalyzer.data.local.entity.WorkoutReportEntity
+import com.example.exerciseformanalyzer.data.remote.FirestoreService
+import com.example.exerciseformanalyzer.model.firestore.FirestoreWorkoutReport
 
 class SyncWorker(
     appContext: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
+    companion object {
+        private const val TAG = "SyncWorker"
+        const val WORK_NAME = "exercise_sync_worker"
+    }
+
     override suspend fun doWork(): Result {
         return try {
-            Log.d("SyncWorker", "Senkronizasyon başlatılıyor...")
+            Log.d(TAG, "Senkronizasyon başlatılıyor...")
 
-            // 1. Veri tabanı bağlantısını al (Hilt/Dagger kullanmıyorsanız bu yöntem geçerlidir)
-            // Not: AppDatabase içinde getInstance() gibi bir Singleton metodunuz olmalıdır.
             val database = AppDatabase.getInstance(applicationContext)
             val reportDao = database.workoutReportDao()
             val planDao = database.workoutPlanDao()
+            val firestoreService = FirestoreService()
 
-            // 2. Buluta gitmemiş (Offline) raporları bul (TÜRÜNÜ AÇIKÇA BELİRTİYORUZ)
-            val unsyncedReports: List<WorkoutReportEntity> = reportDao.getUnsyncedReports()
+            // --- RAPOR SENKRONİZASYONU ---
+            val unsyncedReports = reportDao.getUnsyncedReports()
+            Log.d(TAG, "${unsyncedReports.size} senkronize edilmemiş rapor bulundu.")
 
-            // 3. Verileri Buluta (Firebase vb.) gönder
             for (report in unsyncedReports) {
-                //  Firebase Entegrasyonu
-                val success = true // Şimdilik başarılı varsayıyoruz
+                try {
+                    val firestoreReport = FirestoreWorkoutReport(
+                        userId = report.userUid,
+                        exerciseId = report.exerciseId.toString(),
+                        score = report.score,
+                        reps = report.reps,
+                        durationSeconds = report.totalTimeSeconds,
+                        caloriesBurned = report.caloriesBurned,
+                        feedback = report.feedback ?: ""
+                    )
 
-                if (success) {
-                    reportDao.markAsSynced(report.id)
-                    Log.d("SyncWorker", "Rapor ${report.id} buluta başarıyla aktarıldı.")
+                    // Firestore'a yükle ve döküman ID'sini al
+                    val docId = firestoreService.uploadWorkoutReport(firestoreReport)
+
+                    // Room'da senkronize edildi olarak işaretle
+                    reportDao.markAsSynced(report.id, docId)
+                    Log.d(TAG, "Rapor ${report.id} (Firestore: $docId) başarıyla senkronize edildi.")
+
+                } catch (e: Exception) {
+                    // Tek bir rapor hata verse de diğerleri denenmeye devam eder
+                    Log.e(TAG, "Rapor ${report.id} senkronizasyon hatası: ${e.message}")
                 }
             }
 
-            // Doktor Planları için de türü açıkça belirtiyoruz
-            val unsyncedPlans: List<WorkoutPlanEntity> = planDao.getUnsyncedPlans()
+            // --- PLAN SENKRONİZASYONU ---
+            val unsyncedPlans = planDao.getUnsyncedPlans()
+            Log.d(TAG, "${unsyncedPlans.size} senkronize edilmemiş plan bulundu.")
+
             for (plan in unsyncedPlans) {
-//                FirebaseManager.uploadPlan(plan)
-                planDao.markPlanAsSynced(plan.id)
+                try {
+                    val firestorePlan = com.example.exerciseformanalyzer.model.firestore.FirestorePlan(
+                        expertId = plan.expertUid ?: "",
+                        patientId = plan.patientUid ?: "",
+                        title = plan.title ?: "",
+                        description = plan.description ?: "",
+                        assignedDate = plan.assignedDate,
+                        dueDate = plan.dueDate,
+                        isActive = plan.isActive
+                    )
+                    
+                    val docId = firestoreService.createPlan(firestorePlan)
+                    planDao.markPlanAsSynced(plan.id, docId)
+                    Log.d(TAG, "Plan ${plan.id} (Firestore: $docId) başarıyla senkronize edildi.")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Plan ${plan.id} senkronizasyon hatası: ${e.message}")
+                }
             }
 
-            Log.d("SyncWorker", "Tüm veriler başarıyla senkronize edildi.")
+            // --- GÖREV (TASK) SENKRONİZASYONU ---
+            val taskDao = database.taskAssignmentDao()
+            val unsyncedTasks = taskDao.getUnsyncedTasks()
+            Log.d(TAG, "${unsyncedTasks.size} senkronize edilmemiş görev bulundu.")
+
+            for (task in unsyncedTasks) {
+                try {
+                    val firestoreTask = com.example.exerciseformanalyzer.model.firestore.FirestoreTaskAssignment(
+                        planId = task.planId.toString(), // TODO: Gerçekte Firestore Plan ID'si gerekebilir
+                        patientId = task.patientUid,
+                        exerciseId = task.exerciseId.toString(),
+                        exerciseName = task.exerciseName,
+                        targetReps = task.targetReps,
+                        targetDurationSec = task.targetDurationSec,
+                        dueDate = task.dueDate,
+                        status = task.status,
+                        completedAt = task.completedAt,
+                        reportId = task.linkedReportId?.toString()
+                    )
+
+                    val docId = firestoreService.createTask(firestoreTask)
+                    taskDao.markTaskAsSynced(task.id, docId)
+                    Log.d(TAG, "Görev ${task.id} (Firestore: $docId) başarıyla senkronize edildi.")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Görev ${task.id} senkronizasyon hatası: ${e.message}")
+                }
+            }
+
+
+            Log.d(TAG, "Senkronizasyon tamamlandı.")
             Result.success()
 
         } catch (e: Exception) {
-            Log.e("SyncWorker", "Senkronizasyon sırasında hata: ${e.message}")
-            Result.retry() // Hata olursa internet gelince tekrar dener
+            Log.e(TAG, "Senkronizasyon genel hata: ${e.message}")
+            Result.retry()  // Hata olursa WorkManager otomatik tekrar dener
         }
     }
-}
+}

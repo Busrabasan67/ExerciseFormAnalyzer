@@ -3,6 +3,9 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    // Firebase servislerini etkinleştirmek için gerekli plugin.
+    // google-services.json dosyasını projeye ekledikten sonra bu satır aktif olacak.
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -109,9 +112,37 @@ dependencies {
     implementation("androidx.room:room-ktx:$room_version")
     ksp("androidx.room:room-compiler:$room_version")
 
-    // Şifre Hashleme (BCrypt)
+    // Şifre Hashleme (BCrypt) — Lokal auth için (Firebase Auth gelince opsiyonel)
     implementation("org.mindrot:jbcrypt:0.4")
 
-    // Arka Plan Senkronizasyonu (WorkManager)
+    // Arka Plan Senkronizasyonu (WorkManager) — SyncWorker + TaskMarkMissedWorker
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // --- FİREBASE ---
+    // Firebase BOM: tüm Firebase kütüphanelerinin versiyonunu tek yerden yönetir.
+    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+
+    // Firebase Authentication — Email/şifre ve Google Sign-In
+    implementation("com.google.firebase:firebase-auth-ktx")
+
+    // Google Sign-In (Firebase Auth Google ile giriş için gerekli)
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+
+    // Cloud Firestore — Kullanıcı profilleri, planlar, gruplar, raporlar
+    implementation("com.google.firebase:firebase-firestore-ktx")
+
+    // Firebase Storage — Egzersiz ön izleme video/simülasyon içerikleri (altyapı)
+    implementation("com.google.firebase:firebase-storage-ktx")
+
+    // Coroutines için Google Play Services desteği (Firebase auth task'larını await() ile kullanmak için)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+    // --- JET PACK ---
+    // Jetpack DataStore (Preferences) — Tema, dil gibi basit ayarlar için
+    // NOT: Room yerine DataStore tercih sebebi: Tema/dil ayarı ilişkisel yapı gerektirmez;
+    //      key-value olarak saklanmalı. DataStore, SharedPreferences'ın tip güvenli, coroutine uyumlu modern alternatifi.
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // Compose Navigation — Ekranlar arası geçiş (Login → Dashboard → Kamera)
+    implementation("androidx.navigation:navigation-compose:2.7.7")
 }

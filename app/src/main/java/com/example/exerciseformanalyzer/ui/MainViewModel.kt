@@ -177,18 +177,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
         _workoutSummary.value = summary
 
-        // ── YENİ ÖZELLİK: VERİTABANINA KAYDET ────────────────────────────────
+        // ── YENİ ÖZELLİK: VERİTABANI + FİREBASE'E KAYDET ──────────────────────
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Firebase UID — giriş yoksa boş string (offline kullanım için güvenli)
+                val firebaseUid = (getApplication<MainApplication>())
+                    .authRepository.currentUid ?: ""
+
                 workoutRepository.saveWorkoutResult(
-                    userId = 1,
-                    exerciseId = 1,
+                    userUid = firebaseUid,
+                    localUserId = 1,           // TODO: Giriş yapıldıkça Room'daki gerçek ID kullanılacak
+                    exerciseType = exercise,   // CalorieCalculator için ExerciseType gerekli
+                    exerciseId = 1,            // TODO: Seçilen gerçek egzersiz ID'si bağlanacak
                     score = accuracy,
                     reps = reps,
-                    time = _sessionDurationSec.value.toInt(), // 'durationSeconds' yerine 'time' yazdık
+                    durationSeconds = _sessionDurationSec.value,
                     feedback = commonErr ?: "Mükemmel Form"
                 )
-                Log.d(TAG, "Antrenman başarıyla veritabanına kaydedildi.")
+                Log.d(TAG, "Antrenman Room ve Firebase'e kaydedildi (uid=$firebaseUid).")
             } catch (e: Exception) {
                 Log.e(TAG, "Veritabanı kayıt hatası: ${e.message}")
             }
