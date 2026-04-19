@@ -21,13 +21,23 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = Color.White
 )
 
+private val LightColorScheme = lightColorScheme(
+    primary = Color(0xFF00C853),
+    secondary = Color(0xFF1976D2),
+    background = Color(0xFFF0F2F5),
+    surface = Color.White,
+    onPrimary = Color.White,
+    onBackground = Color.Black,
+    onSurface = Color.Black
+)
+
 @Composable
 fun ExerciseFormAnalyzerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = DarkColorScheme
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,

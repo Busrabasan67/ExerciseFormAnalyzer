@@ -1,3 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Egzersiz Form Analizörü</string>
+
+    <!-- Auth -->
+    <string name="login_title">Giriş Yap</string>
+    <string name="register_title">Kayıt Ol</string>
+    <string name="email_label">E-posta</string>
+    <string name="password_label">Şifre</string>
+    <string name="full_name_label">Ad Soyad</string>
+    <string name="login_button">Giriş Yap</string>
+    <string name="register_button">Kayıt Ol</string>
+    <string name="no_account">Hesabın yok mu? Kayıt Ol</string>
+    <string name="have_account">Zaten hesabın var mı? Giriş Yap</string>
+    <string name="password_show">Şifreyi göster</string>
+    <string name="password_hide">Şifreyi gizle</string>
+
+    <!-- Dashboard -->
+    <string name="patient_dashboard_title">Panelim</string>
+    <string name="expert_dashboard_title">Uzman Paneli</string>
+    <string name="my_tasks">Görevlerim</string>
+    <string name="my_reports">Raporlarım</string>
+    <string name="patients_label">Hastalarım</string>
+    <string name="no_tasks">Bekleyen görev yok.</string>
+    <string name="no_reports">Henüz rapor yok.</string>
+    <string name="no_patients">Bağlantılı hasta yok.</string>
+    <string name="start_exercise">Egzersiz Başlat</string>
+    <string name="logout">Çıkış Yap</string>
+
+    <!-- Profile &amp; Settings -->
+    <string name="profile_title">Profil</string>
+    <string name="settings_title">Ayarlar</string>
+    <string name="dark_mode">Gece Modu</string>
+    <string name="language_label">Dil</string>
+    <string name="language_turkish">Türkçe</string>
+    <string name="language_english">English</string>
+    <string name="back_button">Geri</string>
+    <string name="name_label">Ad Soyad</string>
+    <string name="role_label">Rol</string>
+    <string name="role_patient">Hasta (Danışan)</string>
+    <string name="role_expert">Uzman (Antrenör)</string>
+    <string name="age_label">Yaş</string>
+    <string name="weight_label">Kilo</string>
+    <string name="height_label">Boy</string>
+
+    <!-- Groups -->
+    <string name="groups_title">Topluluk</string>
+    <string name="create_group">Grup Oluştur</string>
+    <string name="join_group">Katıl</string>
+    <string name="members_count">%d Üye</string>
+    <string name="leaderboard_title">Liderlik Tablosu</string>
+    <string name="no_groups">Henüz grup yok.</string>
+    <string name="group_name_hint">Grup Adı *</string>
+    <string name="group_desc_hint">Açıklama (opsiyonel)</string>
+    <string name="group_private_label">Gizli Grup (Sadece davetli)</string>
+    <string name="private_group_badge">🔒 Özel Grup</string>
+    <string name="leave_group">Ayrıl</string>
+    <string name="create_button">Oluştur</string>
+    <string name="cancel_button">İptal</string>
+
+    <!-- Exercise Selection -->
+    <string name="select_exercise_title">Hareket Seç</string>
+    <string name="select_exercise_subtitle">Antrenman türünü seçin</string>
+    <string name="auto_detect">Otomatik Algıla</string>
+
+    <string name="ex_squat">Squat</string>
+    <string name="ex_pushup">Şınav (Push-up)</string>
+    <string name="ex_lunge">Akciğer (Lunge)</string>
+    <string name="ex_biceps_curl">Biceps Curl</string>
+    <string name="ex_shoulder_press">Omuz Press</string>
+    <string name="ex_plank">Plank</string>
+
+    <!-- Workout Feedback -->
+    <string name="perfect_form">Mükemmel Form</string>
+
+    <!-- General -->
+    <string name="loading">Yükleniyor…</string>
+    <string name="error_empty_fields">Lütfen tüm alanları doldurunuz.</string>
+    <string name="kg_unit">kg</string>
+    <string name="cm_unit">cm</string>
+    <string name="calorie_unit">kcal</string>
+    <string name="reps_unit">tekrar</string>
+    <string name="score_label">Skor</string>
+    <string name="medical_history_label">Hastalık Öyküsü</string>
+    <string name="none_label">Yok</string>
 </resources>

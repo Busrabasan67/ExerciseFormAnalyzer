@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Exercise Form Analyzer</string>
+
+    <!-- Auth -->
+    <string name="login_title">Sign In</string>
+    <string name="register_title">Register</string>
+    <string name="email_label">Email</string>
+    <string name="password_label">Password</string>
+    <string name="full_name_label">Full Name</string>
+    <string name="login_button">Sign In</string>
+    <string name="register_button">Register</string>
+    <string name="no_account">Don\'t have an account? Register</string>
+    <string name="have_account">Already have an account? Sign In</string>
+    <string name="password_show">Show password</string>
+    <string name="password_hide">Hide password</string>
+
+    <!-- Dashboard -->
+    <string name="patient_dashboard_title">My Panel</string>
+    <string name="expert_dashboard_title">Expert Panel</string>
+    <string name="my_tasks">My Tasks</string>
+    <string name="my_reports">My Reports</string>
+    <string name="patients_label">My Patients</string>
+    <string name="no_tasks">No pending tasks.</string>
+    <string name="no_reports">No reports yet.</string>
+    <string name="no_patients">No patients linked.</string>
+    <string name="start_exercise">Start Exercise</string>
+    <string name="logout">Sign Out</string>
+
+    <!-- Profile &amp; Settings -->
+    <string name="profile_title">Profile</string>
+    <string name="settings_title">Settings</string>
+    <string name="dark_mode">Dark Mode</string>
+    <string name="language_label">Language</string>
+    <string name="language_turkish">Türkçe</string>
+    <string name="language_english">English</string>
+    <string name="back_button">Back</string>
+    <string name="name_label">Full Name</string>
+    <string name="role_label">Role</string>
+    <string name="role_patient">Patient (Consultant)</string>
+    <string name="role_expert">Expert (Trainer)</string>
+    <string name="age_label">Age</string>
+    <string name="weight_label">Weight</string>
+    <string name="height_label">Height</string>
+
+    <!-- Groups -->
+    <string name="groups_title">Community</string>
+    <string name="create_group">Create Group</string>
+    <string name="join_group">Join</string>
+    <string name="members_count">%d Members</string>
+    <string name="leaderboard_title">Leaderboard</string>
+    <string name="no_groups">No groups yet.</string>
+    <string name="group_name_hint">Group Name *</string>
+    <string name="group_desc_hint">Description (optional)</string>
+    <string name="group_private_label">Private Group (Invite only)</string>
+    <string name="private_group_badge">🔒 Private Group</string>
+    <string name="leave_group">Leave</string>
+    <string name="create_button">Create</string>
+    <string name="cancel_button">Cancel</string>
+
+    <!-- Exercise Selection -->
+    <string name="select_exercise_title">Select Exercise</string>
+    <string name="select_exercise_subtitle">Choose your workout type</string>
+    <string name="auto_detect">Auto Detect</string>
+
+    <string name="ex_squat">Squat</string>
+    <string name="ex_pushup">Push-up</string>
+    <string name="ex_lunge">Lunge</string>
+    <string name="ex_biceps_curl">Biceps Curl</string>
+    <string name="ex_shoulder_press">Shoulder Press</string>
+    <string name="ex_plank">Plank</string>
+
+    <!-- Workout Feedback -->
+    <string name="perfect_form">Perfect Form</string>
+
+    <!-- General -->
+    <string name="loading">Loading…</string>
+    <string name="error_empty_fields">Please fill in all fields.</string>
+    <string name="kg_unit">kg</string>
+    <string name="cm_unit">cm</string>
+    <string name="calorie_unit">kcal</string>
+    <string name="reps_unit">reps</string>
+    <string name="score_label">Score</string>
+    <string name="medical_history_label">Medical History</string>
+    <string name="none_label">None</string>
+</resources>

@@ -8,7 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.exerciseformanalyzer.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,10 +24,10 @@ fun ExpertDashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Panelim (Uzman)") },
+                title = { Text(stringResource(R.string.expert_dashboard_title)) },
                 actions = {
-                    TextButton(onClick = onNavigateToProfile) { Text("Profil") }
-                    TextButton(onClick = onLogout) { Text("Çıkış") }
+                    TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
+                    TextButton(onClick = onLogout) { Text(stringResource(R.string.logout)) }
                 }
             )
         }
@@ -37,10 +39,10 @@ fun ExpertDashboardScreen(
                 .padding(16.dp)
         ) {
             item {
-                Text("Hastalarım / Danışanlarım", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.patients_label), style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 if (patients.isEmpty()) {
-                    Text("Henüz size bağlı bir hasta yok.")
+                    Text(stringResource(R.string.no_patients))
                 }
             }
 
@@ -51,8 +53,11 @@ fun ExpertDashboardScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(text = patient.fullName, style = MaterialTheme.typography.bodyLarge)
-                        Text(text = "Email: ${patient.email}", style = MaterialTheme.typography.bodyMedium)
-                        Text(text = "Hastalık Öyküsü: ${patient.diseasesJson ?: "Yok"}", style = MaterialTheme.typography.bodySmall)
+                        Text(text = "${stringResource(R.string.email_label)}: ${patient.email}", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text = "${stringResource(R.string.medical_history_label)}: ${patient.diseasesJson ?: stringResource(R.string.none_label)}", 
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }

@@ -10,44 +10,49 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.exerciseformanalyzer.camera.CameraManager
+import com.example.exerciseformanalyzer.model.ExerciseType
 
 /**
- * Kamera önizlemesi + pose overlay'i birleştiren Compose composable.
- * AndroidView ile PreviewView (CameraX) embed edilir,
- * üzerine ExerciseOverlay Compose katmanı yerleştirilir.
- *
- * [viewModel]: ViewModel referansı — frame'leri ve state'i buradan alır.
+ * Sadece kamera + overlay içerir.
+ * Hareket seçimi bu ekrandan önce ExerciseSelectionScreen'de yapılır.
+ * [exerciseType]: Seçilen hareket türü (null = otomatik algıla)
+ * [onNavigateBack]: Egzersiz bitince dashboard'a geri dön
  */
 @Composable
-fun CameraPreviewScreen(viewModel: MainViewModel) {
+fun CameraPreviewScreen(
+    viewModel: MainViewModel,
+    exerciseType: ExerciseType? = null,
+    onNavigateBack: () -> Unit = {}
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val uiState by viewModel.uiState.collectAsState()
     val poseFrame by viewModel.currentPoseFrame.collectAsState()
-
-    // CameraManager'ın yaşam döngüsünü Compose ile hizala
-    var cameraManager: CameraManager? by remember { mutableStateOf(null) }
-
-    var showSelectionDialog by remember { mutableStateOf(true) }
-    var showInfoDialog by remember { mutableStateOf(false) }
-    var selectedTarget by remember { mutableStateOf<com.example.exerciseformanalyzer.model.ExerciseType?>(null) }
-    
     val sessionDurationSec by viewModel.sessionDurationSec.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
     val workoutSummary by viewModel.workoutSummary.collectAsState()
 
+    // Egzersizi başlat (ekran ilk oluştuğunda bir kez)
+    LaunchedEffect(exerciseType) {
+        viewModel.setTargetExercise(exerciseType)
+    }
+
+    // Özet hazır olduğunda göster
     if (workoutSummary != null) {
         WorkoutSummaryScreen(
             summary = workoutSummary!!,
-            onRestart = { viewModel.resetSession(); showSelectionDialog = true }
+            onRestart = {
+                viewModel.resetSession()
+                onNavigateBack()
+            }
         )
         return
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    var cameraManager: CameraManager? by remember { mutableStateOf(null) }
 
-        // Kamera önizlemesi — CameraX PreviewView
+    Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             factory = { ctx ->
                 PreviewView(ctx).apply {
@@ -61,10 +66,8 @@ fun CameraPreviewScreen(viewModel: MainViewModel) {
                     val manager = CameraManager(
                         context = ctx,
                         lifecycleOwner = lifecycleOwner,
-                        onFrameAvailable = { bitmap, ts ->
-                            viewModel.onFrameAvailable(bitmap, ts)
-                        },
-                        onError = { _ -> /* ViewModel'deki error state'i zaten güncelleniyor */ }
+                        onFrameAvailable = { bitmap, ts -> viewModel.onFrameAvailable(bitmap, ts) },
+                        onError = { _ -> }
                     )
                     manager.startCamera(previewView)
                     cameraManager = manager
@@ -74,7 +77,6 @@ fun CameraPreviewScreen(viewModel: MainViewModel) {
             modifier = Modifier.fillMaxSize()
         )
 
-        // Overlay katmanı — skeleton + feedback
         ExerciseOverlay(
             uiState = uiState,
             poseFrame = poseFrame,
@@ -84,42 +86,9 @@ fun CameraPreviewScreen(viewModel: MainViewModel) {
             onEndWorkout = { viewModel.endWorkout() },
             modifier = Modifier.fillMaxSize()
         )
-
-        // Hangi hareket yapılacağını soran karşılama modalleri
-        if (showSelectionDialog) {
-            ExerciseSelectionDialog(
-                onExerciseSelected = { exercise ->
-                    selectedTarget = exercise
-                    showSelectionDialog = false
-                    showInfoDialog = true
-                },
-                onAutoDetectSelected = {
-                    viewModel.setTargetExercise(null)
-                    showSelectionDialog = false
-                }
-            )
-        }
-
-        if (showInfoDialog && selectedTarget != null) {
-            ExerciseInfoDialog(
-                exercise = selectedTarget!!,
-                onStart = {
-                    viewModel.setTargetExercise(selectedTarget)
-                    showInfoDialog = false
-                },
-                onCancel = {
-                    selectedTarget = null
-                    showInfoDialog = false
-                    showSelectionDialog = true
-                }
-            )
-        }
     }
 
-    // Composer ayrıldığında kamera kaynaklarını serbest bırak
     DisposableEffect(Unit) {
-        onDispose {
-            cameraManager?.shutdown()
-        }
+        onDispose { cameraManager?.shutdown() }
     }
 }
