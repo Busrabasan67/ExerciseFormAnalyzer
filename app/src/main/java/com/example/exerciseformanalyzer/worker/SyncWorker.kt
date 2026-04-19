@@ -99,22 +99,29 @@ class SyncWorker(
 
             for (task in unsyncedTasks) {
                 try {
-                    val firestoreTask = com.example.exerciseformanalyzer.model.firestore.FirestoreTaskAssignment(
-                        planId = task.planId.toString(), // TODO: Gerçekte Firestore Plan ID'si gerekebilir
-                        patientId = task.patientUid,
-                        exerciseId = task.exerciseId.toString(),
-                        exerciseName = task.exerciseName,
-                        targetReps = task.targetReps,
-                        targetDurationSec = task.targetDurationSec,
-                        dueDate = task.dueDate,
-                        status = task.status,
-                        completedAt = task.completedAt,
-                        reportId = task.linkedReportId?.toString()
-                    )
-
-                    val docId = firestoreService.createTask(firestoreTask)
-                    taskDao.markTaskAsSynced(task.id, docId)
-                    Log.d(TAG, "Görev ${task.id} (Firestore: $docId) başarıyla senkronize edildi.")
+                    if (task.firebaseDocId.isNullOrEmpty()) {
+                        val firestoreTask = com.example.exerciseformanalyzer.model.firestore.FirestoreTaskAssignment(
+                            planId = task.planId.toString(), // TODO: Gerçekte Firestore Plan ID'si gerekebilir
+                            patientId = task.patientUid,
+                            exerciseId = task.exerciseId.toString(),
+                            exerciseName = task.exerciseName,
+                            targetReps = task.targetReps,
+                            targetDurationSec = task.targetDurationSec,
+                            dueDate = task.dueDate,
+                            status = task.status,
+                            completedAt = task.completedAt,
+                            reportId = task.linkedReportId?.toString()
+                        )
+    
+                        val docId = firestoreService.createTask(firestoreTask)
+                        taskDao.markTaskAsSynced(task.id, docId)
+                        Log.d(TAG, "Görev ${task.id} (Firestore: $docId) başarıyla oluşturuldu.")
+                    } else {
+                        // Sadece statüsü değişmiş (MISSED veya DONE)
+                        firestoreService.updateTaskStatus(task.firebaseDocId, task.status, task.completedAt)
+                        taskDao.markTaskAsSynced(task.id, task.firebaseDocId)
+                        Log.d(TAG, "Görev ${task.id} (Firestore: ${task.firebaseDocId}) başarıyla güncellendi.")
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Görev ${task.id} senkronizasyon hatası: ${e.message}")
                 }
