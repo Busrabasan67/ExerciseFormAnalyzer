@@ -65,15 +65,38 @@ class UserRepository(
     }
 
     /**
+     * Hastayı e-posta ile Firestore'da ara (sadece PATIENT olanları döndürür).
+     */
+    suspend fun findPatientByEmail(email: String): FirestoreUser? {
+        return firestoreService.findUserByEmail(email)
+    }
+
+    /**
      * Uzman, hastayı UID ile kendi listesine ekler.
      */
     suspend fun linkPatientToExpert(patientUid: String, expertUid: String): Result<Unit> {
         return try {
             firestoreService.linkPatientToExpert(patientUid, expertUid)
-            // Room'da hasta kaydı varsa expertUid'yi güncelle
-            val patientEntity = userDao.getUserByUid(patientUid)
-            patientEntity?.let {
-                userDao.updateUser(it.copy(expertUid = expertUid, isSynced = true))
+            // Room'da hasta kaydı varsa expertUid'yi güncelle, yoksa Firestore'dan çekip kaydet
+            val patientProfile = firestoreService.getUserProfile(patientUid)
+            if (patientProfile != null) {
+                val existing = userDao.getUserByUid(patientUid)
+                val entity = UserEntity(
+                    id = existing?.id ?: 0,
+                    uid = patientProfile.uid,
+                    fullName = patientProfile.fullName,
+                    email = patientProfile.email,
+                    role = patientProfile.role,
+                    age = patientProfile.age,
+                    weightKg = patientProfile.weightKg,
+                    heightCm = patientProfile.heightCm,
+                    diseasesJson = patientProfile.diseases.joinToString(","),
+                    isSmoker = patientProfile.isSmoker,
+                    isDrinker = patientProfile.isDrinker,
+                    expertUid = expertUid,
+                    isSynced = true
+                )
+                userDao.insertUser(entity)
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -94,7 +117,9 @@ class UserRepository(
      */
     suspend fun refreshUserFromFirestore(uid: String) {
         val profile = firestoreService.getUserProfile(uid) ?: return
+        val existing = userDao.getUserByUid(uid)
         val entity = UserEntity(
+            id = existing?.id ?: 0,
             uid = uid,
             fullName = profile.fullName,
             email = profile.email,
@@ -109,5 +134,45 @@ class UserRepository(
             isSynced = true
         )
         userDao.insertUser(entity)
+    }
+
+    /**
+     * Uzmanın bağlı hastalarını Firestore'dan çekip Room'a yazar.
+     * Bu sayede ExpertDashboard açıldığında hastalar güncel kalır.
+     */
+    suspend fun syncPatientsForExpert(expertUid: String) {
+        try {
+            val patients = firestoreService.getPatientsByExpert(expertUid)
+            patients.forEach { profile ->
+                val existing = userDao.getUserByUid(profile.uid)
+                val entity = UserEntity(
+                    id = existing?.id ?: 0,
+                    uid = profile.uid,
+                    fullName = profile.fullName,
+                    email = profile.email,
+                    role = profile.role,
+                    age = profile.age,
+                    weightKg = profile.weightKg,
+                    heightCm = profile.heightCm,
+                    diseasesJson = profile.diseases.joinToString(","),
+                    isSmoker = profile.isSmoker,
+                    isDrinker = profile.isDrinker,
+                    expertUid = profile.expertId, // = expertUid
+                    isSynced = true
+                )
+                userDao.insertUser(entity)
+            }
+        } catch (e: Exception) {
+            // Hata olursa (offline vb.) sadece olanları kullan
+        }
+    }
+
+    /**
+     * Hasta kendi hesabına girdiğinde bağlı olduğu uzmanı Firestore'dan çekip cache'leyebiliriz.
+     */
+    suspend fun syncExpertProfileLocally(expertUid: String) {
+        if (expertUid.isNotEmpty()) {
+            refreshUserFromFirestore(expertUid)
+        }
     }
 }

@@ -48,33 +48,27 @@ data class FirestoreWorkoutReport(
 )
 
 // =========================================================
-// PLAN — plans/{docId}
+// GÖREV ATAMALARI — task_assignments/{docId}
+// Birden fazla egzersizi içerebilir
 // =========================================================
-data class FirestorePlan(
-    val expertId: String = "",
-    val patientId: String = "",
-    val title: String = "",
-    val description: String = "",
-    val assignedDate: Long = 0L,
-    val dueDate: Long = 0L,
-    val isActive: Boolean = true,
-    @ServerTimestamp val createdAt: Date? = null
+data class FirestoreExerciseItem(
+    val exerciseType: String = "",
+    val targetType: String = "REPS", // "REPS" | "DURATION"
+    val targetReps: Int? = null,
+    val targetDurationSeconds: Int? = null,
+    val actualReps: Int? = null,
+    val actualDurationSeconds: Int? = null,
+    val status: String = "PENDING" // Egzersiz bazlı progres "PENDING", "IN_PROGRESS", "COMPLETED"
 )
 
-// =========================================================
-// GÖREV ATAMALARI — task_assignments/{docId}
-// =========================================================
 data class FirestoreTaskAssignment(
-    val planId: String = "",
     val patientId: String = "",
-    val exerciseId: String = "",
-    val exerciseName: String = "",
-    val targetReps: Int = 0,
-    val targetDurationSec: Int = 0,
+    val expertId: String = "",
+    val title: String = "",
+    val note: String = "",
     val dueDate: Long = 0L,
     val status: String = "PENDING", // "PENDING" | "DONE" | "MISSED"
-    val completedAt: Long? = null,
-    val reportId: String? = null,
+    val exercises: List<FirestoreExerciseItem> = emptyList(),
     @ServerTimestamp val createdAt: Date? = null
 )
 

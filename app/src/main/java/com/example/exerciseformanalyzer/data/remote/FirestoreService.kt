@@ -39,6 +39,16 @@ class FirestoreService {
             .toObject<FirestoreUser>()
     }
 
+    /** Email adresiyle sadece PATIENT rolündeki kullanıcıyı ara. */
+    suspend fun findUserByEmail(email: String): FirestoreUser? {
+        return db.collection(USERS)
+            .whereEqualTo("email", email)
+            .whereEqualTo("role", "PATIENT") // Sadece hastalar aranabilir
+            .limit(1)
+            .get().await()
+            .documents.firstOrNull()?.toObject<FirestoreUser>()
+    }
+
     /** Hastanın expertId alanını güncelle (uzman-hasta eşleşmesi). */
     suspend fun linkPatientToExpert(patientUid: String, expertUid: String) {
         db.collection(USERS).document(patientUid)
@@ -75,27 +85,6 @@ class FirestoreService {
     }
 
     // =====================================================================
-    // PLAN
-    // =====================================================================
-
-    /** Yeni plan oluşturur; Firestore doc ID'sini döner. */
-    suspend fun createPlan(plan: FirestorePlan): String {
-        return db.collection(PLANS).add(plan).await().id
-    }
-
-    /** Hastanın aktif planlarını getir. */
-    suspend fun getActivePlansForPatient(patientUid: String): List<Pair<String, FirestorePlan>> {
-        return db.collection(PLANS)
-            .whereEqualTo("patientId", patientUid)
-            .whereEqualTo("isActive", true)
-            .get().await()
-            .documents.mapNotNull { doc ->
-                val model = doc.toObject<FirestorePlan>() ?: return@mapNotNull null
-                Pair(doc.id, model)
-            }
-    }
-
-    // =====================================================================
     // GÖREV ATAMALARI
     // =====================================================================
 
@@ -104,10 +93,11 @@ class FirestoreService {
         return db.collection(TASK_ASSIGNMENTS).add(task).await().id
     }
 
-    /** Görev durumunu günceller (DONE veya MISSED). */
-    suspend fun updateTaskStatus(taskDocId: String, status: String, completedAt: Long? = null) {
+    /** Görev durumunu günceller (IN_PROGRESS, DONE veya MISSED). */
+    suspend fun updateTaskStatus(taskDocId: String, status: String, completedAt: Long? = null, exercises: List<FirestoreExerciseItem>? = null) {
         val updates = mutableMapOf<String, Any>("status" to status)
         completedAt?.let { updates["completedAt"] = it }
+        exercises?.let { updates["exercises"] = it }
         db.collection(TASK_ASSIGNMENTS).document(taskDocId).update(updates).await()
     }
 

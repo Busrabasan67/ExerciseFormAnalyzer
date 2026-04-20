@@ -31,8 +31,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val TAG = "MainViewModel"
     }
 
-    // ── VERİTABANI BAĞLANTISI (YENİ ÖZELLİK) ──────────────────────────────────
+    // ── VERİTABANI BAĞLANTISI ────────────────────────────────────────────────
     private val workoutRepository = (application as MainApplication).workoutRepository
+
+    // ── AKTİF GÖREV BAĞLAMI — sadece görev kaynaklı seanslarda dolu ─────────
+    // patientDashboardScreen'den "Başla" butonuyla gelinen egzersizlerde set edilir.
+    // Serbest egzersizde (FAB) null kalır.
+    data class TaskContext(
+        val taskId: Int,
+        val exerciseIndex: Int, // exercisesJson array içindeki konum (0-tabanlı)
+        val targetType: String, // "REPS" | "DURATION"
+        val targetReps: Int,
+        val targetDurationSeconds: Int
+    )
+    private var activeTaskContext: TaskContext? = null
     
     // ── TEMA VE DİL PREFERENCES ──────────────────────────────────────────────────
     private val preferencesRepository = (application as MainApplication).userPreferencesRepository
@@ -190,7 +202,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _error.value = null
     }
 
-    fun setTargetExercise(type: ExerciseType?) {
+    fun setTargetExercise(type: ExerciseType?, taskContext: TaskContext? = null) {
+        activeTaskContext = taskContext
         analysisPipeline.targetExercise = type
         if (type != null) {
             analysisPipeline.reset()
@@ -233,7 +246,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         val finalResult = analysisPipeline.lastAnalysisResult
         val exercise = analysisPipeline.targetExercise ?: finalResult?.exerciseType ?: ExerciseType.UNKNOWN
-        val reps = finalResult?.repetitionState?.count ?: 0
+        val reps = maxRepCount
         val accuracy = if (totalAnalysisSamples > 0) ((correctAnalysisSamples.toFloat() / totalAnalysisSamples) * 100).toInt() else 0
         val commonErr = errorFrequency.maxByOrNull { it.value }?.key
 
@@ -270,13 +283,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 workoutRepository.saveWorkoutResult(
                     userUid = firebaseUid,
-                    localUserId = localUserId,           
-                    exerciseType = exercise,   
-                    exerciseId = 1,            // TODO: Seçilen gerçek egzersiz ID'si bağlanacak
+                    localUserId = localUserId,
+                    exerciseType = exercise,
+                    exerciseId = 1,
                     score = accuracy,
                     reps = reps,
                     durationSeconds = _sessionDurationSec.value,
-                    feedback = commonErr ?: getApplication<Application>().getString(R.string.perfect_form)
+                    feedback = commonErr ?: getApplication<Application>().getString(R.string.perfect_form),
+                    taskContext = activeTaskContext
                 )
                 Log.d(TAG, "Antrenman Room ve Firebase'e kaydedildi (uid=$firebaseUid).")
             } catch (e: Exception) {
@@ -302,6 +316,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _isSessionActive.value = false
         _isPaused.value = false
         _uiState.value = ExerciseUiState.Ready
+        activeTaskContext = null
+        maxRepCount = 0
+        lastProcessedTimestamp = -1L
+        lastChannelTimestamp = -1L
     }
 
     override fun onCleared() {

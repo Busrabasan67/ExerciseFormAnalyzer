@@ -31,10 +31,14 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) {
+        viewModel.checkAutoLogin()
+    }
+
     LaunchedEffect(uiState) {
         if (uiState is AuthUiState.Success) {
             val successState = uiState as AuthUiState.Success
-            onLoginSuccess(successState.role)
+            onLoginSuccess(successState.role.uppercase())
             viewModel.resetState()
         }
     }

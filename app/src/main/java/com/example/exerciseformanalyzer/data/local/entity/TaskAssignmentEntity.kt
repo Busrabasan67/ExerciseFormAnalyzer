@@ -20,28 +20,20 @@ data class TaskAssignmentEntity(
     // Firestore döküman ID — senkronizasyon için
     val firebaseDocId: String? = null,
 
-    // Bağlı olduğu plan (WorkoutPlanEntity.id veya firebaseDocId)
-    val planId: Int = 0,
-    val planFirebaseDocId: String? = null,
-
-    // Hasta UID — sorgu kolaylığı için tekrarlı tutulur
     val patientUid: String = "",
+    val expertUid: String = "",
 
-    val exerciseId: Int,
-    val exerciseName: String,      // Görevi gösterirken sorgu atmamak için cache'lendi
+    val title: String = "",
+    val note: String = "",
 
-    val targetReps: Int = 0,       // Hedef tekrar sayısı
-    val targetDurationSec: Int = 0,// Hedef süre (plank gibi zaman bazlı hareketler için)
+    val dueDate: Long,
 
-    val dueDate: Long,             // Bu görev için son tarih (ms cinsinden epoch)
-
-    // Görev durumu — PENDING varsayılan
     val status: String = TaskStatus.PENDING.name,
 
-    // Görev tamamlandıysa, tamamlanma zamanı
-    val completedAt: Long? = null,
+    // JSON array of exercises [{exerciseType, targetType, targetReps, targetDurationSeconds}]
+    val exercisesJson: String = "[]",
 
-    // Tamamlandıktan sonra hangi WorkoutReport ile ilişkilendirildiği
+    val completedAt: Long? = null,
     val linkedReportId: Int? = null,
 
     val isSynced: Boolean = false

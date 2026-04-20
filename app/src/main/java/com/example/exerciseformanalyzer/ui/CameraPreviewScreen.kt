@@ -10,18 +10,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.exerciseformanalyzer.camera.CameraManager
-import com.example.exerciseformanalyzer.model.ExerciseType
 
 /**
  * Sadece kamera + overlay içerir.
- * Hareket seçimi bu ekrandan önce ExerciseSelectionScreen'de yapılır.
- * [exerciseType]: Seçilen hareket türü (null = otomatik algıla)
- * [onNavigateBack]: Egzersiz bitince dashboard'a geri dön
+ * Hareket seçimi ve görev bağlamı bu ekrandan ÖNCE mainViewModel.setTargetExercise() ile set edilir.
+ * Bu ekran ViewModel'den sadece okur; setTargetExercise çağırmaz.
+ *
+ * NEDEN: ExerciseSelectionScreen veya PatientDashboard'dan "Başla" ile gelindiğinde
+ *        AppNavigation içinde setTargetExercise(type, taskContext) çağrısı yapılır.
+ *        Eğer bu ekran da LaunchedEffect ile setTargetExercise(null) çağırırsa
+ *        activeTaskContext anında null'a sıfırlanır → görev bağlantısı kopar.
  */
 @Composable
 fun CameraPreviewScreen(
     viewModel: MainViewModel,
-    exerciseType: ExerciseType? = null,
     onNavigateBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -33,10 +35,8 @@ fun CameraPreviewScreen(
     val isPaused by viewModel.isPaused.collectAsState()
     val workoutSummary by viewModel.workoutSummary.collectAsState()
 
-    // Egzersizi başlat (ekran ilk oluştuğunda bir kez)
-    LaunchedEffect(exerciseType) {
-        viewModel.setTargetExercise(exerciseType)
-    }
+    // NOT: setTargetExercise burada ÇAĞRILMIYOR.
+    // Çağrıyı AppNavigation yapar (setTargetExercise öncesinde taskContext da set edilir).
 
     // Özet hazır olduğunda göster
     if (workoutSummary != null) {

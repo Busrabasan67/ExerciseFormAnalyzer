@@ -10,7 +10,7 @@ package com.example.exerciseformanalyzer.worker
 //   1. Room'da isSynced = false olan raporları bulur
 //   2. Firestore'a yükler
 //   3. Başarılı olursa isSynced = true, firebaseDocId günceller
-//   4. Plan ve görevleri de aynı şekilde senkronize eder
+//   4. Görevleri de aynı şekilde senkronize eder
 
 import android.content.Context
 import android.util.Log
@@ -68,30 +68,6 @@ class SyncWorker(
                 }
             }
 
-            // --- PLAN SENKRONİZASYONU ---
-            val unsyncedPlans = planDao.getUnsyncedPlans()
-            Log.d(TAG, "${unsyncedPlans.size} senkronize edilmemiş plan bulundu.")
-
-            for (plan in unsyncedPlans) {
-                try {
-                    val firestorePlan = com.example.exerciseformanalyzer.model.firestore.FirestorePlan(
-                        expertId = plan.expertUid ?: "",
-                        patientId = plan.patientUid ?: "",
-                        title = plan.title ?: "",
-                        description = plan.description ?: "",
-                        assignedDate = plan.assignedDate,
-                        dueDate = plan.dueDate,
-                        isActive = plan.isActive
-                    )
-                    
-                    val docId = firestoreService.createPlan(firestorePlan)
-                    planDao.markPlanAsSynced(plan.id, docId)
-                    Log.d(TAG, "Plan ${plan.id} (Firestore: $docId) başarıyla senkronize edildi.")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Plan ${plan.id} senkronizasyon hatası: ${e.message}")
-                }
-            }
-
             // --- GÖREV (TASK) SENKRONİZASYONU ---
             val taskDao = database.taskAssignmentDao()
             val unsyncedTasks = taskDao.getUnsyncedTasks()
@@ -100,25 +76,56 @@ class SyncWorker(
             for (task in unsyncedTasks) {
                 try {
                     if (task.firebaseDocId.isNullOrEmpty()) {
+                        val exercisesList = mutableListOf<com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem>()
+                        try {
+                            val arr = org.json.JSONArray(task.exercisesJson)
+                            for (i in 0 until arr.length()) {
+                                val obj = arr.getJSONObject(i)
+                                exercisesList.add(com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem(
+                                    exerciseType = obj.optString("exerciseType"),
+                                    targetType = obj.optString("targetType"),
+                                    targetReps = if (obj.has("targetReps")) obj.getInt("targetReps") else null,
+                                    targetDurationSeconds = if (obj.has("targetDurationSeconds")) obj.getInt("targetDurationSeconds") else null,
+                                    actualReps = if (obj.has("actualReps")) obj.getInt("actualReps") else null,
+                                    actualDurationSeconds = if (obj.has("actualDurationSeconds")) obj.getInt("actualDurationSeconds") else null,
+                                    status = obj.optString("status")
+                                ))
+                            }
+                        } catch (e: Exception) {}
+
                         val firestoreTask = com.example.exerciseformanalyzer.model.firestore.FirestoreTaskAssignment(
-                            planId = task.planId.toString(), // TODO: Gerçekte Firestore Plan ID'si gerekebilir
                             patientId = task.patientUid,
-                            exerciseId = task.exerciseId.toString(),
-                            exerciseName = task.exerciseName,
-                            targetReps = task.targetReps,
-                            targetDurationSec = task.targetDurationSec,
+                            expertId = task.expertUid,
+                            title = task.title,
+                            note = task.note,
                             dueDate = task.dueDate,
                             status = task.status,
-                            completedAt = task.completedAt,
-                            reportId = task.linkedReportId?.toString()
+                            exercises = exercisesList
                         )
     
                         val docId = firestoreService.createTask(firestoreTask)
                         taskDao.markTaskAsSynced(task.id, docId)
                         Log.d(TAG, "Görev ${task.id} (Firestore: $docId) başarıyla oluşturuldu.")
                     } else {
-                        // Sadece statüsü değişmiş (MISSED veya DONE)
-                        firestoreService.updateTaskStatus(task.firebaseDocId, task.status, task.completedAt)
+                        // Sadece statüsü değil, varsa öğe ilerlemeleri de değişmiş olabilir
+                        val exercisesList = mutableListOf<com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem>()
+                        try {
+                            val arr = org.json.JSONArray(task.exercisesJson)
+                            for (i in 0 until arr.length()) {
+                                val obj = arr.getJSONObject(i)
+                                exercisesList.add(com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem(
+                                    exerciseType = obj.optString("exerciseType"),
+                                    targetType = obj.optString("targetType"),
+                                    targetReps = if (obj.has("targetReps")) obj.getInt("targetReps") else null,
+                                    targetDurationSeconds = if (obj.has("targetDurationSeconds")) obj.getInt("targetDurationSeconds") else null,
+                                    actualReps = if (obj.has("actualReps")) obj.getInt("actualReps") else null,
+                                    actualDurationSeconds = if (obj.has("actualDurationSeconds")) obj.getInt("actualDurationSeconds") else null,
+                                    status = obj.optString("status")
+                                ))
+                            }
+                        } catch (e: Exception) {}
+
+                        firestoreService.updateTaskStatus(task.firebaseDocId, task.status, task.completedAt, exercisesList)
                         taskDao.markTaskAsSynced(task.id, task.firebaseDocId)
                         Log.d(TAG, "Görev ${task.id} (Firestore: ${task.firebaseDocId}) başarıyla güncellendi.")
                     }

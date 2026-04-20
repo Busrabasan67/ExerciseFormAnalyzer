@@ -14,7 +14,6 @@ import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
 import com.example.exerciseformanalyzer.data.local.entity.TaskStatus
 import com.example.exerciseformanalyzer.data.local.entity.WorkoutPlanEntity
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
-import com.example.exerciseformanalyzer.model.firestore.FirestorePlan
 import com.example.exerciseformanalyzer.model.firestore.FirestoreTaskAssignment
 import kotlinx.coroutines.flow.Flow
 
@@ -40,81 +39,71 @@ class PlanRepository(
         return taskDao.observeAllTasksForPatient(patientUid)
     }
 
+    fun observeTasksByExpert(expertUid: String): Flow<List<TaskAssignmentEntity>> {
+        return taskDao.observeTasksByExpert(expertUid)
+    }
+
     /**
      * Uzman tarafından yeni bir antrenman planı oluşturulur.
      * İçerisinde birden fazla görev (Task) olabilir.
      * Önce Room'a yazılır, internet varsa anında Firestore'a itilir.
      */
-    suspend fun createPlanWithTasks(
+    suspend fun createTaskAssignment(
         expertUid: String,
         patientUid: String,
         title: String,
-        description: String,
-        assignedDate: Long,
+        note: String,
         dueDate: Long,
-        tasks: List<TaskAssignmentEntity> // Görevlerin geçici halleri (planId eksik)
+        exercises: List<com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem>
     ): Result<Unit> {
         return try {
-            // 1. Planı Room'a kaydet
-            val localPlan = WorkoutPlanEntity(
-                patientId = 0, // Geriye dönük uyumluluk, kullanmıyoruz
+            // JSON stringine çevir
+            val jsonArray = org.json.JSONArray()
+            for (ex in exercises) {
+                val obj = org.json.JSONObject()
+                obj.put("exerciseType", ex.exerciseType)
+                obj.put("targetType", ex.targetType)
+                if (ex.targetReps != null) obj.put("targetReps", ex.targetReps)
+                if (ex.targetDurationSeconds != null) obj.put("targetDurationSeconds", ex.targetDurationSeconds)
+                if (ex.actualReps != null) obj.put("actualReps", ex.actualReps)
+                if (ex.actualDurationSeconds != null) obj.put("actualDurationSeconds", ex.actualDurationSeconds)
+                obj.put("status", ex.status)
+                jsonArray.put(obj)
+            }
+            val exercisesJson = jsonArray.toString()
+
+            val localTask = TaskAssignmentEntity(
                 patientUid = patientUid,
                 expertUid = expertUid,
                 title = title,
-                description = description,
-                assignedDate = assignedDate,
+                note = note,
                 dueDate = dueDate,
-                isActive = true,
+                status = TaskStatus.PENDING.name,
+                exercisesJson = exercisesJson,
                 isSynced = false
             )
-            val localPlanId = planDao.insertPlan(localPlan)
+            val taskId = taskDao.insertTask(localTask)
 
-            // 2. Her bir göreve localPlanId (Room primary key) ata ve Room'a kaydet
-            val insertedTasks = tasks.map {
-                val taskToInsert = it.copy(planId = localPlanId.toInt(), patientUid = patientUid, isSynced = false)
-                val taskId = taskDao.insertTask(taskToInsert)
-                taskToInsert.copy(id = taskId.toInt())
-            }
-
-            // 3. Firestore'a anında yükleme dene
             try {
-                // Plan upload
-                val fsPlan = FirestorePlan(
-                    expertId = expertUid,
+                val fsTask = FirestoreTaskAssignment(
                     patientId = patientUid,
+                    expertId = expertUid,
                     title = title,
-                    description = description,
-                    assignedDate = assignedDate,
+                    note = note,
                     dueDate = dueDate,
-                    isActive = true
+                    status = TaskStatus.PENDING.name,
+                    exercises = exercises
                 )
-                val planDocId = firestoreService.createPlan(fsPlan)
-                planDao.markPlanAsSynced(localPlanId.toInt(), planDocId)
-
-                // Task upload
-                for (task in insertedTasks) {
-                    val fsTask = FirestoreTaskAssignment(
-                        planId = planDocId,
-                        patientId = patientUid,
-                        exerciseId = task.exerciseId.toString(),
-                        exerciseName = task.exerciseName,
-                        targetReps = task.targetReps,
-                        targetDurationSec = task.targetDurationSec,
-                        dueDate = task.dueDate,
-                        status = task.status
-                    )
-                    val taskDocId = firestoreService.createTask(fsTask)
-                    taskDao.markTaskAsSynced(task.id, taskDocId)
-                }
-
-                Log.d(TAG, "Plan ve görevler anında senkronize edildi.")
+                val taskDocId = firestoreService.createTask(fsTask)
+                taskDao.markTaskAsSynced(taskId.toInt(), taskDocId)
+                Log.d(TAG, "Görev anında senkronize edildi: $taskDocId")
             } catch (e: Exception) {
                 Log.w(TAG, "Anında senkronizasyon başarısız, SyncWorker halledecek: ${e.message}")
             }
 
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Plan oluşturma hatası: ${e.message}")
+            Log.e(TAG, "Görev oluşturma hatası: ${e.message}")
             Result.failure(e)
         }
     }
@@ -139,6 +128,64 @@ class PlanRepository(
             } catch (e: Exception) {
                 Log.w(TAG, "Görev tamamlama Firestore'a aktarılamadı: ${e.message}")
             }
+        }
+    }
+
+    /**
+     * Firestore'dan hastaya atanmış görevleri çeker ve Room'a eşler.
+     */
+    suspend fun syncTasksForPatient(patientUid: String) {
+        try {
+            val fsTasks = firestoreService.getTasksForPatient(patientUid)
+            for ((docId, fsTask) in fsTasks) {
+                val existingTask = taskDao.getTaskByFirebaseDocId(docId)
+                
+                val jsonArray = org.json.JSONArray()
+                for (ex in fsTask.exercises) {
+                    val obj = org.json.JSONObject()
+                    obj.put("exerciseType", ex.exerciseType)
+                    obj.put("targetType", ex.targetType)
+                    if (ex.targetReps != null) obj.put("targetReps", ex.targetReps)
+                    if (ex.targetDurationSeconds != null) obj.put("targetDurationSeconds", ex.targetDurationSeconds)
+                    if (ex.actualReps != null) obj.put("actualReps", ex.actualReps)
+                    if (ex.actualDurationSeconds != null) obj.put("actualDurationSeconds", ex.actualDurationSeconds)
+                    obj.put("status", ex.status)
+                    jsonArray.put(obj)
+                }
+                val exJson = jsonArray.toString()
+
+                if (existingTask != null) {
+                    if (!existingTask.isSynced) {
+                        // Lokalde güncellenmiş ve henüz buluta gitmemiş; üzerine yazma!
+                        continue
+                    }
+                    // Güncelle
+                    val updated = existingTask.copy(
+                        title = fsTask.title,
+                        note = fsTask.note,
+                        status = fsTask.status,
+                        dueDate = fsTask.dueDate,
+                        exercisesJson = exJson
+                    )
+                    taskDao.updateTask(updated)
+                } else {
+                    // Ekle
+                    val newTask = TaskAssignmentEntity(
+                        firebaseDocId = docId,
+                        patientUid = fsTask.patientId,
+                        expertUid = fsTask.expertId,
+                        title = fsTask.title,
+                        note = fsTask.note,
+                        dueDate = fsTask.dueDate,
+                        status = fsTask.status,
+                        exercisesJson = exJson,
+                        isSynced = true
+                    )
+                    taskDao.insertTask(newTask)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Sync tasks for patient failed", e)
         }
     }
 }

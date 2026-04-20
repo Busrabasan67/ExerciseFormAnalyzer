@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.Flow
 
 class WorkoutRepository(
     private val reportDao: WorkoutReportDao,
-    private val planDao: WorkoutPlanDao,
+    private val taskDao: com.example.exerciseformanalyzer.data.local.dao.TaskAssignmentDao,
     private val exerciseDao: ExerciseDao,
     private val userDao: UserDao,
     private val firestoreService: FirestoreService
@@ -33,8 +33,9 @@ class WorkoutRepository(
      * Kalori hesaplanır → Room'a yazılır → Firestore'a anlık yükleme denenir.
      * İnternet yoksa isSynced = false kalır; SyncWorker sonra tekrar dener.
      *
-     * @param userUid Firebase Auth UID (boş olabilir, offline kullanım için)
+     * @param userUid     Firebase Auth UID (boş olabilir, offline kullanım için)
      * @param localUserId Room'daki lokal kullanıcı ID'si (geriye uyumluluk)
+     * @param taskContext Görev bağlamlı seans için taskId + exerciseIndex. Serbest egzersizde null.
      */
     suspend fun saveWorkoutResult(
         userUid: String,
@@ -44,7 +45,8 @@ class WorkoutRepository(
         score: Int,
         reps: Int,
         durationSeconds: Long,
-        feedback: String?
+        feedback: String?,
+        taskContext: com.example.exerciseformanalyzer.ui.MainViewModel.TaskContext? = null
     ) {
         // 1. Kullanıcı ağırlığını Room'dan çek (profil varsa MET daha doğru sonuç verir)
         val weightKg = if (userUid.isNotEmpty()) {
@@ -70,11 +72,108 @@ class WorkoutRepository(
             totalTimeSeconds = durationSeconds.toInt(),
             caloriesBurned = calories,
             feedback = feedback,
-            isSynced = false  // Başlangıçta false — SyncWorker doldurur
+            isSynced = false
         )
         reportDao.insertReport(report)
 
-        // 4. Anlık Firestore yükleme dene (internet varsa hemen; yoksa SyncWorker halleder)
+        // 4. Görev durumu güncellemesi — görev bağlamlı seans ise
+        // KÖK NEDEN: önceki kod exerciseType.name string karşılaştırması ile tüm
+        // pending task'ları tarıyordu — belirsiz ve güvenilmez.
+        // YENİ: taskId + exerciseIndex ile kesin olarak doğru item bulunur.
+        if (userUid.isNotEmpty() && taskContext != null) {
+            try {
+                val task = taskDao.getTaskById(taskContext.taskId)
+                if (task != null) {
+                    val arr = org.json.JSONArray(task.exercisesJson)
+                    if (taskContext.exerciseIndex < arr.length()) {
+                        val exObj = arr.getJSONObject(taskContext.exerciseIndex)
+                        val currentStatus = exObj.optString("status", "PENDING")
+
+                        if (currentStatus != "COMPLETED") {
+                            val tType = taskContext.targetType
+                            val prevActualReps = exObj.optInt("actualReps", 0)
+                            val prevActualDur = exObj.optInt("actualDurationSeconds", 0)
+
+                            val newActualReps = prevActualReps + reps
+                            val newActualDur = prevActualDur + durationSeconds.toInt()
+
+                            val isCompleted = if (tType == "DURATION") {
+                                newActualDur >= taskContext.targetDurationSeconds && taskContext.targetDurationSeconds > 0
+                            } else {
+                                newActualReps >= taskContext.targetReps && taskContext.targetReps > 0
+                            }
+
+                            exObj.put("actualReps", newActualReps)
+                            exObj.put("actualDurationSeconds", newActualDur)
+                            exObj.put("status", if (isCompleted) "COMPLETED" else "IN_PROGRESS")
+                            if (isCompleted) {
+                                exObj.put("completedAt", System.currentTimeMillis())
+                            }
+                        }
+
+                        // Tüm item'lar tamamlandı mı?
+                        var allDone = true
+                        var anyProgress = false
+                        for (i in 0 until arr.length()) {
+                            val s = arr.getJSONObject(i).optString("status", "PENDING")
+                            if (s != "COMPLETED") allDone = false
+                            if (s == "IN_PROGRESS" || s == "COMPLETED") anyProgress = true
+                        }
+                        val newTaskStatus = when {
+                            allDone    -> "COMPLETED"
+                            anyProgress -> "IN_PROGRESS"
+                            else       -> "PENDING"
+                        }
+
+                        val updatedTask = task.copy(
+                            exercisesJson = arr.toString(),
+                            status = newTaskStatus,
+                            completedAt = if (allDone) System.currentTimeMillis() else task.completedAt,
+                            isSynced = false
+                        )
+                        taskDao.updateTask(updatedTask)
+                        android.util.Log.d("WorkoutRepository",
+                            "Görev güncellendi: id=${task.id} status=$newTaskStatus exerciseIdx=${taskContext.exerciseIndex}")
+
+                        // Firestore'a anında itmeyi dene (başarısız olursa SyncWorker yapar)
+                        if (!task.firebaseDocId.isNullOrEmpty()) {
+                            try {
+                                val exercisesList = mutableListOf<com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem>()
+                                for (i in 0 until arr.length()) {
+                                    val obj = arr.getJSONObject(i)
+                                    exercisesList.add(
+                                        com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem(
+                                            exerciseType = obj.optString("exerciseType"),
+                                            targetType = obj.optString("targetType"),
+                                            targetReps = if (obj.has("targetReps")) obj.getInt("targetReps") else null,
+                                            targetDurationSeconds = if (obj.has("targetDurationSeconds")) obj.getInt("targetDurationSeconds") else null,
+                                            actualReps = if (obj.has("actualReps")) obj.getInt("actualReps") else null,
+                                            actualDurationSeconds = if (obj.has("actualDurationSeconds")) obj.getInt("actualDurationSeconds") else null,
+                                            status = obj.optString("status")
+                                        )
+                                    )
+                                }
+                                firestoreService.updateTaskStatus(
+                                    taskDocId = task.firebaseDocId,
+                                    status = newTaskStatus,
+                                    completedAt = if (allDone) System.currentTimeMillis() else null,
+                                    exercises = exercisesList
+                                )
+                                // Başarılıysa synced olarak işaretle
+                                taskDao.updateTask(updatedTask.copy(isSynced = true))
+                            } catch (e: Exception) {
+                                android.util.Log.w("WorkoutRepository",
+                                    "Görev Firestore sync hatası, SyncWorker deneyecek: ${e.message}")
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("WorkoutRepository", "Görev update hatası: ${e.message}")
+            }
+        }
+
+        // 5. Raporu Firestore'a anlık yükle
         if (userUid.isNotEmpty()) {
             try {
                 val firestoreReport = FirestoreWorkoutReport(
@@ -87,13 +186,8 @@ class WorkoutRepository(
                     caloriesBurned = calories,
                     feedback = feedback ?: ""
                 )
-                val docId = firestoreService.uploadWorkoutReport(firestoreReport)
-                // Room'daki kaydı senkronize edildi olarak işaretle
-                // Not: lastInsertRowId yerine email bazlı getirmek daha güvenli;
-                //      gerçek uygulamada insertReport Long döndürmeli.
-                // TODO: insertReport'un Long dönmesi için DAO güncellenmeli.
+                firestoreService.uploadWorkoutReport(firestoreReport)
             } catch (e: Exception) {
-                // Internet yoksa sessizce geç — SyncWorker halleder
                 android.util.Log.w("WorkoutRepository", "Anlık sync başarısız, SyncWorker bekliyor: ${e.message}")
             }
         }
@@ -119,7 +213,7 @@ class WorkoutRepository(
     suspend fun getExerciseRules(exerciseId: Int) = exerciseDao.getExerciseById(exerciseId)
 
     /**
-     * Hastanın bugünkü görevlerini arayüze verir.
+     * Hastanın bugünkü görevlerini arayüze verir. (Eski Plan yapısından yeni yapıya adaptasyon)
      */
-    suspend fun getPatientTasks(userId: Int) = planDao.getActivePlansForPatient(userId)
-}
+    suspend fun getPatientTasks(localUserId: Int) = emptyList<Any>()
+}

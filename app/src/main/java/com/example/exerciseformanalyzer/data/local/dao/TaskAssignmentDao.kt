@@ -22,13 +22,26 @@ interface TaskAssignmentDao {
     @Update
     suspend fun updateTask(task: TaskAssignmentEntity)
 
+    @Query("SELECT * FROM task_assignments WHERE firebaseDocId = :docId LIMIT 1")
+    suspend fun getTaskByFirebaseDocId(docId: String): TaskAssignmentEntity?
+
+    @Query("SELECT * FROM task_assignments WHERE id = :taskId LIMIT 1")
+    suspend fun getTaskById(taskId: Int): TaskAssignmentEntity?
+
+    @Query("SELECT * FROM task_assignments WHERE patientUid = :patientUid AND (status = 'PENDING' OR status = 'IN_PROGRESS')")
+    suspend fun getPendingTasksForPatientSync(patientUid: String): List<TaskAssignmentEntity>
+
     // Hastanın bekleyen aktif görevlerini listele — PatientDashboardScreen
-    @Query("SELECT * FROM task_assignments WHERE patientUid = :patientUid AND status = 'PENDING' ORDER BY dueDate ASC")
+    @Query("SELECT * FROM task_assignments WHERE patientUid = :patientUid AND (status = 'PENDING' OR status = 'IN_PROGRESS') ORDER BY dueDate ASC")
     fun observePendingTasksForPatient(patientUid: String): Flow<List<TaskAssignmentEntity>>
 
     // Hastanın tüm görevlerini getir (tamamlananlar dahil — geçmiş için)
     @Query("SELECT * FROM task_assignments WHERE patientUid = :patientUid ORDER BY dueDate DESC")
     fun observeAllTasksForPatient(patientUid: String): Flow<List<TaskAssignmentEntity>>
+
+    // Uzman ekranında verilen tüm görevlerin durumunu izlemek için
+    @Query("SELECT * FROM task_assignments WHERE expertUid = :expertUid ORDER BY dueDate DESC")
+    fun observeTasksByExpert(expertUid: String): Flow<List<TaskAssignmentEntity>>
 
     // TaskMarkMissedWorker bu sorguyu periyodik olarak çalıştırır:
     // Süresi geçmiş ama hâlâ PENDING olan görevleri bul

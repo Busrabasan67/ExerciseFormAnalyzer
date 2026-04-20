@@ -128,7 +128,9 @@ class AuthRepository(
     // --- PRIVATE ---
 
     private suspend fun cacheUserLocally(uid: String, profile: FirestoreUser) {
+        val existing = userDao.getUserByUid(uid)
         val entity = UserEntity(
+            id = existing?.id ?: 0,
             uid = uid,
             fullName = profile.fullName,
             email = profile.email,

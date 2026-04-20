@@ -17,6 +17,7 @@ import com.example.exerciseformanalyzer.ui.auth.RegisterScreen
 import com.example.exerciseformanalyzer.ui.dashboard.DashboardViewModel
 import com.example.exerciseformanalyzer.ui.dashboard.ExpertDashboardScreen
 import com.example.exerciseformanalyzer.ui.dashboard.PatientDashboardScreen
+import com.example.exerciseformanalyzer.ui.dashboard.TaskExerciseStartParams
 import com.example.exerciseformanalyzer.ui.group.GroupListScreen
 import com.example.exerciseformanalyzer.ui.group.GroupViewModel
 import com.example.exerciseformanalyzer.ui.history.HistoryScreen
@@ -75,7 +76,27 @@ fun AppNavigation(
         composable(Route.PatientDashboard.name) {
             PatientDashboardScreen(
                 viewModel = dashboardViewModel,
-                onNavigateToCamera = { navController.navigate(Route.ExerciseSelect.name) },
+                onNavigateToCamera = { exerciseType ->
+                    // Serbest egzersiz (FAB butonu)
+                    if (exerciseType != null) {
+                        mainViewModel.setTargetExercise(exerciseType, taskContext = null)
+                        navController.navigate(Route.Camera.name)
+                    } else {
+                        navController.navigate(Route.ExerciseSelect.name)
+                    }
+                },
+                onNavigateToTaskExercise = { params ->
+                    // Görev bağlamlı egzersiz — taskId + index ile kesin eşleşme garantisi
+                    val ctx = MainViewModel.TaskContext(
+                        taskId = params.taskId,
+                        exerciseIndex = params.exerciseIndex,
+                        targetType = params.targetType,
+                        targetReps = params.targetReps,
+                        targetDurationSeconds = params.targetDurationSeconds
+                    )
+                    mainViewModel.setTargetExercise(params.exerciseType, taskContext = ctx)
+                    navController.navigate(Route.Camera.name)
+                },
                 onNavigateToProfile = { navController.navigate(Route.Profile.name) },
                 onNavigateToGroups = { navController.navigate(Route.Groups.name) },
                 onLogout = {

@@ -28,6 +28,23 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    fun checkAutoLogin() {
+        if (_uiState.value != AuthUiState.Idle) return
+        
+        val uid = authRepository.currentUid
+        if (uid != null && authRepository.isLoggedIn) {
+            _uiState.value = AuthUiState.Loading
+            viewModelScope.launch {
+                authRepository.syncUserProfileFromFirestore(uid) // Pulls safely
+                userRepository.observeCurrentUser(uid).collect { user ->
+                    if (user != null) {
+                        _uiState.value = AuthUiState.Success(uid, user.role.uppercase())
+                    }
+                }
+            }
+        }
+    }
+
     // Login process
     fun login(email: String, pass: String) {
         if (email.isBlank() || pass.isBlank()) {
@@ -42,7 +59,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     // Start observing the DB to get the user role
                     userRepository.observeCurrentUser(result.data.uid).collect { user ->
                         if (user != null) {
-                            _uiState.value = AuthUiState.Success(result.data.uid, user.role)
+                            _uiState.value = AuthUiState.Success(result.data.uid, user.role.uppercase())
                         }
                     }
                 }
@@ -65,7 +82,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             when (val result = authRepository.registerWithEmail(fullName, email, pass, role)) {
                 is AuthResult.Success -> {
-                    _uiState.value = AuthUiState.Success(result.data.uid, role)
+                    _uiState.value = AuthUiState.Success(result.data.uid, role.uppercase())
                 }
                 is AuthResult.Error -> {
                     _uiState.value = AuthUiState.Error(result.message)

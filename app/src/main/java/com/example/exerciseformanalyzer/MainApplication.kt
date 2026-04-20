@@ -44,7 +44,7 @@ class MainApplication : Application() {
     val workoutRepository by lazy {
         WorkoutRepository(
             reportDao = database.workoutReportDao(),
-            planDao = database.workoutPlanDao(),
+            taskDao = database.taskAssignmentDao(),
             exerciseDao = database.exerciseDao(),
             userDao = database.userDao(),
             firestoreService = firestoreService
