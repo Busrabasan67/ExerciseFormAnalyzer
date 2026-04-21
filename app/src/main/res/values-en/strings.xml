@@ -83,4 +83,11 @@
     <string name="score_label">Score</string>
     <string name="medical_history_label">Medical History</string>
     <string name="none_label">None</string>
+
+    <!-- Persistence & Dialogs -->
+    <string name="remember_me">Remember Me</string>
+    <string name="logout_confirm_title">Sign Out</string>
+    <string name="logout_confirm_message">Are you sure you want to sign out?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
 </resources>

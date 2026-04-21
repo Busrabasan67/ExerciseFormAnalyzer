@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import org.json.JSONArray
 import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.ui.MainViewModel
+import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
 
 // Görev bağlamlı egzersiz başlatma için callback parametresi.
 // taskId + exerciseIndex kesin eşleşme için zorunlu; exerciseType kamera ekranı için.
@@ -44,6 +45,8 @@ fun PatientDashboardScreen(
     val currentUser by viewModel.observeCurrentUser().collectAsState(initial = null)
     val tasks by viewModel.observeMyTasks().collectAsState(initial = emptyList())
     val reports by viewModel.observeMyReports().collectAsState(initial = emptyList())
+    val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
+
 
     LaunchedEffect(currentUser?.expertUid) {
         viewModel.syncPatientData(currentUser?.expertUid)
@@ -68,7 +71,9 @@ fun PatientDashboardScreen(
                         )
                     }
                     TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
-                    TextButton(onClick = onLogout) { Text(stringResource(R.string.logout)) }
+                    TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 
+                        Text(stringResource(R.string.logout)) 
+                    }
                 }
             )
         },
@@ -170,6 +175,16 @@ fun PatientDashboardScreen(
                     }
                 }
             }
+        }
+
+        if (showLogoutDialog) {
+            LogoutConfirmationDialog(
+                onConfirm = {
+                    viewModel.setShowLogoutDialog(false)
+                    onLogout()
+                },
+                onDismiss = { viewModel.setShowLogoutDialog(false) }
+            )
         }
     }
 }

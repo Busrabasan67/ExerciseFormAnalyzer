@@ -83,4 +83,11 @@
     <string name="score_label">Skor</string>
     <string name="medical_history_label">Hastalık Öyküsü</string>
     <string name="none_label">Yok</string>
+
+    <!-- Persistence & Dialogs -->
+    <string name="remember_me">Beni Hatırla</string>
+    <string name="logout_confirm_title">Çıkış Yap</string>
+    <string name="logout_confirm_message">Çıkış yapmak istediğinizden emin misiniz?</string>
+    <string name="yes">Evet</string>
+    <string name="no">Hayır</string>
 </resources>

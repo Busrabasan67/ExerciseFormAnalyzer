@@ -86,7 +86,20 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
-            Spacer(modifier = Modifier.height(24.dp))
+            var rememberMe by remember { mutableStateOf(false) }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = rememberMe,
+                    onCheckedChange = { rememberMe = it }
+                )
+                Text(text = stringResource(R.string.remember_me))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (uiState is AuthUiState.Error) {
                 Text(
@@ -97,7 +110,7 @@ fun LoginScreen(
             }
 
             Button(
-                onClick = { viewModel.login(email, password) },
+                onClick = { viewModel.login(email, password, rememberMe) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = uiState !is AuthUiState.Loading
             ) {

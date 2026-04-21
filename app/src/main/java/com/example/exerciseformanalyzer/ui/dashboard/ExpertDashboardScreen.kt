@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Add
 import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.ui.dashboard.components.AssignTaskDialog
+import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
 import org.json.JSONArray
 import java.util.Calendar
 
@@ -35,6 +36,8 @@ fun ExpertDashboardScreen(
     
     val searchResult by viewModel.searchResult.collectAsState()
     val searchError by viewModel.searchError.collectAsState()
+    val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
+
     
     var searchQuery by remember { mutableStateOf("") }
     var selectedPatientForTask by remember { mutableStateOf<String?>(null) }
@@ -49,7 +52,9 @@ fun ExpertDashboardScreen(
                 title = { Text(stringResource(R.string.expert_dashboard_title)) },
                 actions = {
                     TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
-                    TextButton(onClick = onLogout) { Text(stringResource(R.string.logout)) }
+                    TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 
+                        Text(stringResource(R.string.logout)) 
+                    }
                 }
             )
         }
@@ -185,6 +190,16 @@ fun ExpertDashboardScreen(
                     viewModel.assignTask(selectedPatientForTask!!, title, note, dueDate, exercises)
                     selectedPatientForTask = null
                 }
+            )
+        }
+
+        if (showLogoutDialog) {
+            LogoutConfirmationDialog(
+                onConfirm = {
+                    viewModel.setShowLogoutDialog(false)
+                    onLogout()
+                },
+                onDismiss = { viewModel.setShowLogoutDialog(false) }
             )
         }
     }

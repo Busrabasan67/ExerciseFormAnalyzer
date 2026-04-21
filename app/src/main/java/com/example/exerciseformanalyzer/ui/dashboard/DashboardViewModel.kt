@@ -67,6 +67,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _searchError = MutableStateFlow<String?>(null)
     val searchError: StateFlow<String?> = _searchError.asStateFlow()
 
+    private val _showLogoutDialog = MutableStateFlow(false)
+    val showLogoutDialog: StateFlow<Boolean> = _showLogoutDialog.asStateFlow()
+
+    fun setShowLogoutDialog(show: Boolean) {
+        _showLogoutDialog.value = show
+    }
+
     fun searchPatient(email: String) {
         viewModelScope.launch(Dispatchers.IO) {
             _searchError.value = null
