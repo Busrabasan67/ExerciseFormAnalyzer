@@ -12,6 +12,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -31,6 +32,8 @@ class UserPreferencesRepository(private val context: Context) {
         val LANGUAGE_KEY = stringPreferencesKey("language")    // "tr" | "en"
         val CURRENT_USER_UID_KEY = stringPreferencesKey("current_uid") // Hızlı erişim için
         val CURRENT_USER_ROLE_KEY = stringPreferencesKey("current_role")
+        val REMEMBER_ME_KEY = booleanPreferencesKey("remember_me")
+        val LOGIN_TIMESTAMP_KEY = longPreferencesKey("login_timestamp")
     }
 
     // =========================================================
@@ -76,11 +79,21 @@ class UserPreferencesRepository(private val context: Context) {
         prefs[CURRENT_USER_ROLE_KEY] ?: ""
     }
 
-    suspend fun saveUserSession(uid: String, role: String) {
+    suspend fun saveUserSession(uid: String, role: String, rememberMe: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[CURRENT_USER_UID_KEY] = uid
             prefs[CURRENT_USER_ROLE_KEY] = role
+            prefs[REMEMBER_ME_KEY] = rememberMe
+            prefs[LOGIN_TIMESTAMP_KEY] = System.currentTimeMillis()
         }
+    }
+
+    val rememberMe: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[REMEMBER_ME_KEY] ?: false
+    }
+
+    val loginTimestamp: Flow<Long> = context.dataStore.data.map { prefs ->
+        prefs[LOGIN_TIMESTAMP_KEY] ?: 0L
     }
 
     /** Çıkış yapıldığında UID ve rol'ü temizle */
@@ -88,6 +101,8 @@ class UserPreferencesRepository(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs.remove(CURRENT_USER_UID_KEY)
             prefs.remove(CURRENT_USER_ROLE_KEY)
+            prefs.remove(REMEMBER_ME_KEY)
+            prefs.remove(LOGIN_TIMESTAMP_KEY)
         }
     }
 }
