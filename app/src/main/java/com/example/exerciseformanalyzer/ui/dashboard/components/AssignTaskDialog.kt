@@ -18,10 +18,16 @@ import java.util.Calendar
 @Composable
 fun AssignTaskDialog(
     onDismissRequest: () -> Unit,
-    onAssignTask: (title: String, note: String, dueDate: Long, exercises: List<TaskExerciseInput>) -> Unit
+    onAssignTask: (title: String, note: String, dueDate: Long, exercises: List<TaskExerciseInput>, sched: String, days: List<Int>, auto: Boolean, weeks: Int?) -> Unit
 ) {
     var title by remember { mutableStateOf("Haftalık Antrenman") }
     var note by remember { mutableStateOf("") }
+    
+    // Eksik alanlar için stateler eklendi
+    var sched by remember { mutableStateOf("DAILY") }
+    var days by remember { mutableStateOf(emptyList<Int>()) }
+    var auto by remember { mutableStateOf(false) }
+    var weeks by remember { mutableStateOf<Int?>(null) }
     
     // Default task list with 1 item
     val exercises = remember { mutableStateListOf(TaskExerciseInput()) }
@@ -80,7 +86,7 @@ fun AssignTaskDialog(
                     exercises.any { it.targetValue.toIntOrNull() == null || (it.targetValue.toIntOrNull() ?: 0) <= 0 } -> 
                         showError = "Tüm hedefler 0'dan büyük bir sayı olmalıdır."
                     else -> {
-                        onAssignTask(title, note, c.timeInMillis, exercises.toList())
+                        onAssignTask(title, note, c.timeInMillis, exercises.toList(), sched, days, auto, weeks)
                     }
                 }
             }) {
