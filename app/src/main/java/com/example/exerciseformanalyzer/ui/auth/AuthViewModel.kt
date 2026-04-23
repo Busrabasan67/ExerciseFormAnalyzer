@@ -25,6 +25,7 @@ sealed class AuthUiState {
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val authRepository: AuthRepository = (application as MainApplication).authRepository
+    val currentUid: String? get() = authRepository.currentUid
     private val userRepository: UserRepository = (application as MainApplication).userRepository
     private val userPrefs: com.example.exerciseformanalyzer.data.preferences.UserPreferencesRepository = (application as MainApplication).userPreferencesRepository
 

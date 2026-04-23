@@ -15,6 +15,9 @@ interface UserDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity): Long
 
+    @Query("UPDATE users SET xp = :xp, level = :level, streak = :streak, lastExerciseDate = :lastDate WHERE uid = :uid")
+    suspend fun updateUserGamification(uid: String, xp: Int, level: Int, streak: Int, lastDate: String)
+
     // Kullanıcı profili güncellendiğinde (profil düzenleme ekranı)
     @Update
     suspend fun updateUser(user: UserEntity)

@@ -147,4 +147,10 @@ dependencies {
 
     // Compose Navigation — Ekranlar arası geçiş (Login → Dashboard → Kamera)
     implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // --- GRAFİKLER ---
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+    // --- BİLDİRİMLER (FCM) ---
+    implementation("com.google.firebase:firebase-messaging-ktx")
 }

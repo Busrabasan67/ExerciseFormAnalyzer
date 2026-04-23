@@ -54,7 +54,11 @@ class PlanRepository(
         title: String,
         note: String,
         dueDate: Long,
-        exercises: List<com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem>
+        exercises: List<com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem>,
+        scheduleType: String = "DAILY",
+        daysOfWeek: List<Int> = emptyList(),
+        autoRepeat: Boolean = false,
+        repeatDurationWeeks: Int? = null
     ): Result<Unit> {
         return try {
             // JSON stringine çevir
@@ -67,10 +71,16 @@ class PlanRepository(
                 if (ex.targetDurationSeconds != null) obj.put("targetDurationSeconds", ex.targetDurationSeconds)
                 if (ex.actualReps != null) obj.put("actualReps", ex.actualReps)
                 if (ex.actualDurationSeconds != null) obj.put("actualDurationSeconds", ex.actualDurationSeconds)
+                obj.put("sets", ex.sets)
+                obj.put("restTimeSeconds", ex.restTimeSeconds)
+                obj.put("difficulty", ex.difficulty)
+                obj.put("category", ex.category)
+                if (ex.videoUrl != null) obj.put("videoUrl", ex.videoUrl)
                 obj.put("status", ex.status)
                 jsonArray.put(obj)
             }
             val exercisesJson = jsonArray.toString()
+            val daysOfWeekJson = org.json.JSONArray(daysOfWeek).toString()
 
             val localTask = TaskAssignmentEntity(
                 patientUid = patientUid,
@@ -78,6 +88,10 @@ class PlanRepository(
                 title = title,
                 note = note,
                 dueDate = dueDate,
+                scheduleType = scheduleType,
+                daysOfWeekJson = daysOfWeekJson,
+                autoRepeat = autoRepeat,
+                repeatDurationWeeks = repeatDurationWeeks,
                 status = TaskStatus.PENDING.name,
                 exercisesJson = exercisesJson,
                 isSynced = false
@@ -91,6 +105,10 @@ class PlanRepository(
                     title = title,
                     note = note,
                     dueDate = dueDate,
+                    scheduleType = scheduleType,
+                    daysOfWeek = daysOfWeek,
+                    autoRepeat = autoRepeat,
+                    repeatDurationWeeks = repeatDurationWeeks,
                     status = TaskStatus.PENDING.name,
                     exercises = exercises
                 )
@@ -149,10 +167,16 @@ class PlanRepository(
                     if (ex.targetDurationSeconds != null) obj.put("targetDurationSeconds", ex.targetDurationSeconds)
                     if (ex.actualReps != null) obj.put("actualReps", ex.actualReps)
                     if (ex.actualDurationSeconds != null) obj.put("actualDurationSeconds", ex.actualDurationSeconds)
+                    obj.put("sets", ex.sets)
+                    obj.put("restTimeSeconds", ex.restTimeSeconds)
+                    obj.put("difficulty", ex.difficulty)
+                    obj.put("category", ex.category)
+                    if (ex.videoUrl != null) obj.put("videoUrl", ex.videoUrl)
                     obj.put("status", ex.status)
                     jsonArray.put(obj)
                 }
                 val exJson = jsonArray.toString()
+                val daysOfWeekJson = org.json.JSONArray(fsTask.daysOfWeek).toString()
 
                 if (existingTask != null) {
                     if (!existingTask.isSynced) {
@@ -165,6 +189,10 @@ class PlanRepository(
                         note = fsTask.note,
                         status = fsTask.status,
                         dueDate = fsTask.dueDate,
+                        scheduleType = fsTask.scheduleType,
+                        daysOfWeekJson = daysOfWeekJson,
+                        autoRepeat = fsTask.autoRepeat,
+                        repeatDurationWeeks = fsTask.repeatDurationWeeks,
                         exercisesJson = exJson
                     )
                     taskDao.updateTask(updated)
@@ -176,8 +204,12 @@ class PlanRepository(
                         expertUid = fsTask.expertId,
                         title = fsTask.title,
                         note = fsTask.note,
-                        dueDate = fsTask.dueDate,
                         status = fsTask.status,
+                        dueDate = fsTask.dueDate,
+                        scheduleType = fsTask.scheduleType,
+                        daysOfWeekJson = daysOfWeekJson,
+                        autoRepeat = fsTask.autoRepeat,
+                        repeatDurationWeeks = fsTask.repeatDurationWeeks,
                         exercisesJson = exJson,
                         isSynced = true
                     )

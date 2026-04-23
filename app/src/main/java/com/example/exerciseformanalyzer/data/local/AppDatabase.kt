@@ -25,9 +25,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TaskAssignmentEntity::class,
         GroupEntity::class,
         GroupMemberEntity::class,
-        ExerciseSessionEntity::class  // YENİ — oturum meta verisi
+        ExerciseSessionEntity::class,
+        BadgeEntity::class,
+        UserBadgeProgressEntity::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -42,6 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
 
     // Yeni DAO
     abstract fun exerciseSessionDao(): ExerciseSessionDao
+    abstract fun badgeDao(): BadgeDao
 
     companion object {
         @Volatile

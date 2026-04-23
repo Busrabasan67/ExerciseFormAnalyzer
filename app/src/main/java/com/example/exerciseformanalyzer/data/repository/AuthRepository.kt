@@ -29,7 +29,9 @@ class AuthRepository(
 
     // Şu an giriş yapmış kullanıcının UID'si
     val currentUid: String? get() = authService.currentUid
+    val currentUserEmail: String? get() = authService.currentUser?.email
     val isLoggedIn: Boolean get() = authService.isLoggedIn()
+    val isEmailVerified: Boolean get() = authService.currentUser?.isEmailVerified == true
 
     /**
      * Email ve şifre ile yeni kayıt.

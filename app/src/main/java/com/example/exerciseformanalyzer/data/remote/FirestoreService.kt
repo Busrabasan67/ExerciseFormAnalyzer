@@ -9,6 +9,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.firestore.ktx.toObject
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.firestore.AggregateSource
 import kotlinx.coroutines.tasks.await
 
 class FirestoreService {
@@ -22,6 +23,9 @@ class FirestoreService {
         const val TASK_ASSIGNMENTS= "task_assignments"
         const val GROUPS          = "groups"
         const val GROUP_MEMBERS   = "group_members"
+        const val GROUP_INVITES   = "group_invites"
+        const val CONNECTION_REQUESTS = "connection_requests"
+        const val GROUP_JOIN_REQUESTS = "group_join_requests"
     }
 
     // =====================================================================
@@ -128,10 +132,210 @@ class FirestoreService {
 
     /** Kullanıcıyı gruptan çıkar. */
     suspend fun leaveGroup(groupDocId: String, userUid: String) {
-        db.collection(GROUP_MEMBERS)
+        val snapshot = db.collection(GROUP_MEMBERS)
             .whereEqualTo("groupId", groupDocId)
             .whereEqualTo("userId", userUid)
             .get().await()
-            .documents.forEach { it.reference.delete().await() }
+            
+        for (doc in snapshot.documents) {
+            doc.reference.delete().await()
+        }
+    }
+
+    /** Keşfedilebilir grupları listeler. */
+    suspend fun getExploreGroups(): List<Pair<String, FirestoreGroup>> {
+        return db.collection(GROUPS)
+            .limit(100)
+            .get().await()
+            .documents.mapNotNull { doc ->
+                val model = doc.toObject<FirestoreGroup>() ?: return@mapNotNull null
+                Pair(doc.id, model)
+            }
+    }
+
+    /** Bir gruba davet gönderir. */
+    suspend fun sendGroupInvite(invite: FirestoreGroupInvite): String {
+        return db.collection(GROUP_INVITES).add(invite).await().id
+    }
+
+    /** Kullanıcıya gelen bekleyen grup davetlerini getir. */
+    suspend fun getInvitesForUser(userId: String): List<Pair<String, FirestoreGroupInvite>> {
+        return db.collection(GROUP_INVITES)
+            .whereEqualTo("toUserId", userId)
+            .whereEqualTo("status", "PENDING")
+            .get().await()
+            .documents.mapNotNull { doc ->
+                val model = doc.toObject<FirestoreGroupInvite>() ?: return@mapNotNull null
+                Pair(doc.id, model)
+            }
+    }
+
+    /** E-posta ile kullanıcı ara (Davet için). */
+    suspend fun findAnyUserByEmail(email: String): FirestoreUser? {
+        return db.collection(USERS)
+            .whereEqualTo("email", email)
+            .limit(1)
+            .get().await()
+            .documents.firstOrNull()?.toObject<FirestoreUser>()
+    }
+
+    /** Davete cevap ver (ACCEPTED/REJECTED). */
+    suspend fun respondToGroupInvite(inviteId: String, status: String) {
+        db.collection(GROUP_INVITES).document(inviteId).update("status", status).await()
+    }
+
+    /** Katılma isteği gönder. */
+    suspend fun sendGroupJoinRequest(request: FirestoreGroupJoinRequest): String {
+        return db.collection(GROUP_JOIN_REQUESTS).add(request).await().id
+    }
+
+    /** Yönetici için grubun bekleyen katılım isteklerini getir. */
+    suspend fun getJoinRequestsForGroup(groupId: String): List<Pair<String, FirestoreGroupJoinRequest>> {
+        return db.collection(GROUP_JOIN_REQUESTS)
+            .whereEqualTo("groupId", groupId)
+            .whereEqualTo("status", "PENDING")
+            .get().await()
+            .documents.mapNotNull { doc ->
+                val model = doc.toObject<FirestoreGroupJoinRequest>() ?: return@mapNotNull null
+                Pair(doc.id, model)
+            }
+    }
+
+    /** Katılma isteğine cevap ver. */
+    suspend fun respondToGroupJoinRequest(requestId: String, status: String) {
+        db.collection(GROUP_JOIN_REQUESTS).document(requestId).update("status", status).await()
+    }
+
+    /** Grubun tüm üyelerini listele (Sıralama olmayan, tüm liste). */
+    suspend fun getGroupMembers(groupId: String): List<FirestoreGroupMember> {
+        return db.collection(GROUP_MEMBERS)
+            .whereEqualTo("groupId", groupId)
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestoreGroupMember>() }
+    }
+
+    // =====================================================================
+    // BAĞLANTI İSTEKLERİ
+    // =====================================================================
+
+    /** Bir uzmandan hastaya bağlantı isteği gönderir. */
+    suspend fun sendConnectionRequest(request: FirestoreConnectionRequest) {
+        db.collection(CONNECTION_REQUESTS).add(request).await()
+    }
+
+    /** Hastaya gelen bekleyen (PENDING) istekleri listele. */
+    suspend fun getPendingRequestsForPatient(patientEmail: String): List<Pair<String, FirestoreConnectionRequest>> {
+        return db.collection(CONNECTION_REQUESTS)
+            .whereEqualTo("toPatientEmail", patientEmail)
+            .whereEqualTo("status", "PENDING")
+            .get().await()
+            .documents.mapNotNull { doc ->
+                val model = doc.toObject<FirestoreConnectionRequest>() ?: return@mapNotNull null
+                Pair(doc.id, model)
+            }
+    }
+
+    /** İsteği güncelle (ACCEPTED / REJECTED). */
+    suspend fun updateRequestStatus(requestId: String, status: String) {
+        db.collection(CONNECTION_REQUESTS).document(requestId)
+            .update("status", status).await()
+    }
+    // =====================================================================
+    // SOSYAL VE OYUNLAŞTIRMA (FAZ 4)
+    // =====================================================================
+
+    /** Aktivite akışına yeni olay ekle. */
+    suspend fun createActivity(activity: FirestoreActivity): String {
+        return db.collection("activities").add(activity).await().id
+    }
+
+    /** Rozet ilerlemesini güncelle veya yeni oluştur. */
+    suspend fun updateBadgeProgress(userId: String, badgeId: String, progress: Int, isUnlocked: Boolean) {
+        val docId = "${userId}_$badgeId"
+        val data = mapOf(
+            "userId" to userId,
+            "badgeId" to badgeId,
+            "currentProgress" to progress,
+            "isUnlocked" to isUnlocked
+        )
+        db.collection("user_badges").document(docId).set(data, com.google.firebase.firestore.SetOptions.merge()).await()
+    }
+
+    /** Son aktiviteleri çek. */
+    suspend fun getRecentActivities(limit: Long = 20): List<FirestoreActivity> {
+        return db.collection("activities")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(limit)
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestoreActivity>() }
+    }
+
+    /** Liderlik tablosu: XP'ye göre sırala. */
+    suspend fun getGlobalLeaderboard(limit: Long = 50): List<FirestoreUser> {
+        return db.collection(USERS)
+            .whereEqualTo("role", "PATIENT")
+            .orderBy("xp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(limit)
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestoreUser>() }
+    }
+
+    /** Kullanıcının rozet ilerlemelerini çek. */
+    suspend fun getUserBadges(userId: String): List<FirestoreUserBadgeProgress> {
+        return db.collection("user_badges")
+            .whereEqualTo("userId", userId)
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestoreUserBadgeProgress>() }
+    }
+
+    // =====================================================================
+    // ADMIN FONKSİYONLARI (AGREGASYON)
+    // =====================================================================
+
+    /** Belirli bir roldeki toplam kullanıcı sayısını getir. */
+    suspend fun getUserCountByRole(role: String): Int {
+        return db.collection(USERS)
+            .whereEqualTo("role", role)
+            .count().get(AggregateSource.SERVER).await().count.toInt()
+    }
+
+    /** Bugünkü toplam antrenman sayısını getir. */
+    suspend fun getDailyWorkoutCount(): Int {
+        val startOfDay = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+        }.time
+        
+        return db.collection(WORKOUT_REPORTS)
+            .whereGreaterThanOrEqualTo("timestamp", startOfDay)
+            .count().get(AggregateSource.SERVER).await().count.toInt()
+    }
+
+    /** Toplam yakılan kalori miktarını (tüm zamanlar) topla. */
+    suspend fun getTotalCaloriesBurned(): Float {
+        // Firestore aggregate sum() şu an için sınırlı veya yeni.
+        // Prototip için tüm workout'ları çekmek pahalı olabilir ama örnek veri azsa sorun değil.
+        // Optimizasyon: Cloud Functions ile bir sayaç tutulabilir.
+        // Şimdilik basitleştirmek için son 1000 kaydı toplayalım.
+        return db.collection(WORKOUT_REPORTS)
+            .limit(1000)
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestoreWorkoutReport>() }
+            .sumOf { it.caloriesBurned.toDouble() }.toFloat()
+    }
+
+    /** Aktif (herkese açık) grup sayısını getir. */
+    suspend fun getActiveGroupCount(): Int {
+        return db.collection(GROUPS)
+            .count().get(AggregateSource.SERVER).await().count.toInt()
+    }
+
+    /** Sistemdeki tüm kullanıcıları listele (limitli). */
+    suspend fun getAllUsers(limit: Long = 100): List<FirestoreUser> {
+        return db.collection(USERS)
+            .limit(limit)
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestoreUser>() }
     }
 }

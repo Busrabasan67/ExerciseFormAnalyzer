@@ -27,6 +27,10 @@ data class TaskAssignmentEntity(
     val note: String = "",
 
     val dueDate: Long,
+    val scheduleType: String = "DAILY", // DAILY, WEEKLY, CUSTOM
+    val daysOfWeekJson: String = "[]", // List of Ints [1,3,5]
+    val autoRepeat: Boolean = false,
+    val repeatDurationWeeks: Int? = null,
 
     val status: String = TaskStatus.PENDING.name,
 

@@ -22,12 +22,14 @@ import com.example.exerciseformanalyzer.ui.group.GroupListScreen
 import com.example.exerciseformanalyzer.ui.group.GroupViewModel
 import com.example.exerciseformanalyzer.ui.history.HistoryScreen
 import com.example.exerciseformanalyzer.ui.profile.ProfileScreen
+import com.example.exerciseformanalyzer.ui.SplashScreen
 
 enum class Route {
-    Login, Register,
+    Splash, Login, Register,
     PatientDashboard, ExpertDashboard,
-    Profile, History, Groups,
-    ExerciseSelect, Camera
+    Profile, History, Groups, GroupDetail,
+    ExerciseSelect, Camera, PatientDetail,
+    AdminDashboard, SocialFeed, Leaderboard
 }
 
 @Composable
@@ -42,16 +44,38 @@ fun AppNavigation(
 
     NavHost(
         navController = navController,
-        startDestination = Route.Login.name,
+        startDestination = Route.Splash.name,
         modifier = modifier
     ) {
+        composable(Route.Splash.name) {
+            SplashScreen(
+                onTimeout = {
+                    val currentUid = authViewModel.currentUid
+                    if (currentUid != null) {
+                        // Kullanıcı zaten logun, direkt dashboard'a (Veya profil yüklenene kadar bekle)
+                        // Şimdilik default bir yönlendirme yapalım
+                        navController.navigate(Route.PatientDashboard.name) {
+                            popUpTo(Route.Splash.name) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(Route.Login.name) {
+                            popUpTo(Route.Splash.name) { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
         composable(Route.Login.name) {
             LoginScreen(
                 viewModel = authViewModel,
                 onNavigateToRegister = { navController.navigate(Route.Register.name) },
                 onLanguageChange = { lang -> mainViewModel.setLanguage(lang) },
                 onLoginSuccess = { role ->
-                    val target = if (role == "EXPERT") Route.ExpertDashboard.name else Route.PatientDashboard.name
+                    val target = when (role.uppercase()) {
+                        "ADMIN" -> Route.AdminDashboard.name
+                        "EXPERT" -> Route.ExpertDashboard.name
+                        else -> Route.PatientDashboard.name
+                    }
                     navController.navigate(target) {
                         popUpTo(Route.Login.name) { inclusive = true }
                     }
@@ -99,6 +123,8 @@ fun AppNavigation(
                 },
                 onNavigateToProfile = { navController.navigate(Route.Profile.name) },
                 onNavigateToGroups = { navController.navigate(Route.Groups.name) },
+                onNavigateToSocial = { navController.navigate(Route.SocialFeed.name) },
+                onNavigateToLeaderboard = { navController.navigate(Route.Leaderboard.name) },
                 onLogout = {
                     authViewModel.logout()
                     navController.navigate(Route.Login.name) {
@@ -112,12 +138,72 @@ fun AppNavigation(
             ExpertDashboardScreen(
                 viewModel = dashboardViewModel,
                 onNavigateToProfile = { navController.navigate(Route.Profile.name) },
+                onNavigateToPatientDetail = { uid -> navController.navigate("${Route.PatientDetail.name}/$uid") },
+                onNavigateToSocial = { navController.navigate(Route.SocialFeed.name) },
                 onLogout = {
                     authViewModel.logout()
                     navController.navigate(Route.Login.name) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable("${Route.PatientDetail.name}/{patientUid}") { backStackEntry ->
+            val uid = backStackEntry.arguments?.getString("patientUid") ?: ""
+            com.example.exerciseformanalyzer.ui.dashboard.PatientDetailScreen(
+                viewModel = dashboardViewModel,
+                patientUid = uid,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Route.AdminDashboard.name) {
+            com.example.exerciseformanalyzer.ui.admin.AdminDashboardScreen(
+                viewModel = dashboardViewModel,
+                onNavigateToCamera = { exerciseType ->
+                    if (exerciseType != null) {
+                        mainViewModel.setTargetExercise(exerciseType, taskContext = null)
+                        navController.navigate(Route.Camera.name)
+                    } else {
+                        navController.navigate(Route.ExerciseSelect.name)
+                    }
+                },
+                onNavigateToTaskExercise = { params ->
+                    val ctx = MainViewModel.TaskContext(
+                        taskId = params.taskId,
+                        exerciseIndex = params.exerciseIndex,
+                        targetType = params.targetType,
+                        targetReps = params.targetReps,
+                        targetDurationSeconds = params.targetDurationSeconds
+                    )
+                    mainViewModel.setTargetExercise(params.exerciseType, taskContext = ctx)
+                    navController.navigate(Route.Camera.name)
+                },
+                onNavigateToProfile = { navController.navigate(Route.Profile.name) },
+                onNavigateToGroups = { navController.navigate(Route.Groups.name) },
+                onNavigateToSocial = { navController.navigate(Route.SocialFeed.name) },
+                onNavigateToLeaderboard = { navController.navigate(Route.Leaderboard.name) },
+                onNavigateToPatientDetail = { uid -> navController.navigate("${Route.PatientDetail.name}/$uid") },
+                onLogout = {
+                    authViewModel.logout()
+                    navController.navigate(Route.Login.name) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Route.SocialFeed.name) {
+            com.example.exerciseformanalyzer.ui.social.SocialFeedScreen(
+                viewModel = dashboardViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Route.Leaderboard.name) {
+            com.example.exerciseformanalyzer.ui.social.LeaderboardScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -139,6 +225,23 @@ fun AppNavigation(
         composable(Route.Groups.name) {
             GroupListScreen(
                 viewModel = groupViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToDetail = { docId, name, desc, creatorId ->
+                    navController.navigate("${Route.GroupDetail.name}/$docId/$name/$desc/$creatorId")
+                }
+            )
+        }
+
+        composable("${Route.GroupDetail.name}/{docId}/{name}/{desc}/{creatorId}") { backStackEntry ->
+            val docId = backStackEntry.arguments?.getString("docId") ?: ""
+            val name = backStackEntry.arguments?.getString("name") ?: ""
+            val desc = backStackEntry.arguments?.getString("desc") ?: ""
+            val creatorId = backStackEntry.arguments?.getString("creatorId") ?: ""
+            com.example.exerciseformanalyzer.ui.group.GroupDetailScreen(
+                groupDocId = docId,
+                groupName = name,
+                groupDescription = desc,
+                creatorId = creatorId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

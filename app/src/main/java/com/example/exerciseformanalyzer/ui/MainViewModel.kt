@@ -21,6 +21,8 @@ import kotlinx.coroutines.channels.consumeEach
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import com.example.exerciseformanalyzer.R
+import android.speech.tts.TextToSpeech
+import java.util.Locale
 
 /**
  * Ana ekranın ViewModel'i — MVVM mimarisinin merkezi.
@@ -106,6 +108,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val analysisPipeline = AnalysisPipeline()
     private var poseLandmarkerHelper: PoseLandmarkerHelper? = null
 
+    // --- SESLİ ASİSTAN (FAZ 5) ---
+    private var textToSpeech: TextToSpeech? = null
+    private var isTtsReady = false
+    private var lastSpeechTime = 0L
+    private val motivationCooldown = 15000L // 15 saniyede bir motivasyon
+
     // Tek-ışçi frame kuyruğu — en fazla 8 kare bekletilir, dolunca en eskisi düşürülür
     private val frameChannel = Channel<PoseFrame>(capacity = 8, onUndeliveredElement = null)
     @Volatile private var lastProcessedTimestamp = -1L
@@ -115,7 +123,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         initPoseLandmarker()
+        initTextToSpeech()
         startAnalysisProcessor()
+    }
+
+    private fun initTextToSpeech() {
+        textToSpeech = TextToSpeech(getApplication()) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                isTtsReady = true
+                updateTtsLanguage(currentLanguage.value)
+                Log.d(TAG, "TTS Hazır.")
+            }
+        }
+    }
+
+    private fun updateTtsLanguage(langCode: String) {
+        val locale = if (langCode == "tr") Locale("tr", "TR") else Locale.US
+        textToSpeech?.language = locale
     }
 
     private fun initPoseLandmarker() {
@@ -168,6 +192,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                     _currentPoseFrame.value = poseFrame
                     _uiState.value = ExerciseUiState.Analyzing(safeResult)
+
+                    // Sesli Geri Bildirim Mantığı (Faz 5)
+                    handleVoiceFeedback(safeResult)
 
                     if (result.isPersonVisible && result.trackingQuality != TrackingQuality.LOST) {
                         totalAnalysisSamples++
@@ -322,10 +349,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         lastChannelTimestamp = -1L
     }
 
+    // --- SESLİ ASİSTAN YARDIMCI METODLAR (FAZ 5) ---
+
+    private fun handleVoiceFeedback(result: AnalysisResult) {
+        if (!isTtsReady || !_isSessionActive.value || _isPaused.value) return
+
+        val currentTime = System.currentTimeMillis()
+
+        // 1. Kritik Hata Bildirimi (Önce hata bildirilir)
+        if (!result.formFeedback.isCorrect && result.formFeedback.primaryError != null) {
+            // Hataları 5 saniyede bir bildir ki kullanıcıyı boğmasın
+            if (currentTime - lastSpeechTime > 5000) {
+                speak(result.formFeedback.primaryError!!)
+                return
+            }
+        }
+
+        // 2. Motivasyonel Bildirim (Eğer hata yoksa ve süre dolduysa)
+        if (currentTime - lastSpeechTime > motivationCooldown) {
+            val phrases = if (currentLanguage.value == "tr") {
+                listOf("Harika gidiyorsun!", "Böyle devam et!", "Zorlukları aşacaksın!", "Çok iyi form!", "Sıradaki tekarra odaklan!")
+            } else {
+                listOf("Keep going!", "Looking great!", "Excellent form!", "Stay focused!", "You can do this!")
+            }
+            speak(phrases.random())
+        }
+    }
+
+    private fun speak(text: String) {
+        if (isTtsReady) {
+            textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ExerciseFeedback")
+            lastSpeechTime = System.currentTimeMillis()
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         poseLandmarkerHelper?.close()
         poseLandmarkerHelper = null
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
         Log.d(TAG, "ViewModel temizlendi.")
     }
 }

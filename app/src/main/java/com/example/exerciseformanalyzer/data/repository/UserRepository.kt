@@ -50,7 +50,8 @@ class UserRepository(
                     ?: emptyList(),
                 isSmoker = updatedUser.isSmoker,
                 isDrinker = updatedUser.isDrinker,
-                expertId = updatedUser.expertUid ?: ""
+                expertId = updatedUser.expertUid ?: "",
+                status = updatedUser.status
             )
             firestoreService.saveUserProfile(uid, firestoreProfile)
 
@@ -94,9 +95,49 @@ class UserRepository(
                     isSmoker = patientProfile.isSmoker,
                     isDrinker = patientProfile.isDrinker,
                     expertUid = expertUid,
-                    isSynced = true
+                    isSynced = true,
+                    status = patientProfile.status
                 )
                 userDao.insertUser(entity)
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** BAĞLANTI İSTEKLERİ - YENİ MODÜL */
+
+    suspend fun sendConnectionRequest(patientEmail: String, fromExpert: UserEntity): Result<Unit> {
+        return try {
+            val request = com.example.exerciseformanalyzer.model.firestore.FirestoreConnectionRequest(
+                fromExpertId = fromExpert.uid,
+                fromExpertName = fromExpert.fullName,
+                toPatientEmail = patientEmail,
+                status = "PENDING"
+            )
+            firestoreService.sendConnectionRequest(request)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Hastaya gelen bekleyen istekleri Firestore'dan anlık çek. */
+    suspend fun getPendingRequests(patientEmail: String): List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreConnectionRequest>> {
+        return try {
+            firestoreService.getPendingRequestsForPatient(patientEmail)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /** İsteği yanıtla ve gerekirse bağı kur. */
+    suspend fun respondToConnectionRequest(requestId: String, status: String, patientUid: String, expertUid: String): Result<Unit> {
+        return try {
+            firestoreService.updateRequestStatus(requestId, status)
+            if (status == "ACCEPTED") {
+                linkPatientToExpert(patientUid, expertUid)
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -131,7 +172,8 @@ class UserRepository(
             isSmoker = profile.isSmoker,
             isDrinker = profile.isDrinker,
             expertUid = profile.expertId,
-            isSynced = true
+            isSynced = true,
+            status = profile.status
         )
         userDao.insertUser(entity)
     }
@@ -158,7 +200,8 @@ class UserRepository(
                     isSmoker = profile.isSmoker,
                     isDrinker = profile.isDrinker,
                     expertUid = profile.expertId, // = expertUid
-                    isSynced = true
+                    isSynced = true,
+                    status = profile.status
                 )
                 userDao.insertUser(entity)
             }
