@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,7 +40,7 @@ fun ProfileScreen(
                 title = { Text(stringResource(R.string.profile_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.back_button))
+                        Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.back_button))
                     }
                 }
             )
@@ -70,6 +71,51 @@ fun ProfileScreen(
                 Text("${stringResource(R.string.weight_label)}: ${u.weightKg ?: "-"} ${stringResource(R.string.kg_unit)}")
                 Spacer(modifier = Modifier.height(6.dp))
                 Text("${stringResource(R.string.height_label)}: ${u.heightCm ?: "-"} ${stringResource(R.string.cm_unit)}")
+
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // --- GAMIFICATION STATS (FAZ 4) ---
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Seviye", style = MaterialTheme.typography.labelSmall)
+                            Text("${u.level}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("XP", style = MaterialTheme.typography.labelSmall)
+                            Text("${u.xp}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Seri (Gün)", style = MaterialTheme.typography.labelSmall)
+                            Text("🔥 ${u.streak}", style = MaterialTheme.typography.headlineSmall, color = Color(0xFFFF5722))
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("Rozet İlerlemesi", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                val badges by viewModel.userBadges.collectAsState()
+                
+                if (badges.isEmpty()) {
+                    Text("Henüz rozet ilerlemesi yok", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                } else {
+                    badges.forEach { badge ->
+                        BadgeProgressItem(
+                            name = badge.badgeId, // For now use ID, could map to name if BadgeDefinitions exist
+                            current = badge.currentProgress,
+                            target = badge.targetValue
+                        )
+                    }
+                }
 
             } ?: run {
                 Text(stringResource(R.string.loading))
@@ -115,5 +161,22 @@ fun ProfileScreen(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun BadgeProgressItem(name: String, current: Int, target: Int) {
+    val progress = current.toFloat() / target
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(name, style = MaterialTheme.typography.bodyMedium)
+            Text("$current / $target", style = MaterialTheme.typography.bodySmall)
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = progress,
+            modifier = Modifier.fillMaxWidth().height(8.dp),
+            strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+        )
     }
 }

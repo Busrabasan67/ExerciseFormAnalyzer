@@ -5,6 +5,7 @@ import com.example.exerciseformanalyzer.data.local.entity.GroupEntity
 import com.example.exerciseformanalyzer.data.local.entity.GroupMemberEntity
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
 import com.example.exerciseformanalyzer.model.firestore.FirestoreGroup
+import com.example.exerciseformanalyzer.model.firestore.FirestoreGroupInvite
 import com.example.exerciseformanalyzer.model.firestore.FirestoreGroupMember
 import kotlinx.coroutines.flow.Flow
 
@@ -99,5 +100,80 @@ class GroupRepository(
         } catch (e: Exception) {
             // Offline — SyncWorker sonra halleder
         }
+    }
+
+    /** Keşfet sayfasında gösterilecek grupları çek (Public). */
+    suspend fun getExploreGroups(): List<Pair<String, FirestoreGroup>> {
+        return firestoreService.getExploreGroups()
+    }
+
+    /** Kullanıcının bekleyen davetlerini çek. */
+    suspend fun getMyInvites(userId: String): List<Pair<String, FirestoreGroupInvite>> {
+        return firestoreService.getInvitesForUser(userId)
+    }
+
+    /** Email ile kullanıcı bul (Davet göndermek için). */
+    suspend fun findUserForInvite(email: String): com.example.exerciseformanalyzer.model.firestore.FirestoreUser? {
+        return firestoreService.findAnyUserByEmail(email)
+    }
+
+    /** Davet gönder. */
+    suspend fun inviteToGroup(invite: FirestoreGroupInvite) {
+        firestoreService.sendGroupInvite(invite)
+    }
+
+    /** Daveti cevapla. Onaylanırsa gruba katıl. */
+    suspend fun respondToInvite(inviteId: String, invite: FirestoreGroupInvite, accept: Boolean) {
+        val status = if (accept) "ACCEPTED" else "REJECTED"
+        firestoreService.respondToGroupInvite(inviteId, status)
+        
+        if (accept) {
+            val memberEntity = GroupMemberEntity(
+                groupFirebaseDocId = invite.groupId,
+                userUid = invite.toUserId,
+                role = "MEMBER",
+                joinedAt = System.currentTimeMillis(),
+                isSynced = false
+            )
+            joinGroup(memberEntity, invite.groupId, invite.toUserId)
+        }
+    }
+
+    /** Katılma isteği gönder. */
+    suspend fun sendJoinRequest(request: com.example.exerciseformanalyzer.model.firestore.FirestoreGroupJoinRequest) {
+        firestoreService.sendGroupJoinRequest(request)
+    }
+
+    /** Bekleyen katılım isteklerini getir. */
+    suspend fun getPendingJoinRequests(groupId: String): List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreGroupJoinRequest>> {
+        return firestoreService.getJoinRequestsForGroup(groupId)
+    }
+
+    /** Katılma isteğine cevap ver. Onaylanırsa üyeyi ekle. */
+    suspend fun respondToJoinRequest(requestId: String, request: com.example.exerciseformanalyzer.model.firestore.FirestoreGroupJoinRequest, accept: Boolean) {
+        val status = if (accept) "ACCEPTED" else "REJECTED"
+        firestoreService.respondToGroupJoinRequest(requestId, status)
+
+        if (accept) {
+            val memberEntity = GroupMemberEntity(
+                groupFirebaseDocId = request.groupId,
+                userUid = request.userId,
+                role = "MEMBER",
+                joinedAt = System.currentTimeMillis(),
+                isSynced = false
+            )
+            joinGroup(memberEntity, request.groupId, request.userId)
+        }
+    }
+
+    /** Tüm üyeleri Firestore'dan çek (Ayrıntılı liste için). */
+    suspend fun getFirestoreMembers(groupId: String): List<FirestoreGroupMember> {
+        return firestoreService.getGroupMembers(groupId)
+    }
+
+    /** Üyeyi gruptan çıkar. */
+    suspend fun removeMember(groupId: String, userId: String) {
+        groupDao.removeMember(groupId, userId) // Yerelden sil
+        firestoreService.leaveGroup(groupId, userId) // Buluttan sil
     }
 }

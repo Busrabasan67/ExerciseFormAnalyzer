@@ -42,5 +42,17 @@ data class UserEntity(
     val expertUid: String? = null,
 
     // Senkronizasyon bayrağı: false = Firestore'a henüz yüklenmedi
-    val isSynced: Boolean = false
-)
+    val isSynced: Boolean = false,
+
+    // --- OYUNLAŞTIRMA VE SOSYAL (FAZ 4) ---
+    val xp: Int = 0,
+    val level: Int = 1,
+    val streak: Int = 0,
+    val lastExerciseDate: String? = null, // "yyyy-MM-dd"
+    val badgesJson: String? = null, // Kazanılan rozet ID'leri: ["badge_1", "badge_5"]
+    val xpMultiplier: Float = 1.0f, // Doktor/Admin tarafından değiştirilebilir zorluk
+    val fcmToken: String? = null,
+
+    // Kullanıcı durumu: "ACTIVE", "PASSIVE", "DELETED"
+    val status: String = "ACTIVE"
+)

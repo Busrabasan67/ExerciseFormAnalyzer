@@ -13,11 +13,14 @@ import androidx.compose.ui.unit.dp
 import com.example.exerciseformanalyzer.R
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Share
 import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.ui.dashboard.components.AssignTaskDialog
 import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
@@ -29,6 +32,8 @@ import java.util.Calendar
 fun ExpertDashboardScreen(
     viewModel: DashboardViewModel,
     onNavigateToProfile: () -> Unit,
+    onNavigateToPatientDetail: (String) -> Unit,
+    onNavigateToSocial: () -> Unit,
     onLogout: () -> Unit
 ) {
     val patients by viewModel.observeMyPatients().collectAsState(initial = emptyList())
@@ -37,10 +42,17 @@ fun ExpertDashboardScreen(
     val searchResult by viewModel.searchResult.collectAsState()
     val searchError by viewModel.searchError.collectAsState()
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
+    val requestStatus by viewModel.requestStatus.collectAsState()
 
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Hastalarım", "Görev Ata", "Takip")
     
     var searchQuery by remember { mutableStateOf("") }
-    var selectedPatientForTask by remember { mutableStateOf<String?>(null) }
+    
+    // Form state for Task Assignment
+    var assignmentPatientId by remember { mutableStateOf<String?>(null) }
+    var assignmentTitle by remember { mutableStateOf("") }
+    var assignmentNote by remember { mutableStateOf("") }
     
     LaunchedEffect(Unit) {
         viewModel.syncExpertData()
@@ -51,6 +63,9 @@ fun ExpertDashboardScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.expert_dashboard_title)) },
                 actions = {
+                    IconButton(onClick = onNavigateToSocial) { 
+                        Icon(imageVector = Icons.Default.Share, contentDescription = "Sosyal Feed") 
+                    }
                     TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
                     TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 
                         Text(stringResource(R.string.logout)) 
@@ -59,138 +74,182 @@ fun ExpertDashboardScreen(
             )
         }
     ) { paddingVals ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingVals)
-                .padding(16.dp)
-        ) {
-            item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text("Hasta E-posta Ara") },
-                    modifier = Modifier.fillMaxWidth(),
-                    trailingIcon = {
-                        IconButton(onClick = { viewModel.searchPatient(searchQuery) }) {
-                            Icon(Icons.Default.Search, contentDescription = "Ara")
-                        }
-                    }
-                )
-                if (!searchError.isNullOrEmpty()) {
-                    Text(text = searchError ?: "", color = MaterialTheme.colorScheme.error)
-                }
-                searchResult?.let { user ->
-                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column {
-                                Text(user.fullName, style = MaterialTheme.typography.titleMedium)
-                                Text(user.email, style = MaterialTheme.typography.bodySmall)
-                            }
-                            Button(onClick = { viewModel.linkPatient(user.uid) }) {
-                                Text("Ekle")
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(stringResource(R.string.patients_label), style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                if (patients.isEmpty()) {
-                    Text(stringResource(R.string.no_patients))
+        Column(modifier = Modifier.fillMaxSize().padding(paddingVals)) {
+            TabRow(selectedTabIndex = selectedTab) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(title) }
+                    )
                 }
             }
 
-            items(patients) { patient ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    elevation = CardDefaults.cardElevation(2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = patient.fullName, style = MaterialTheme.typography.bodyLarge)
-                        Text(text = "${stringResource(R.string.email_label)}: ${patient.email}", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = "${stringResource(R.string.medical_history_label)}: ${patient.diseasesJson ?: stringResource(R.string.none_label)}", 
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(onClick = { selectedPatientForTask = patient.uid }) {
-                            Text("Görev Ata")
-                        }
-                    }
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Text("Verilen Görev Takibi", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                if (tasks.isEmpty()) {
-                    Text("Henüz hiçbir görev atamadınız.", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-
-            items(tasks) { task ->
-                val targetPatient = patients.find { it.uid == task.patientUid }
-                val patientName = targetPatient?.fullName ?: "Bilinmeyen Hasta"
-
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    elevation = CardDefaults.cardElevation(2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "Hasta: $patientName", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                        Text(text = "Görev: ${if (task.title.isNotEmpty()) task.title else "Haftalık Antrenman"}", style = MaterialTheme.typography.bodyMedium)
-                        
-                        val parsedExercises = remember(task.exercisesJson) {
-                            val list = mutableListOf<Map<String, String>>()
-                            try {
-                                val arr = JSONArray(task.exercisesJson)
-                                for (i in 0 until arr.length()) {
-                                    val ex = arr.getJSONObject(i)
-                                    val name = ex.optString("exerciseType", "")
-                                    val status = ex.optString("status", "PENDING")
-                                    val progressStr = if (ex.optString("targetType") == "DURATION") {
-                                        "${ex.optInt("actualDurationSeconds", 0)} / ${ex.optInt("targetDurationSeconds")} Sn"
-                                    } else {
-                                        "${ex.optInt("actualReps", 0)} / ${ex.optInt("targetReps")} Tekrar"
+            when (selectedTab) {
+                0 -> {
+                    // PATIENTS LIST
+                    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                        item {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                label = { Text("Hasta E-posta Ara") },
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    IconButton(onClick = { viewModel.searchPatient(searchQuery) }) {
+                                        Icon(Icons.Default.Search, contentDescription = "Ara")
                                     }
-                                    list.add(mapOf("name" to name, "progress" to progressStr, "status" to status))
                                 }
-                            } catch(e: Exception) {}
-                            list
+                            )
+                            if (!searchError.isNullOrEmpty()) {
+                                Text(text = searchError ?: "", color = MaterialTheme.colorScheme.error)
+                            }
+                            searchResult?.let { user ->
+                                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                    Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(user.fullName, style = MaterialTheme.typography.titleMedium)
+                                            Text(user.email, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        Button(onClick = { viewModel.sendRequest(user.email) }) {
+                                            Text("İstek Gönder")
+                                        }
+                                    }
+                                }
+                            }
+                            if (requestStatus == "SUCCESS") {
+                                Text("İstek gönderildi.", color = MaterialTheme.colorScheme.primary)
+                                LaunchedEffect(Unit) {
+                                    kotlinx.coroutines.delay(3000)
+                                    viewModel.clearRequestStatus()
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(stringResource(R.string.patients_label), style = MaterialTheme.typography.titleLarge)
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
+                        items(patients) { patient ->
+                            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(patient.fullName, style = MaterialTheme.typography.titleMedium)
+                                    Text(patient.email, style = MaterialTheme.typography.bodyMedium)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(onClick = { 
+                                            assignmentPatientId = patient.uid
+                                            selectedTab = 1 
+                                        }, modifier = Modifier.weight(1f)) {
+                                            Text("Görev Ata")
+                                        }
+                                        OutlinedButton(onClick = { onNavigateToPatientDetail(patient.uid) }, modifier = Modifier.weight(1f)) {
+                                            Text("Detay")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                1 -> {
+                    // ASSIGN TASK FORM (Integrated logic)
+                    // For simplicity, we'll keep the AssignTaskDialog but maybe the user wants it inline?
+                    // "baştan yap" might mean a full screen form. 
+                    // Let's use the Dialog for now but triggered from a better place, 
+                    // OR move its contents here. Moving contents is better.
+                    
+                    if (patients.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                            Text("Önce bir hasta eklemelisiniz.")
+                        }
+                    } else {
+                        // Inline Task Assignment Form
+                        var selectedPatient by remember { mutableStateOf(patients.find { it.uid == assignmentPatientId } ?: patients[0]) }
                         
-                        Spacer(modifier = Modifier.height(4.dp))
-                        parsedExercises.forEach { exData ->
-                            val isCompleted = exData["status"] == "COMPLETED"
-                            val icon = if (isCompleted) "✅" else "⏳"
-                            Text(text = "$icon ${exData["name"]}: ${exData["progress"]}", style = MaterialTheme.typography.bodySmall)
+                        LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                            item {
+                                Text("Yeni Görev Oluştur", style = MaterialTheme.typography.titleLarge)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                Text("Hasta Seçin:", style = MaterialTheme.typography.labelLarge)
+                                // Simplified Patient Selector
+                                patients.forEach { p ->
+                                    Row(
+                                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                        modifier = Modifier.clickable { selectedPatient = p }
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp)
+                                    ) {
+                                        RadioButton(selected = selectedPatient.uid == p.uid, onClick = { selectedPatient = p })
+                                        Text(p.fullName)
+                                    }
+                                }
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                                OutlinedTextField(
+                                    value = assignmentTitle,
+                                    onValueChange = { assignmentTitle = it },
+                                    label = { Text("Görev Başlığı") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = assignmentNote,
+                                    onValueChange = { assignmentNote = it },
+                                    label = { Text("Not (Opsiyonel)") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(24.dp))
+                                
+                                Button(
+                                    onClick = { 
+                                        // Reuse existing Dialog logic but as a screen flow
+                                        assignmentPatientId = selectedPatient.uid
+                                        // Trigger the actual dialog for complex exercise selection or implement inline
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Egzersizleri Belirle ve Ata")
+                                }
+                                
+                                // Actually, let's keep the Dialog for the COMPLEX exercise selection 
+                                // but the ENTRY point is now more visible.
+                                if (assignmentPatientId != null && selectedTab == 1) {
+                                    AssignTaskDialog(
+                                        onDismissRequest = { assignmentPatientId = null },
+                                        onAssignTask = { title, note, dueDate, exercises, sched, days, auto, weeks ->
+                                            viewModel.assignTask(selectedPatient.uid, title, note, dueDate, exercises, sched, days, auto, weeks)
+                                            assignmentPatientId = null
+                                            selectedTab = 2 // Move to follow-up after success
+                                        }
+                                    )
+                                }
+                            }
                         }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-                        val finalStatusText = when(task.status) {
-                            "COMPLETED" -> "Tamamlandı"
-                            "IN_PROGRESS" -> "Devam Ediyor"
-                            "DONE" -> "Eski Format (Bitti)"
-                            "MISSED" -> "Kaçırıldı"
-                            else -> "Bekliyor"
+                    }
+                }
+                2 -> {
+                    // FOLLOW-UP
+                    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                        item {
+                            Text("Verilen Görevlerin Durumu", style = MaterialTheme.typography.titleLarge)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            if (tasks.isEmpty()) {
+                                Text("Henüz bir görev atamadınız.")
+                            }
                         }
-                        Text(text = "Genel Durum: $finalStatusText", style = MaterialTheme.typography.labelMedium)
+                        items(tasks) { task ->
+                            val pName = patients.find { it.uid == task.patientUid }?.fullName ?: "Bilinmeyen"
+                            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text("Hasta: $pName", color = MaterialTheme.colorScheme.primary)
+                                    Text("Başlık: ${task.title}")
+                                    Text("Durum: ${task.status}", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
                     }
                 }
             }
-        }
-        
-        if (selectedPatientForTask != null) {
-            AssignTaskDialog(
-                onDismissRequest = { selectedPatientForTask = null },
-                onAssignTask = { title, note, dueDate, exercises ->
-                    viewModel.assignTask(selectedPatientForTask!!, title, note, dueDate, exercises)
-                    selectedPatientForTask = null
-                }
-            )
         }
 
         if (showLogoutDialog) {

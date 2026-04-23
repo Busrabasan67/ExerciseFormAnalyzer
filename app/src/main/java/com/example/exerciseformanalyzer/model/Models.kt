@@ -179,6 +179,22 @@ enum class TrackingQuality {
     GOOD, FAIR, POOR, LOST
 }
 
+/** Liderlik tablosu zaman aralığı */
+enum class LeaderboardPeriod(val displayName: String) {
+    DAILY("Günlük"),
+    WEEKLY("Haftalık"),
+    MONTHLY("Aylık"),
+    ALL_TIME("Tüm Zamanlar"),
+    CUSTOM("Özel")
+}
+
+/** Liderlik tablosu ölçüm birimi */
+enum class LeaderboardMetric(val displayName: String) {
+    CALORIES("Kalori"),
+    XP("Puan (XP)"),
+    LEVEL("Seviye")
+}
+
 /** Egzersiz özeti modeli */
 data class WorkoutSummary(
     val exercise: ExerciseType,
@@ -187,4 +203,19 @@ data class WorkoutSummary(
     val accuracyPercentage: Int,
     val mostCommonError: String?,
     val caloriesBurned: Float = 0f
+)
+
+/** Kapsamlı İstatistik Modeli (Dashboard ve Analiz için) */
+data class WorkoutStats(
+    val dailyCalories: List<Pair<String, Float>> = emptyList(),
+    val scoreTrend: List<Pair<Float, Float>> = emptyList(), 
+    val completionStats: Map<String, Int> = emptyMap()
+)
+
+data class AdminSystemStats(
+    val totalUsers: Int = 0,
+    val totalExperts: Int = 0,
+    val dailyWorkouts: Int = 0,
+    val totalCalories: Float = 0f,
+    val activeGroups: Int = 0
 )

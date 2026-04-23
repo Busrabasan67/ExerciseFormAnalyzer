@@ -14,7 +14,10 @@ import com.example.exerciseformanalyzer.data.local.AppDatabase
 import com.example.exerciseformanalyzer.data.preferences.UserPreferencesRepository
 import com.example.exerciseformanalyzer.data.remote.FirebaseAuthService
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
+import com.example.exerciseformanalyzer.data.repository.AdminRepository
 import com.example.exerciseformanalyzer.data.repository.AuthRepository
+import com.example.exerciseformanalyzer.data.repository.GroupRepository
+import com.example.exerciseformanalyzer.data.repository.LeaderboardRepository
 import com.example.exerciseformanalyzer.data.repository.WorkoutRepository
 import com.example.exerciseformanalyzer.worker.SyncWorker
 import com.google.firebase.FirebaseApp
@@ -62,6 +65,25 @@ class MainApplication : Application() {
         com.example.exerciseformanalyzer.data.repository.PlanRepository(
             planDao = database.workoutPlanDao(),
             taskDao = database.taskAssignmentDao(),
+            firestoreService = firestoreService
+        )
+    }
+
+    val leaderboardRepository by lazy {
+        LeaderboardRepository(
+            firestoreService = firestoreService
+        )
+    }
+
+    val groupRepository by lazy {
+        GroupRepository(
+            groupDao = database.groupDao(),
+            firestoreService = firestoreService
+        )
+    }
+
+    val adminRepository by lazy {
+        AdminRepository(
             firestoreService = firestoreService
         )
     }

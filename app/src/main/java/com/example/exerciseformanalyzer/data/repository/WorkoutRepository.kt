@@ -62,6 +62,28 @@ class WorkoutRepository(
             durationSeconds = durationSeconds
         )
 
+        // 2.1 XP Hesapla (Faz 4)
+        val user = userDao.getUserByUid(userUid)
+        val multiplier = user?.xpMultiplier ?: 1.0f
+        val earnedXp = ((reps + (durationSeconds / 10).toInt()) * multiplier).toInt()
+        val totalXp = (user?.xp ?: 0) + earnedXp
+        
+        // Seviye hesapla (Sadeleşmiş: Her 1000 XP bir seviye)
+        val newLevel = (totalXp / 1000) + 1
+        
+        // Seri (Streak) Mantığı
+        val today = java.time.LocalDate.now().toString()
+        val lastDate = user?.lastExerciseDate
+        val newStreak = when {
+            lastDate == today -> user.streak
+            lastDate == java.time.LocalDate.now().minusDays(1).toString() -> user.streak + 1
+            else -> 1
+        }
+        
+        if (userUid.isNotEmpty()) {
+            userDao.updateUserGamification(userUid, totalXp, newLevel, newStreak, today)
+        }
+
         // 3. Room'a yaz — ÖNCE lokal, senkronizasyon sonra
         val report = WorkoutReportEntity(
             userId = localUserId,
@@ -187,6 +209,27 @@ class WorkoutRepository(
                     feedback = feedback ?: ""
                 )
                 firestoreService.uploadWorkoutReport(firestoreReport)
+
+                // 6. Sosyal Akışa Aktivite Ekle (Faz 4)
+                val activity = com.example.exerciseformanalyzer.model.firestore.FirestoreActivity(
+                    userId = userUid,
+                    userName = user?.fullName ?: "Kullanıcı",
+                    activityType = "WORKOUT",
+                    description = "${exerciseType.displayName} antrenmanını tamamladı!",
+                    statistics = mapOf(
+                        "calories" to "${calories.toInt()} kcal",
+                        "duration" to "${durationSeconds / 60}:${durationSeconds % 60}",
+                        "reps" to "$reps"
+                    )
+                )
+                firestoreService.createActivity(activity)
+
+                // 7. Rozet İlerlemesini Güncelle (Faz 4)
+                // Bu kısım normalde bir Worker veya özel bir Manager ile yapılmalı 
+                // ancak prototip için burada gerçekleştiriyoruz.
+                val badgeDao = (userDao as? com.example.exerciseformanalyzer.data.local.dao.UserDao)?.let { null } // DAO erişimi lazım
+                // Geçici olarak: Sadece rozet ilerlemesini logla veya Firestore'a gönder.
+                // Gerçek uygulamada BadgeManager.evaluate(userId, exerciseType, reps) çağrılır.
             } catch (e: Exception) {
                 android.util.Log.w("WorkoutRepository", "Anlık sync başarısız, SyncWorker bekliyor: ${e.message}")
             }
