@@ -29,7 +29,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BadgeEntity::class,
         UserBadgeProgressEntity::class
     ],
-    version = 6,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -86,6 +86,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE users ADD COLUMN firstName TEXT")
+                db.execSQL("ALTER TABLE users ADD COLUMN lastName TEXT")
+                db.execSQL("ALTER TABLE users ADD COLUMN diseaseInfo TEXT")
+                db.execSQL("ALTER TABLE users ADD COLUMN hasHernia INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE users ADD COLUMN hasMeniscus INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE users ADD COLUMN activityLevel TEXT")
+                db.execSQL("ALTER TABLE users ADD COLUMN goal TEXT")
+                db.execSQL("ALTER TABLE users ADD COLUMN painAreasJson TEXT")
+                db.execSQL("ALTER TABLE users ADD COLUMN exerciseLevel TEXT")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -93,7 +112,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "exercise_app_database"
                 )
-                .addMigrations(MIGRATION_3_4)
+                .addMigrations(MIGRATION_3_4, MIGRATION_6_7, MIGRATION_7_8)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

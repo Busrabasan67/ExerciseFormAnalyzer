@@ -147,6 +147,17 @@ fun ExerciseRow(
                 onValueChange = { onUpdate(item.copy(targetValue = it)) },
                 label = { Text(if (item.isDurationBased) "Süre (Saniye)" else "Tekrar Sayısı") }
             )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            OutlinedTextField(
+                value = item.sets.toString(),
+                onValueChange = {
+                    val s = it.toIntOrNull() ?: 1
+                    onUpdate(item.copy(sets = s))
+                },
+                label = { Text("Set Sayısı") }
+            )
         }
         
         IconButton(onClick = onRemove, modifier = Modifier.padding(start = 8.dp)) {

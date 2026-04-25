@@ -83,9 +83,16 @@ object CalorieCalculator {
         exerciseType: ExerciseType,
         weightKg: Float = 70f,
         durationSeconds: Long,
-        customMetValue: Float? = null   // ExerciseEntity'den gelirse override
+        reps: Int = 0,
+        customMetValue: Float? = null
     ): Float {
-        val met = customMetValue ?: defaultMet(exerciseType)
-        return calculate(met, weightKg, durationSeconds)
+        // Yeni basit mantık (USER talebi):
+        // tekrar bazlı: reps * 0.5
+        // süre bazlı: seconds * 0.1
+        return if (reps > 0) {
+            (reps * 0.5f)
+        } else {
+            (durationSeconds * 0.1f)
+        }
     }
 }

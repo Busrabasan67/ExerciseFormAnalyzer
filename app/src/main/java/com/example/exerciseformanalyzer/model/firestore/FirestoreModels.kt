@@ -25,6 +25,15 @@ data class FirestoreUser(
     val age: Int = 0,
     val weightKg: Float = 0f,
     val heightCm: Float = 0f,
+    val firstName: String = "",
+    val lastName: String = "",
+    val diseaseInfo: String = "",
+    val hasHernia: Boolean = false,
+    val hasMeniscus: Boolean = false,
+    val activityLevel: String = "medium",
+    val goal: String = "general_health",
+    val painAreas: List<String> = emptyList(),
+    val exerciseLevel: String = "beginner",
     val diseases: List<String> = emptyList(),  // ["meniscus", "hernia"]
     val isSmoker: Boolean = false,
     val isDrinker: Boolean = false,
@@ -70,6 +79,7 @@ data class FirestoreExerciseItem(
     val actualReps: Int? = null,
     val actualDurationSeconds: Int? = null,
     val sets: Int = 1,
+    val completedSets: Int = 0,
     val restTimeSeconds: Int = 30,
     val difficulty: String = "MEDIUM", // EASY, MEDIUM, HARD
     val category: String = "STRENGTH", // REHAB, STRENGTH, CARDIO

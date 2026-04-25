@@ -114,9 +114,11 @@ fun TaskPieChart(
         update = { chart ->
             val entries = stats.map { (status, count) ->
                 val label = when(status) {
-                    "DONE" -> "Tamamlandı"
+                    "COMPLETED", "DONE" -> "Tamamlandı"
+                    "IN_PROGRESS" -> "Devam Ediyor"
                     "MISSED" -> "Kaçırıldı"
-                    else -> "Bekliyor"
+                    "PENDING", "ASSIGNED" -> "Bekliyor"
+                    else -> status
                 }
                 PieEntry(count.toFloat(), label)
             }

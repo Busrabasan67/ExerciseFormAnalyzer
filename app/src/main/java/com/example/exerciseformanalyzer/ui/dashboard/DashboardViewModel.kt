@@ -31,6 +31,13 @@ import com.example.exerciseformanalyzer.model.AdminSystemStats
 
 enum class AdminPanelType { ADMIN, PATIENT, EXPERT }
 
+data class CategorizedTasks(
+    val pending: List<TaskAssignmentEntity> = emptyList(),
+    val ongoing: List<TaskAssignmentEntity> = emptyList(),
+    val completed: List<TaskAssignmentEntity> = emptyList()
+)
+
+
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
 
     private val authRepo = (application as MainApplication).authRepository
@@ -113,6 +120,47 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     ) { reports, tasks ->
         calculateStats(reports, tasks)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WorkoutStats())
+
+    val categorizedTasks: StateFlow<CategorizedTasks> = observeMyTasks()
+        .combine(MutableStateFlow(Unit)) { tasks, _ ->
+            categorizeTasks(tasks)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CategorizedTasks())
+
+    private fun categorizeTasks(tasks: List<TaskAssignmentEntity>): CategorizedTasks {
+        val pending = mutableListOf<TaskAssignmentEntity>()
+        val ongoing = mutableListOf<TaskAssignmentEntity>()
+        val completed = mutableListOf<TaskAssignmentEntity>()
+
+        tasks.forEach { task ->
+            try {
+                val arr = org.json.JSONArray(task.exercisesJson)
+                var anyProgress = false
+                var allDone = true
+
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val c = obj.optInt("completedSets", 0)
+                    val t = obj.optInt("sets", 1)
+                    if (c > 0) anyProgress = true
+                    if (c < t) allDone = false
+                }
+
+                when {
+                    allDone || task.status == "COMPLETED" || task.status == "DONE" -> completed.add(task)
+                    anyProgress -> ongoing.add(task)
+                    else -> pending.add(task)
+                }
+            } catch (e: Exception) {
+                // Fallback to basic status if JSON fails
+                when (task.status) {
+                    "DONE", "COMPLETED" -> completed.add(task)
+                    "IN_PROGRESS" -> ongoing.add(task)
+                    else -> pending.add(task)
+                }
+            }
+        }
+        return CategorizedTasks(pending, ongoing, completed)
+    }
 
     val isEmailVerified = authRepo.isEmailVerified
 
@@ -314,11 +362,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             }
         }
         
+        // En son 20 raporun skor trendi (kronolojik sıra için reversed)
         val scoreTrend = reports.take(20).reversed().mapIndexed { index, report ->
             index.toFloat() to report.score.toFloat()
         }
         
-        val completionStats = tasks.groupBy { it.status }.mapValues { it.value.size }
+        // Görev durumları - Dashboard kategorileri ile senkronize
+        val cat = categorizeTasks(tasks)
+        val completionStats = mapOf(
+            "PENDING" to cat.pending.size,
+            "IN_PROGRESS" to cat.ongoing.size,
+            "DONE" to cat.completed.size
+        )
         
         return WorkoutStats(
             dailyCalories = dailyMap.toList(),
@@ -345,6 +400,29 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun fetchAllUsers() {
         viewModelScope.launch {
             _allUsers.value = adminRepo.getAllUsers()
+        }
+    }
+
+    fun updateProfile(updatedUser: UserEntity, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = userRepo.updateProfile(updatedUser.uid, updatedUser)
+            onResult(result.isSuccess)
+        }
+    }
+
+    fun applyRecommendedPlan(plan: com.example.exerciseformanalyzer.domain.RecommendedPlan) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val uid = currentUid
+            if (uid.isNotEmpty()) {
+                planRepo.createTaskAssignment(
+                    expertUid = "SYSTEM", // Öneri sistemi tarafından atandı
+                    patientUid = uid,
+                    title = plan.title,
+                    note = plan.note,
+                    dueDate = System.currentTimeMillis() + 86400000, // Yarın
+                    exercises = plan.exercises
+                )
+            }
         }
     }
 }

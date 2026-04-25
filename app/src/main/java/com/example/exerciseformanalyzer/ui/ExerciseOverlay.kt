@@ -45,7 +45,11 @@ fun ExerciseOverlay(
     poseFrame: PoseFrame?,
     sessionDurationSec: Long = 0L,
     isPaused: Boolean = false,
+    isResting: Boolean = false,
+    restTimeLeft: Int = 0,
+    taskContext: MainViewModel.TaskContext? = null,
     onPauseToggle: () -> Unit = {},
+    onEndRest: () -> Unit = {},
     onEndWorkout: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -74,7 +78,11 @@ fun ExerciseOverlay(
                     result = uiState.result,
                     sessionDurationSec = sessionDurationSec,
                     isPaused = isPaused,
+                    isResting = isResting,
+                    restTimeLeft = restTimeLeft,
+                    taskContext = taskContext,
                     onPauseToggle = onPauseToggle,
+                    onEndRest = onEndRest,
                     onEndWorkout = onEndWorkout
                 )
             }
@@ -247,7 +255,11 @@ private fun AnalyzingOverlay(
     result: AnalysisResult,
     sessionDurationSec: Long,
     isPaused: Boolean,
+    isResting: Boolean,
+    restTimeLeft: Int,
+    taskContext: MainViewModel.TaskContext?,
     onPauseToggle: () -> Unit,
+    onEndRest: () -> Unit,
     onEndWorkout: () -> Unit
 ) {
     Box(Modifier.fillMaxSize()) {
@@ -260,6 +272,7 @@ private fun AnalyzingOverlay(
             isInFrame = result.isInFrame,
             sessionDurationSec = sessionDurationSec,
             isPaused = isPaused,
+            taskContext = taskContext,
             onPauseToggle = onPauseToggle,
             onEndWorkout = onEndWorkout,
             modifier = Modifier
@@ -267,8 +280,28 @@ private fun AnalyzingOverlay(
                 .padding(12.dp)
         )
 
+        // Dinlenme modu
+        if (isResting) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.8f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Set tamamlandı. Dinlenin.", color = ColorGoodForm, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(16.dp))
+                    Text("$restTimeLeft", color = Color.White, fontSize = 72.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("saniye", color = Color.LightGray, fontSize = 16.sp)
+                    Spacer(Modifier.height(32.dp))
+                    Button(onClick = onEndRest, colors = ButtonDefaults.buttonColors(containerColor = ColorNeutral)) {
+                        Text("Sonraki Sete Geç", fontSize = 16.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        } 
         // İşlem duraklatıldıysa ekran karartması
-        if (isPaused) {
+        else if (isPaused) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -285,6 +318,8 @@ private fun AnalyzingOverlay(
             feedback = result.formFeedback,
             repState = result.repetitionState,
             isPersonVisible = result.isPersonVisible,
+            sessionDurationSec = sessionDurationSec,
+            taskContext = taskContext,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 24.dp, start = 16.dp, end = 16.dp)
@@ -312,6 +347,7 @@ private fun TopInfoPanel(
     isInFrame: Boolean,
     sessionDurationSec: Long,
     isPaused: Boolean,
+    taskContext: MainViewModel.TaskContext?,
     onPauseToggle: () -> Unit,
     onEndWorkout: () -> Unit,
     modifier: Modifier = Modifier
@@ -329,6 +365,20 @@ private fun TopInfoPanel(
                 text = String.format("%02d:%02d", mins, secs),
                 color = if (isPaused) ColorWarning else Color.White
             )
+        }
+
+        if (taskContext != null) {
+            Spacer(Modifier.height(6.dp))
+            Row {
+                InfoBadge(text = "Set: ${taskContext.completedSets} / ${taskContext.targetSets}", color = ColorNeutral)
+                Spacer(Modifier.width(8.dp))
+                val targetText = if (taskContext.targetType == "DURATION") {
+                    "Hedef süre: ${taskContext.targetDurationSeconds} sn"
+                } else {
+                    "Hedef tekrar: ${taskContext.targetReps}"
+                }
+                InfoBadge(text = targetText, color = ColorNeutral)
+            }
         }
 
         Spacer(Modifier.height(6.dp))
@@ -367,6 +417,8 @@ private fun BottomFeedbackPanel(
     feedback: FormFeedback,
     repState: RepetitionState,
     isPersonVisible: Boolean,
+    sessionDurationSec: Long,
+    taskContext: MainViewModel.TaskContext?,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -390,10 +442,11 @@ private fun BottomFeedbackPanel(
             FormStatusIndicator(isCorrect = feedback.isCorrect, confidence = feedback.confidence)
 
             // Tekrar sayısı veya saniye (Plank için)
-            if (exerciseType == ExerciseType.PLANK) {
-                TimerBadge(seconds = repState.count)
+            if (taskContext?.targetType == "DURATION" || exerciseType == ExerciseType.PLANK) {
+                val secToShow = if (exerciseType == ExerciseType.PLANK) repState.count else sessionDurationSec.toInt()
+                TimerBadge(seconds = secToShow, targetSeconds = taskContext?.targetDurationSeconds ?: 0)
             } else {
-                RepCountBadge(count = repState.count)
+                RepCountBadge(count = repState.count, targetReps = taskContext?.targetReps ?: 0)
             }
         }
 
@@ -452,10 +505,10 @@ private fun FormStatusIndicator(isCorrect: Boolean, confidence: Float) {
 }
 
 @Composable
-private fun RepCountBadge(count: Int) {
+private fun RepCountBadge(count: Int, targetReps: Int) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = "$count",
+            text = if (targetReps > 0) "$count / $targetReps" else "$count",
             color = Color.White,
             fontSize = 28.sp,
             fontWeight = FontWeight.ExtraBold
@@ -469,13 +522,20 @@ private fun RepCountBadge(count: Int) {
 }
 
 @Composable
-private fun TimerBadge(seconds: Int) {
+private fun TimerBadge(seconds: Int, targetSeconds: Int) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         val m = seconds / 60
         val s = seconds % 60
         val timeStr = if (m > 0) String.format("%d:%02d", m, s) else "$s"
+        
+        val targetStr = if (targetSeconds > 0) {
+            val tm = targetSeconds / 60
+            val ts = targetSeconds % 60
+            if (tm > 0) String.format(" / %d:%02d", tm, ts) else " / $ts"
+        } else ""
+        
         Text(
-            text = timeStr,
+            text = timeStr + targetStr,
             color = Color.White,
             fontSize = 28.sp,
             fontWeight = FontWeight.ExtraBold

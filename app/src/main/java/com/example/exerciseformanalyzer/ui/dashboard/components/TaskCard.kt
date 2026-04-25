@@ -43,6 +43,8 @@ fun TaskCard(
                 val tType: String,
                 val targetReps: Int,
                 val targetDur: Int,
+                val sets: Int,
+                val completedSets: Int,
                 val actualReps: Int,
                 val actualDur: Int,
                 val status: String,
@@ -61,12 +63,14 @@ fun TaskCard(
                         val aDur = ex.optInt("actualDurationSeconds", 0)
                         val tReps = ex.optInt("targetReps", 0)
                         val tDur = ex.optInt("targetDurationSeconds", 0)
+                        val sets = ex.optInt("sets", 1)
+                        val cSets = ex.optInt("completedSets", 0)
                         val exStatus = ex.optString("status", "PENDING")
 
                         val progressStr = if (tType == "DURATION") {
-                            "$aDur / $tDur Sn"
+                            "Set: $cSets/$sets • $aDur/$tDur Sn"
                         } else {
-                            "$aReps / $tReps Tekrar"
+                            "Set: $cSets/$sets • $aReps/$tReps Tekrar"
                         }
 
                         list.add(
@@ -76,6 +80,8 @@ fun TaskCard(
                                 tType = tType,
                                 targetReps = tReps,
                                 targetDur = tDur,
+                                sets = sets,
+                                completedSets = cSets,
                                 actualReps = aReps,
                                 actualDur = aDur,
                                 status = exStatus,
@@ -145,7 +151,9 @@ fun TaskCard(
                                                 exerciseIndex = exData.index,
                                                 targetType = exData.tType,
                                                 targetReps = exData.targetReps,
-                                                targetDurationSeconds = exData.targetDur
+                                                targetDurationSeconds = exData.targetDur,
+                                                targetSets = exData.sets,
+                                                completedSets = exData.completedSets
                                             )
                                         )
                                     } else {

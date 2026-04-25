@@ -5,12 +5,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
@@ -30,7 +32,9 @@ data class TaskExerciseStartParams(
     val exerciseIndex: Int,
     val targetType: String,
     val targetReps: Int,
-    val targetDurationSeconds: Int
+    val targetDurationSeconds: Int,
+    val targetSets: Int,
+    val completedSets: Int
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +51,7 @@ fun PatientDashboardScreen(
 ) {
     val currentUser by viewModel.observeCurrentUser().collectAsState(initial = null)
     val tasks by viewModel.observeMyTasks().collectAsState(initial = emptyList())
+    val categorizedTasks by viewModel.categorizedTasks.collectAsState()
     val reports by viewModel.observeMyReports().collectAsState(initial = emptyList())
     val incomingRequests by viewModel.incomingRequests.collectAsState()
     val isEmailVerified = viewModel.isEmailVerified
@@ -163,16 +168,27 @@ fun PatientDashboardScreen(
                             }
                         }
 
-                        val pendingTasks = tasks.filter { it.status == "PENDING" || it.status == "ASSIGNED" }
-                        val inProgressTasks = tasks.filter { it.status == "IN_PROGRESS" }
-                        val completedTasks = tasks.filter { it.status == "COMPLETED" || it.status == "DONE" || it.status == "MISSED" }
+                        val currentUserData = currentUser
+                        if (currentUserData != null) {
+                            val recommendedPlan = remember(currentUserData) {
+                                com.example.exerciseformanalyzer.domain.RecommendationHelper.generatePlan(currentUserData)
+                            }
+                            
+                            RecommendationCard(
+                                plan = recommendedPlan,
+                                onApply = { viewModel.applyRecommendedPlan(recommendedPlan) }
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+                    }
 
+                    item {
                         Text("Bekleyen Görevler", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(8.dp))
-                        if (pendingTasks.isEmpty()) {
+                        if (categorizedTasks.pending.isEmpty()) {
                             Text("Bekleyen görev yok", style = MaterialTheme.typography.bodyMedium)
                         } else {
-                            pendingTasks.forEach { task ->
+                            categorizedTasks.pending.forEach { task ->
                                 TaskCard(task, onNavigateToTaskExercise, onNavigateToCamera)
                             }
                         }
@@ -180,10 +196,10 @@ fun PatientDashboardScreen(
 
                         Text("Devam Eden Görevler", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(8.dp))
-                        if (inProgressTasks.isEmpty()) {
+                        if (categorizedTasks.ongoing.isEmpty()) {
                             Text("Devam eden görev yok", style = MaterialTheme.typography.bodyMedium)
                         } else {
-                            inProgressTasks.forEach { task ->
+                            categorizedTasks.ongoing.forEach { task ->
                                 TaskCard(task, onNavigateToTaskExercise, onNavigateToCamera)
                             }
                         }
@@ -191,10 +207,10 @@ fun PatientDashboardScreen(
 
                         Text("Tamamlanan Görevler", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(8.dp))
-                        if (completedTasks.isEmpty()) {
+                        if (categorizedTasks.completed.isEmpty()) {
                             Text("Tamamlanan görev yok", style = MaterialTheme.typography.bodyMedium)
                         } else {
-                            completedTasks.forEach { task ->
+                            categorizedTasks.completed.forEach { task ->
                                 TaskCard(task, onNavigateToTaskExercise, onNavigateToCamera)
                             }
                         }
@@ -267,6 +283,43 @@ fun PatientDashboardScreen(
                             CalorieBarChart(data = stats.dailyCalories)
                         }
                         1 -> {
+                            Text("Performans Özetiniz", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            val totalCompletedTasks = categorizedTasks.completed.size
+                            val todayReports = reports.filter { 
+                                val date = java.util.Date(it.timestamp)
+                                val today = java.util.Date()
+                                date.year == today.year && date.month == today.month && date.date == today.date
+                            }
+                            val todayCalories = todayReports.sumOf { it.caloriesBurned.toDouble() }.toFloat()
+                            
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Card(modifier = Modifier.weight(1f)) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text("Bugün", style = MaterialTheme.typography.labelSmall)
+                                        Text("${todayReports.size} Egzersiz", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                                Card(modifier = Modifier.weight(1f)) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text("Yakılan", style = MaterialTheme.typography.labelSmall)
+                                        Text("${todayCalories.toInt()} kcal", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Tamamlanan Toplam Görev", style = MaterialTheme.typography.labelSmall)
+                                        Text("$totalCompletedTasks", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
                             Text("Form Puanı Trendi (Son Egzersizler)", style = MaterialTheme.typography.titleSmall)
                             Spacer(modifier = Modifier.height(8.dp))
                             FormScoreLineChart(data = stats.scoreTrend)
@@ -289,6 +342,81 @@ fun PatientDashboardScreen(
                 },
                 onDismiss = { viewModel.setShowLogoutDialog(false) }
             )
+        }
+    }
+}
+
+@Composable
+fun RecommendationCard(
+    plan: com.example.exerciseformanalyzer.domain.RecommendedPlan,
+    onApply: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.EmojiEvents,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Senin İçin Önerilen Program",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            if (plan.hasInjuryWarning) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
+                ) {
+                    Text(
+                        text = "⚠️ Program sağlık durumunuza göre optimize edildi.",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+            
+            Text(
+                text = plan.note,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            
+            plan.exercises.forEach { ex ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(ex.exerciseType, style = MaterialTheme.typography.bodyMedium)
+                    val detail = if (ex.targetType == "REPS") "${ex.sets} Set x ${ex.targetReps} Tekrar" 
+                                 else "${ex.sets} Set x ${ex.targetDurationSeconds} Sn"
+                    Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Button(
+                onClick = onApply,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text("Bu Programı Uygula")
+            }
         }
     }
 }

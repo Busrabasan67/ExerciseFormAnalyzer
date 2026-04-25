@@ -1,14 +1,21 @@
 package com.example.exerciseformanalyzer.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.view.ViewGroup
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import com.example.exerciseformanalyzer.camera.CameraManager
 
 /**
@@ -33,7 +40,10 @@ fun CameraPreviewScreen(
     val poseFrame by viewModel.currentPoseFrame.collectAsState()
     val sessionDurationSec by viewModel.sessionDurationSec.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
+    val isResting by viewModel.isResting.collectAsState()
+    val restTimeLeft by viewModel.restTimeLeft.collectAsState()
     val workoutSummary by viewModel.workoutSummary.collectAsState()
+    val activeTaskContext by viewModel.activeTaskContext.collectAsState()
 
     // NOT: setTargetExercise burada ÇAĞRILMIYOR.
     // Çağrıyı AppNavigation yapar (setTargetExercise öncesinde taskContext da set edilir).
@@ -47,6 +57,34 @@ fun CameraPreviewScreen(
                 onNavigateBack()
             }
         )
+        return
+    }
+
+    var hasPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasPermission = isGranted
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    if (!hasPermission) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Kamera izni gerekiyor.")
+        }
         return
     }
 
@@ -82,7 +120,11 @@ fun CameraPreviewScreen(
             poseFrame = poseFrame,
             sessionDurationSec = sessionDurationSec,
             isPaused = isPaused,
+            isResting = isResting,
+            restTimeLeft = restTimeLeft,
+            taskContext = activeTaskContext,
             onPauseToggle = { viewModel.togglePause() },
+            onEndRest = { viewModel.endRest() },
             onEndWorkout = { viewModel.endWorkout() },
             modifier = Modifier.fillMaxSize()
         )

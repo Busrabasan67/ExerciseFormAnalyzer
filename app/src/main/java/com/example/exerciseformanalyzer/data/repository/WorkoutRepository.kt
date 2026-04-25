@@ -115,18 +115,17 @@ class WorkoutRepository(
                             val tType = taskContext.targetType
                             val prevActualReps = exObj.optInt("actualReps", 0)
                             val prevActualDur = exObj.optInt("actualDurationSeconds", 0)
+                            val targetSets = exObj.optInt("sets", 1)
+
+                            val newCompletedSets = taskContext.completedSets
+                            val isCompleted = newCompletedSets >= targetSets
 
                             val newActualReps = prevActualReps + reps
                             val newActualDur = prevActualDur + durationSeconds.toInt()
 
-                            val isCompleted = if (tType == "DURATION") {
-                                newActualDur >= taskContext.targetDurationSeconds && taskContext.targetDurationSeconds > 0
-                            } else {
-                                newActualReps >= taskContext.targetReps && taskContext.targetReps > 0
-                            }
-
                             exObj.put("actualReps", newActualReps)
                             exObj.put("actualDurationSeconds", newActualDur)
+                            exObj.put("completedSets", newCompletedSets)
                             exObj.put("status", if (isCompleted) "COMPLETED" else "IN_PROGRESS")
                             if (isCompleted) {
                                 exObj.put("completedAt", System.currentTimeMillis())
@@ -171,6 +170,8 @@ class WorkoutRepository(
                                             targetDurationSeconds = if (obj.has("targetDurationSeconds")) obj.getInt("targetDurationSeconds") else null,
                                             actualReps = if (obj.has("actualReps")) obj.getInt("actualReps") else null,
                                             actualDurationSeconds = if (obj.has("actualDurationSeconds")) obj.getInt("actualDurationSeconds") else null,
+                                            sets = obj.optInt("sets", 1),
+                                            completedSets = obj.optInt("completedSets", 0),
                                             status = obj.optString("status")
                                         )
                                     )

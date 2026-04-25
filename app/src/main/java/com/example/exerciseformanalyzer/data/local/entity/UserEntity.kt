@@ -30,6 +30,19 @@ data class UserEntity(
     val weightKg: Float? = null,
     val heightCm: Float? = null,
 
+    // Yeni Profil Alanları
+    val firstName: String? = null,
+    val lastName: String? = null,
+    val diseaseInfo: String? = null,
+    val hasHernia: Boolean = false,
+    val hasMeniscus: Boolean = false,
+
+    // Akıllı Öneri Alanları
+    val activityLevel: String? = "medium", // low, medium, high
+    val goal: String? = "general_health", // lose_weight, gain_muscle, rehab, general_health
+    val painAreasJson: String? = "[]", // ["diz", "bel"]
+    val exerciseLevel: String? = "beginner", // beginner, intermediate, advanced
+
     // Hastalık listesi JSON olarak saklanır: ["meniscus", "hernia", "back_pain"]
     // NOT: Room ayrı bir tablo açmak yerine JSON string tercih edildi çünkü
     //      bu liste nadiren sorgulanır ve basit string işlemi yeterlidir.

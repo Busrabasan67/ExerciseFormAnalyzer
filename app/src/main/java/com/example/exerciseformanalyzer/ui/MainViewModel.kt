@@ -44,9 +44,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val exerciseIndex: Int, // exercisesJson array içindeki konum (0-tabanlı)
         val targetType: String, // "REPS" | "DURATION"
         val targetReps: Int,
-        val targetDurationSeconds: Int
+        val targetDurationSeconds: Int,
+        val targetSets: Int,
+        val completedSets: Int
     )
-    private var activeTaskContext: TaskContext? = null
+    private val _activeTaskContext = MutableStateFlow<TaskContext?>(null)
+    val activeTaskContext: StateFlow<TaskContext?> = _activeTaskContext.asStateFlow()
     
     // ── TEMA VE DİL PREFERENCES ──────────────────────────────────────────────────
     private val preferencesRepository = (application as MainApplication).userPreferencesRepository
@@ -97,6 +100,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _workoutSummary = MutableStateFlow<WorkoutSummary?>(null)
     val workoutSummary: StateFlow<WorkoutSummary?> = _workoutSummary.asStateFlow()
+
+    private val _isResting = MutableStateFlow(false)
+    val isResting: StateFlow<Boolean> = _isResting.asStateFlow()
+
+    private val _restTimeLeft = MutableStateFlow(0)
+    val restTimeLeft: StateFlow<Int> = _restTimeLeft.asStateFlow()
 
     private var sessionTimerJob: kotlinx.coroutines.Job? = null
 
@@ -160,7 +169,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onFrameAvailable(bitmap: Bitmap, timestampMs: Long) {
-        if (_isPaused.value || _workoutSummary.value != null || timestampMs <= lastProcessedTimestamp) return
+        if (_isPaused.value || _isResting.value || _workoutSummary.value != null || timestampMs <= lastProcessedTimestamp) return
         lastProcessedTimestamp = timestampMs
         poseLandmarkerHelper?.detectAsync(bitmap, timestampMs)
     }
@@ -173,17 +182,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.Default) {
             frameChannel.consumeEach { poseFrame ->
                 try {
-                    if (_isPaused.value || _workoutSummary.value != null) return@consumeEach
+                    if (_isPaused.value || _isResting.value || _workoutSummary.value != null) return@consumeEach
                     // Kuyrukta beklerken daha yeni bir frame geldiyse bu kareyi atla
                     if (poseFrame.timestampMs < lastProcessedTimestamp) return@consumeEach
                     lastProcessedTimestamp = poseFrame.timestampMs
 
                     val result = analysisPipeline.process(poseFrame)
 
-                    // Monotoni garantiı: sayaç hiçbir zaman azalmaz
                     val rawCount = result.repetitionState.count
                     val safeCount = maxOf(maxRepCount, rawCount)
-                    maxRepCount = safeCount
+                    if (safeCount > maxRepCount) {
+                        maxRepCount = safeCount
+                        checkSetCompletion()
+                    }
                     val safeResult = if (safeCount != rawCount) {
                         result.copy(
                             repetitionState = result.repetitionState.copy(count = safeCount)
@@ -230,7 +241,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setTargetExercise(type: ExerciseType?, taskContext: TaskContext? = null) {
-        activeTaskContext = taskContext
+        _activeTaskContext.value = taskContext
         analysisPipeline.targetExercise = type
         if (type != null) {
             analysisPipeline.reset()
@@ -241,6 +252,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             _isSessionActive.value = true
             _isPaused.value = false
+            _isResting.value = false
+            _restTimeLeft.value = 0
             _sessionDurationSec.value = 0L
             _workoutSummary.value = null
             totalAnalysisSamples = 0
@@ -256,8 +269,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         sessionTimerJob = viewModelScope.launch {
             while (_isSessionActive.value) {
                 kotlinx.coroutines.delay(1000)
-                if (!_isPaused.value) {
+                if (_isResting.value) {
+                    if (_restTimeLeft.value > 0) {
+                        _restTimeLeft.value -= 1
+                    } else {
+                        endRest()
+                    }
+                } else if (!_isPaused.value) {
                     _sessionDurationSec.value += 1
+                    checkSetCompletion()
                 }
             }
         }
@@ -265,6 +285,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun togglePause() {
         _isPaused.value = !_isPaused.value
+    }
+
+    private fun checkSetCompletion() {
+        val ctx = _activeTaskContext.value ?: return
+        
+        var setCompleted = false
+        if (ctx.targetType == "DURATION" && ctx.targetDurationSeconds > 0) {
+            if (_sessionDurationSec.value >= ctx.targetDurationSeconds) {
+                setCompleted = true
+            }
+        } else if (ctx.targetType == "REPS" && ctx.targetReps > 0) {
+            if (maxRepCount >= ctx.targetReps) {
+                setCompleted = true
+            }
+        }
+
+        if (setCompleted) {
+            val newCompletedSets = ctx.completedSets + 1
+            val updatedCtx = ctx.copy(completedSets = newCompletedSets)
+            _activeTaskContext.value = updatedCtx
+
+            if (newCompletedSets >= ctx.targetSets) {
+                speak(if (currentLanguage.value == "tr") "Egzersiz tamamlandı." else "Exercise completed.")
+                endWorkout()
+            } else {
+                speak(if (currentLanguage.value == "tr") "Set tamamlandı. 60 ila 90 saniye dinlenin." else "Set completed. Rest for 60 to 90 seconds.")
+                _isResting.value = true
+                _restTimeLeft.value = 90
+                _isPaused.value = false
+            }
+        }
+    }
+
+    fun endRest() {
+        _isResting.value = false
+        _sessionDurationSec.value = 0
+        maxRepCount = 0
+        analysisPipeline.reset()
+        speak(if (currentLanguage.value == "tr") "Yeni sete başlayın." else "Start the next set.")
     }
 
     fun endWorkout() {
@@ -294,7 +353,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val calories = com.example.exerciseformanalyzer.domain.CalorieCalculator.calculateForSession(
                     exerciseType = exercise,
                     weightKg = weightKg,
-                    durationSeconds = _sessionDurationSec.value
+                    durationSeconds = _sessionDurationSec.value,
+                    reps = reps
                 )
 
                 // UI İçin Özeti Güncelle (Kalori ile)
@@ -317,7 +377,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     reps = reps,
                     durationSeconds = _sessionDurationSec.value,
                     feedback = commonErr ?: getApplication<Application>().getString(R.string.perfect_form),
-                    taskContext = activeTaskContext
+                    taskContext = _activeTaskContext.value
                 )
                 Log.d(TAG, "Antrenman Room ve Firebase'e kaydedildi (uid=$firebaseUid).")
             } catch (e: Exception) {
@@ -342,8 +402,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _workoutSummary.value = null
         _isSessionActive.value = false
         _isPaused.value = false
+        _isResting.value = false
+        _restTimeLeft.value = 0
         _uiState.value = ExerciseUiState.Ready
-        activeTaskContext = null
+        _activeTaskContext.value = null
         maxRepCount = 0
         lastProcessedTimestamp = -1L
         lastChannelTimestamp = -1L
