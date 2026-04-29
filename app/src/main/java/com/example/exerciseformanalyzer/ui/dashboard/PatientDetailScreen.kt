@@ -13,7 +13,7 @@ import com.example.exerciseformanalyzer.ui.dashboard.components.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatientDetailScreen(
-    viewModel: DashboardViewModel,
+    viewModel: com.example.exerciseformanalyzer.ui.dashboard.ExpertViewModel,
     patientUid: String,
     onNavigateBack: () -> Unit
 ) {
@@ -89,7 +89,7 @@ fun PatientDetailScreen(
                     
                     Text("• Haftalık Toplam: $totalKcal kcal")
                     Text("• Ortalam Form Puanı: $avgScore")
-                    Text("• Tamamlanan Görev: ${stats.completionStats["DONE"] ?: 0}")
+                    Text("• Tamamlanan Görev: ${stats.completionStats["COMPLETED"] ?: 0}")
                 }
             }
         }

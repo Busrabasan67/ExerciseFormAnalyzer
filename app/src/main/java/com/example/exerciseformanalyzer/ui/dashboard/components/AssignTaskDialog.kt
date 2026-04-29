@@ -11,7 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.exerciseformanalyzer.model.ExerciseType
-import com.example.exerciseformanalyzer.ui.dashboard.DashboardViewModel.TaskExerciseInput
+import com.example.exerciseformanalyzer.ui.dashboard.ExpertViewModel.TaskExerciseInput
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -18,7 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.ui.MainViewModel
-import com.example.exerciseformanalyzer.ui.dashboard.DashboardViewModel
+import com.example.exerciseformanalyzer.ui.profile.ProfileViewModel
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -28,7 +28,7 @@ import androidx.compose.foundation.verticalScroll
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    viewModel: DashboardViewModel,
+    viewModel: ProfileViewModel,
     mainViewModel: MainViewModel,
     onNavigateBack: () -> Unit
 ) {

@@ -18,10 +18,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
-    groupDocId: String,
-    groupName: String,
-    groupDescription: String,
-    creatorId: String,
     onNavigateBack: () -> Unit
 ) {
     val leaderboardViewModel: LeaderboardViewModel = viewModel()
@@ -30,25 +26,28 @@ fun GroupDetailScreen(
     val rankings by leaderboardViewModel.rankings.collectAsState()
     val isLoading by leaderboardViewModel.isLoading.collectAsState()
     
+    val selectedGroup by groupViewModel.selectedGroup.collectAsState()
+    
     val currentUid = groupViewModel.currentUid
-    val isAdmin = currentUid == creatorId
+    val isAdmin = currentUid == (selectedGroup?.creatorId ?: "")
     
     val pendingRequests by groupViewModel.pendingRequests.collectAsState()
     val firestoreMembers by groupViewModel.groupMembersFirestore.collectAsState()
 
-    LaunchedEffect(groupDocId) {
+    LaunchedEffect(selectedGroup?.docId) {
+        val groupId = selectedGroup?.docId ?: return@LaunchedEffect
         leaderboardViewModel.setMetric(LeaderboardMetric.CALORIES)
-        leaderboardViewModel.loadRankings(groupId = groupDocId)
+        leaderboardViewModel.loadRankings(groupId = groupId)
         
         if (isAdmin) {
-            groupViewModel.loadGroupAdminData(groupDocId)
+            groupViewModel.loadGroupAdminData(groupId)
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(groupName) },
+                title = { Text(selectedGroup?.name ?: "Grup Detayı") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Geri")
@@ -73,7 +72,7 @@ fun GroupDetailScreen(
                     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                         Spacer(Modifier.width(8.dp))
-                        Text(groupDescription, style = MaterialTheme.typography.bodyMedium)
+                        Text(selectedGroup?.description ?: "", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
@@ -119,8 +118,11 @@ fun GroupDetailScreen(
                         supportingContent = { Text(member.role) },
                         trailingContent = {
                             if (member.userId != currentUid) { // Kendini çıkaramasın
-                                TextButton(onClick = { groupViewModel.removeMember(groupDocId, member.userId) }) {
-                                    Text("Çıkar", color = MaterialTheme.colorScheme.error)
+                                val groupId = selectedGroup?.docId
+                                if (groupId != null) {
+                                    TextButton(onClick = { groupViewModel.removeMember(groupId, member.userId) }) {
+                                        Text("Çıkar", color = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                         }

@@ -1,11 +1,14 @@
 package com.example.exerciseformanalyzer.data.repository
 
+import com.example.exerciseformanalyzer.domain.repository.ILeaderboardRepository
 import com.example.exerciseformanalyzer.model.LeaderboardMetric
 import com.example.exerciseformanalyzer.model.LeaderboardPeriod
 import com.example.exerciseformanalyzer.model.WorkoutStats
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 import com.example.exerciseformanalyzer.model.firestore.FirestoreWorkoutReport
 import com.example.exerciseformanalyzer.model.firestore.FirestoreTaskAssignment
+import com.example.exerciseformanalyzer.model.firestore.FirestoreActivity
+import com.example.exerciseformanalyzer.model.firestore.FirestoreUserBadgeProgress
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -21,16 +24,16 @@ data class LeaderboardEntry(
     val isMe: Boolean = false
 )
 
-class LeaderboardRepository(private val firestoreService: FirestoreService) {
+class LeaderboardRepository(private val firestoreService: FirestoreService) : ILeaderboardRepository {
 
     private val db = FirebaseFirestore.getInstance()
 
-    suspend fun getRankings(
+    override suspend fun getRankings(
         period: LeaderboardPeriod,
         metric: LeaderboardMetric,
         currentUid: String,
-        groupId: String? = null,
-        customRange: Pair<Long, Long>? = null
+        groupId: String?,
+        customRange: Pair<Long, Long>?
     ): List<LeaderboardEntry> {
         return when (period) {
             LeaderboardPeriod.ALL_TIME -> {
@@ -178,7 +181,7 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) {
     /**
      * Kullanıcının dashboard istatistiklerini canlı olarak Firestore'dan toplar.
      */
-    suspend fun getPatientStats(uid: String): WorkoutStats {
+    override suspend fun getPatientStats(uid: String): WorkoutStats {
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.DAY_OF_YEAR, -30)
         val last30Days = calendar.time
@@ -234,5 +237,17 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) {
             scoreTrend = scoreTrend,
             completionStats = completionStats
         )
+    }
+
+    override suspend fun getRecentActivities(limit: Long): List<FirestoreActivity> {
+        return firestoreService.getRecentActivities(limit)
+    }
+
+    override suspend fun getGlobalLeaderboard(limit: Long): List<FirestoreUser> {
+        return firestoreService.getGlobalLeaderboard(limit)
+    }
+
+    override suspend fun getUserBadges(userId: String): List<FirestoreUserBadgeProgress> {
+        return firestoreService.getUserBadges(userId)
     }
 }

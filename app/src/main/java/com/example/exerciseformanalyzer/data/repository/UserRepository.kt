@@ -14,19 +14,20 @@ package com.example.exerciseformanalyzer.data.repository
 import com.example.exerciseformanalyzer.data.local.dao.UserDao
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
+import com.example.exerciseformanalyzer.domain.repository.IUserRepository
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 import kotlinx.coroutines.flow.Flow
 
 class UserRepository(
     private val userDao: UserDao,
     private val firestoreService: FirestoreService
-) {
+) : IUserRepository {
 
     /**
      * Kullanıcı profilini Room'dan reaktif dinle (UI için).
      * Room değişince Flow otomatik yeni değer yayar — collectAsState ile kullan.
      */
-    fun observeCurrentUser(uid: String): Flow<UserEntity?> {
+    override fun observeCurrentUser(uid: String): Flow<UserEntity?> {
         return userDao.observeUserByUid(uid)
     }
 
@@ -34,7 +35,7 @@ class UserRepository(
      * Profil bilgisini güncelle.
      * Önce Firestore'a yaz (veri kaybı olmasın), sonra Room cache'i güncelle.
      */
-    suspend fun updateProfile(uid: String, updatedUser: UserEntity): Result<Unit> {
+    override suspend fun updateProfile(uid: String, updatedUser: UserEntity): Result<Unit> {
         return try {
             val firestoreProfile = FirestoreUser(
                 uid = uid,
@@ -79,14 +80,14 @@ class UserRepository(
     /**
      * Hastayı e-posta ile Firestore'da ara (sadece PATIENT olanları döndürür).
      */
-    suspend fun findPatientByEmail(email: String): FirestoreUser? {
+    override suspend fun findPatientByEmail(email: String): FirestoreUser? {
         return firestoreService.findUserByEmail(email)
     }
 
     /**
      * Uzman, hastayı UID ile kendi listesine ekler.
      */
-    suspend fun linkPatientToExpert(patientUid: String, expertUid: String): Result<Unit> {
+    override suspend fun linkPatientToExpert(patientUid: String, expertUid: String): Result<Unit> {
         return try {
             firestoreService.linkPatientToExpert(patientUid, expertUid)
             // Room'da hasta kaydı varsa expertUid'yi güncelle, yoksa Firestore'dan çekip kaydet
@@ -128,7 +129,7 @@ class UserRepository(
 
     /** BAĞLANTI İSTEKLERİ - YENİ MODÜL */
 
-    suspend fun sendConnectionRequest(patientEmail: String, fromExpert: UserEntity): Result<Unit> {
+    override suspend fun sendConnectionRequest(patientEmail: String, fromExpert: UserEntity): Result<Unit> {
         return try {
             val request = com.example.exerciseformanalyzer.model.firestore.FirestoreConnectionRequest(
                 fromExpertId = fromExpert.uid,
@@ -144,7 +145,7 @@ class UserRepository(
     }
 
     /** Hastaya gelen bekleyen istekleri Firestore'dan anlık çek. */
-    suspend fun getPendingRequests(patientEmail: String): List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreConnectionRequest>> {
+    override suspend fun getPendingRequests(patientEmail: String): List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreConnectionRequest>> {
         return try {
             firestoreService.getPendingRequestsForPatient(patientEmail)
         } catch (e: Exception) {
@@ -153,7 +154,7 @@ class UserRepository(
     }
 
     /** İsteği yanıtla ve gerekirse bağı kur. */
-    suspend fun respondToConnectionRequest(requestId: String, status: String, patientUid: String, expertUid: String): Result<Unit> {
+    override suspend fun respondToConnectionRequest(requestId: String, status: String, patientUid: String, expertUid: String): Result<Unit> {
         return try {
             firestoreService.updateRequestStatus(requestId, status)
             if (status == "ACCEPTED") {
@@ -168,7 +169,7 @@ class UserRepository(
     /**
      * Uzmanın hasta listesini getir — ExpertDashboard için.
      */
-    fun observePatients(expertUid: String): Flow<List<UserEntity>> {
+    override fun observePatients(expertUid: String): Flow<List<UserEntity>> {
         return userDao.observePatientsByExpert(expertUid)
     }
 
@@ -211,7 +212,7 @@ class UserRepository(
      * Uzmanın bağlı hastalarını Firestore'dan çekip Room'a yazar.
      * Bu sayede ExpertDashboard açıldığında hastalar güncel kalır.
      */
-    suspend fun syncPatientsForExpert(expertUid: String) {
+    override suspend fun syncPatientsForExpert(expertUid: String) {
         try {
             val patients = firestoreService.getPatientsByExpert(expertUid)
             patients.forEach { profile ->
@@ -251,7 +252,7 @@ class UserRepository(
     /**
      * Hasta kendi hesabına girdiğinde bağlı olduğu uzmanı Firestore'dan çekip cache'leyebiliriz.
      */
-    suspend fun syncExpertProfileLocally(expertUid: String) {
+    override suspend fun syncExpertProfileLocally(expertUid: String) {
         if (expertUid.isNotEmpty()) {
             refreshUserFromFirestore(expertUid)
         }

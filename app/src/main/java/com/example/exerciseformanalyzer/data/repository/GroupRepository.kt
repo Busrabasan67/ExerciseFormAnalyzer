@@ -4,26 +4,27 @@ import com.example.exerciseformanalyzer.data.local.dao.GroupDao
 import com.example.exerciseformanalyzer.data.local.entity.GroupEntity
 import com.example.exerciseformanalyzer.data.local.entity.GroupMemberEntity
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
+import com.example.exerciseformanalyzer.domain.repository.IGroupRepository
 import com.example.exerciseformanalyzer.model.firestore.FirestoreGroup
 import com.example.exerciseformanalyzer.model.firestore.FirestoreGroupInvite
 import com.example.exerciseformanalyzer.model.firestore.FirestoreGroupMember
 import kotlinx.coroutines.flow.Flow
 
 /**
- * GroupRepository — Sosyal grup yönetimi
+ * GroupRepository — Sosyal grup yönetimi (IGroupRepository implementasyonu)
  * Room (cache) + Firestore (bulut) senkronizasyon mantığı
  */
 class GroupRepository(
     private val groupDao: GroupDao,
     private val firestoreService: FirestoreService
-) {
+) : IGroupRepository {
     // Kullanıcının dahil olduğu grupları Room'dan reaktif akışla izle
-    fun observeGroupsForUser(userUid: String): Flow<List<GroupEntity>> {
+    override fun observeGroupsForUser(userUid: String): Flow<List<GroupEntity>> {
         return groupDao.observeGroupsForUser(userUid)
     }
 
     // Gruptaki üyeleri izle
-    fun observeMembersOfGroup(groupDocId: String): Flow<List<GroupMemberEntity>> {
+    override fun observeMembersOfGroup(groupDocId: String): Flow<List<GroupMemberEntity>> {
         return groupDao.observeMembersOfGroup(groupDocId)
     }
 
@@ -33,7 +34,7 @@ class GroupRepository(
      * 2. Firestore'a yükle
      * 3. Room'daki kaydı docId ile güncelle
      */
-    suspend fun createGroup(creatorUid: String, name: String, description: String, isPrivate: Boolean): GroupEntity {
+    override suspend fun createGroup(creatorUid: String, name: String, description: String, isPrivate: Boolean): GroupEntity {
         // Room'a önce yaz
         val entity = GroupEntity(
             name = name,
@@ -75,7 +76,7 @@ class GroupRepository(
     /**
      * Gruba katıl.
      */
-    suspend fun joinGroup(memberEntity: GroupMemberEntity, groupDocId: String, userUid: String) {
+    override suspend fun joinGroup(memberEntity: GroupMemberEntity, groupDocId: String, userUid: String) {
         groupDao.insertMember(memberEntity)
         try {
             val firestoreMember = FirestoreGroupMember(
@@ -93,7 +94,7 @@ class GroupRepository(
     /**
      * Gruptan ayrıl.
      */
-    suspend fun leaveGroup(groupDocId: String, userUid: String) {
+    override suspend fun leaveGroup(groupDocId: String, userUid: String) {
         groupDao.removeMember(groupDocId, userUid)
         try {
             firestoreService.leaveGroup(groupDocId, userUid)
@@ -103,27 +104,27 @@ class GroupRepository(
     }
 
     /** Keşfet sayfasında gösterilecek grupları çek (Public). */
-    suspend fun getExploreGroups(): List<Pair<String, FirestoreGroup>> {
+    override suspend fun getExploreGroups(): List<Pair<String, FirestoreGroup>> {
         return firestoreService.getExploreGroups()
     }
 
     /** Kullanıcının bekleyen davetlerini çek. */
-    suspend fun getMyInvites(userId: String): List<Pair<String, FirestoreGroupInvite>> {
+    override suspend fun getMyInvites(userId: String): List<Pair<String, FirestoreGroupInvite>> {
         return firestoreService.getInvitesForUser(userId)
     }
 
     /** Email ile kullanıcı bul (Davet göndermek için). */
-    suspend fun findUserForInvite(email: String): com.example.exerciseformanalyzer.model.firestore.FirestoreUser? {
+    override suspend fun findUserForInvite(email: String): com.example.exerciseformanalyzer.model.firestore.FirestoreUser? {
         return firestoreService.findAnyUserByEmail(email)
     }
 
     /** Davet gönder. */
-    suspend fun inviteToGroup(invite: FirestoreGroupInvite) {
+    override suspend fun inviteToGroup(invite: FirestoreGroupInvite) {
         firestoreService.sendGroupInvite(invite)
     }
 
     /** Daveti cevapla. Onaylanırsa gruba katıl. */
-    suspend fun respondToInvite(inviteId: String, invite: FirestoreGroupInvite, accept: Boolean) {
+    override suspend fun respondToInvite(inviteId: String, invite: FirestoreGroupInvite, accept: Boolean) {
         val status = if (accept) "ACCEPTED" else "REJECTED"
         firestoreService.respondToGroupInvite(inviteId, status)
         
@@ -140,17 +141,17 @@ class GroupRepository(
     }
 
     /** Katılma isteği gönder. */
-    suspend fun sendJoinRequest(request: com.example.exerciseformanalyzer.model.firestore.FirestoreGroupJoinRequest) {
+    override suspend fun sendJoinRequest(request: com.example.exerciseformanalyzer.model.firestore.FirestoreGroupJoinRequest) {
         firestoreService.sendGroupJoinRequest(request)
     }
 
     /** Bekleyen katılım isteklerini getir. */
-    suspend fun getPendingJoinRequests(groupId: String): List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreGroupJoinRequest>> {
+    override suspend fun getPendingJoinRequests(groupId: String): List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreGroupJoinRequest>> {
         return firestoreService.getJoinRequestsForGroup(groupId)
     }
 
     /** Katılma isteğine cevap ver. Onaylanırsa üyeyi ekle. */
-    suspend fun respondToJoinRequest(requestId: String, request: com.example.exerciseformanalyzer.model.firestore.FirestoreGroupJoinRequest, accept: Boolean) {
+    override suspend fun respondToJoinRequest(requestId: String, request: com.example.exerciseformanalyzer.model.firestore.FirestoreGroupJoinRequest, accept: Boolean) {
         val status = if (accept) "ACCEPTED" else "REJECTED"
         firestoreService.respondToGroupJoinRequest(requestId, status)
 
@@ -167,12 +168,12 @@ class GroupRepository(
     }
 
     /** Tüm üyeleri Firestore'dan çek (Ayrıntılı liste için). */
-    suspend fun getFirestoreMembers(groupId: String): List<FirestoreGroupMember> {
+    override suspend fun getFirestoreMembers(groupId: String): List<FirestoreGroupMember> {
         return firestoreService.getGroupMembers(groupId)
     }
 
     /** Üyeyi gruptan çıkar. */
-    suspend fun removeMember(groupId: String, userId: String) {
+    override suspend fun removeMember(groupId: String, userId: String) {
         groupDao.removeMember(groupId, userId) // Yerelden sil
         firestoreService.leaveGroup(groupId, userId) // Buluttan sil
     }

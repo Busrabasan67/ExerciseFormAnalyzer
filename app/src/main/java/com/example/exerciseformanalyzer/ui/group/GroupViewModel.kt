@@ -27,6 +27,13 @@ sealed class GroupUiState {
     data class Error(val message: String) : GroupUiState()
 }
 
+data class SelectedGroupContext(
+    val docId: String,
+    val name: String,
+    val description: String,
+    val creatorId: String
+)
+
 class GroupViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app = application as MainApplication
@@ -52,6 +59,13 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _groupMembersFirestore = MutableStateFlow<List<FirestoreGroupMember>>(emptyList())
     val groupMembersFirestore: StateFlow<List<FirestoreGroupMember>> = _groupMembersFirestore.asStateFlow()
+
+    private val _selectedGroup = MutableStateFlow<SelectedGroupContext?>(null)
+    val selectedGroup: StateFlow<SelectedGroupContext?> = _selectedGroup.asStateFlow()
+
+    fun setSelectedGroup(docId: String, name: String, description: String, creatorId: String) {
+        _selectedGroup.value = SelectedGroupContext(docId, name, description, creatorId)
+    }
 
     fun observeMyGroups(): Flow<List<GroupEntity>> {
         val uid = currentUid

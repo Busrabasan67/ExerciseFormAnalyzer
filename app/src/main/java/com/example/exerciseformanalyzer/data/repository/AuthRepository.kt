@@ -1,6 +1,6 @@
 package com.example.exerciseformanalyzer.data.repository
 
-// AuthRepository — Kimlik doğrulama işlemleri için tek giriş noktası
+// AuthRepository — Kimlik doğrulama işlemleri için tek giriş noktası (IAuthRepository implementasyonu)
 //
 // Veri akışı:
 //   Firebase Auth (kimlik doğrulama) → Firestore (profil kayıt) → Room (lokal cache)
@@ -11,27 +11,22 @@ import com.example.exerciseformanalyzer.data.local.dao.UserDao
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.data.remote.FirebaseAuthService
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
+import com.example.exerciseformanalyzer.domain.model.AuthResult
+import com.example.exerciseformanalyzer.domain.repository.IAuthRepository
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 import com.google.firebase.auth.FirebaseUser
-
-// Sonuç sarmalayıcı — ViewModel'de when{} ile kolayca işlenir
-sealed class AuthResult<out T> {
-    data class Success<T>(val data: T) : AuthResult<T>()
-    data class Error(val message: String) : AuthResult<Nothing>()
-    object Loading : AuthResult<Nothing>()
-}
 
 class AuthRepository(
     private val userDao: UserDao,
     private val authService: FirebaseAuthService,
     private val firestoreService: FirestoreService
-) {
+) : IAuthRepository {
 
     // Şu an giriş yapmış kullanıcının UID'si
-    val currentUid: String? get() = authService.currentUid
-    val currentUserEmail: String? get() = authService.currentUser?.email
-    val isLoggedIn: Boolean get() = authService.isLoggedIn()
-    val isEmailVerified: Boolean get() = authService.currentUser?.isEmailVerified == true
+    override val currentUid: String? get() = authService.currentUid
+    override val currentUserEmail: String? get() = authService.currentUser?.email
+    override val isLoggedIn: Boolean get() = authService.isLoggedIn()
+    override val isEmailVerified: Boolean get() = authService.currentUser?.isEmailVerified == true
 
     /**
      * Email ve şifre ile yeni kayıt.
@@ -39,7 +34,7 @@ class AuthRepository(
      * 2. Firestore'a profil kaydet
      * 3. Room cache'e yaz (isSynced = true çünkü Firestore'a gitti)
      */
-    suspend fun registerWithEmail(
+    override suspend fun registerWithEmail(
         fullName: String,
         email: String,
         password: String,
@@ -71,7 +66,7 @@ class AuthRepository(
      * 2. Firestore'dan profili çek
      * 3. Room cache'i güncelle
      */
-    suspend fun loginWithEmail(email: String, password: String): AuthResult<FirebaseUser> {
+    override suspend fun loginWithEmail(email: String, password: String): AuthResult<FirebaseUser> {
         return try {
             val firebaseUser = authService.loginWithEmail(email, password)
             syncUserProfileFromFirestore(firebaseUser.uid)
@@ -85,7 +80,7 @@ class AuthRepository(
      * Google Sign-In ile giriş.
      * Google Activity'den dönen idToken burada işlenir.
      */
-    suspend fun loginWithGoogle(idToken: String): AuthResult<FirebaseUser> {
+    override suspend fun loginWithGoogle(idToken: String): AuthResult<FirebaseUser> {
         return try {
             val firebaseUser = authService.loginWithGoogle(idToken)
 
@@ -114,7 +109,7 @@ class AuthRepository(
      * Oturumu kapatır ve lokal UID cache'ini temizlemez
      * (uygulama offline açılabilmeli; clearUserCache ayrı çağrılabilir).
      */
-    fun signOut() {
+    override fun signOut() {
         authService.signOut()
     }
 
@@ -122,7 +117,7 @@ class AuthRepository(
      * Firestore'daki kullanıcı profilini Room'a yazarak lokal cache'i günceller.
      * Cihaz değişimi veya uygulama yeniden kurulumunda çağrılır.
      */
-    suspend fun syncUserProfileFromFirestore(uid: String) {
+    override suspend fun syncUserProfileFromFirestore(uid: String) {
         val profile = firestoreService.getUserProfile(uid) ?: return
         cacheUserLocally(uid, profile)
     }

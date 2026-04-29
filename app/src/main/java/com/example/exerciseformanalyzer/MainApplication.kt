@@ -18,7 +18,25 @@ import com.example.exerciseformanalyzer.data.repository.AdminRepository
 import com.example.exerciseformanalyzer.data.repository.AuthRepository
 import com.example.exerciseformanalyzer.data.repository.GroupRepository
 import com.example.exerciseformanalyzer.data.repository.LeaderboardRepository
+import com.example.exerciseformanalyzer.data.repository.PlanRepository
+import com.example.exerciseformanalyzer.data.repository.UserRepository
 import com.example.exerciseformanalyzer.data.repository.WorkoutRepository
+import com.example.exerciseformanalyzer.domain.repository.IAuthRepository
+import com.example.exerciseformanalyzer.domain.repository.IGroupRepository
+import com.example.exerciseformanalyzer.domain.repository.ILeaderboardRepository
+import com.example.exerciseformanalyzer.domain.repository.IPlanRepository
+import com.example.exerciseformanalyzer.domain.repository.IUserRepository
+import com.example.exerciseformanalyzer.domain.repository.IWorkoutRepository
+import com.example.exerciseformanalyzer.domain.usecase.auth.CheckAutoLoginUseCase
+import com.example.exerciseformanalyzer.domain.usecase.auth.LoginUseCase
+import com.example.exerciseformanalyzer.domain.usecase.auth.LogoutUseCase
+import com.example.exerciseformanalyzer.domain.usecase.auth.RegisterUseCase
+import com.example.exerciseformanalyzer.domain.usecase.plan.AssignTaskUseCase
+import com.example.exerciseformanalyzer.domain.usecase.plan.SyncTasksUseCase
+import com.example.exerciseformanalyzer.domain.usecase.user.GetCurrentUserUseCase
+import com.example.exerciseformanalyzer.domain.usecase.user.UpdateProfileUseCase
+import com.example.exerciseformanalyzer.domain.usecase.workout.ObservePatientHistoryUseCase
+import com.example.exerciseformanalyzer.domain.usecase.workout.SaveWorkoutResultUseCase
 import com.example.exerciseformanalyzer.worker.SyncWorker
 import com.google.firebase.FirebaseApp
 import java.util.concurrent.TimeUnit
@@ -35,8 +53,8 @@ class MainApplication : Application() {
     // DataStore — Tema, dil ve oturum cache'i
     val userPreferencesRepository by lazy { UserPreferencesRepository(this) }
 
-    // Repository'ler — ViewModel'lerin bağlandığı katman
-    val authRepository by lazy {
+    // ── REPOSITORY'LER (Interface türüyle expose edildi — test edilebilir) ──────
+    val authRepository: IAuthRepository by lazy {
         AuthRepository(
             userDao = database.userDao(),
             authService = firebaseAuthService,
@@ -44,49 +62,65 @@ class MainApplication : Application() {
         )
     }
 
-    val workoutRepository by lazy {
+    val workoutRepository: IWorkoutRepository by lazy {
         WorkoutRepository(
             reportDao = database.workoutReportDao(),
             taskDao = database.taskAssignmentDao(),
             exerciseDao = database.exerciseDao(),
             userDao = database.userDao(),
+            badgeDao = database.badgeDao(),
             firestoreService = firestoreService
         )
     }
 
-    val userRepository by lazy {
-        com.example.exerciseformanalyzer.data.repository.UserRepository(
+    val userRepository: IUserRepository by lazy {
+        UserRepository(
             userDao = database.userDao(),
             firestoreService = firestoreService
         )
     }
 
-    val planRepository by lazy {
-        com.example.exerciseformanalyzer.data.repository.PlanRepository(
+    val planRepository: IPlanRepository by lazy {
+        PlanRepository(
             planDao = database.workoutPlanDao(),
             taskDao = database.taskAssignmentDao(),
             firestoreService = firestoreService
         )
     }
 
-    val leaderboardRepository by lazy {
+    val leaderboardRepository: ILeaderboardRepository by lazy {
         LeaderboardRepository(
             firestoreService = firestoreService
         )
     }
 
-    val groupRepository by lazy {
+    val groupRepository: IGroupRepository by lazy {
         GroupRepository(
             groupDao = database.groupDao(),
             firestoreService = firestoreService
         )
     }
 
+    // AdminRepository — domain interface'i henüz yok (Admin dashboard basit, sonra eklenecek)
     val adminRepository by lazy {
         AdminRepository(
             firestoreService = firestoreService
         )
     }
+
+    // ── USE CASE'LER — ViewModel'ler bunları kullanır ──────────────────────────
+    val loginUseCase by lazy { LoginUseCase(authRepository) }
+    val registerUseCase by lazy { RegisterUseCase(authRepository) }
+    val logoutUseCase by lazy { LogoutUseCase(authRepository) }
+    val checkAutoLoginUseCase by lazy {
+        CheckAutoLoginUseCase(authRepository, userRepository, userPreferencesRepository)
+    }
+    val saveWorkoutResultUseCase by lazy { SaveWorkoutResultUseCase(workoutRepository) }
+    val observePatientHistoryUseCase by lazy { ObservePatientHistoryUseCase(workoutRepository) }
+    val getCurrentUserUseCase by lazy { GetCurrentUserUseCase(userRepository) }
+    val updateProfileUseCase by lazy { UpdateProfileUseCase(userRepository) }
+    val assignTaskUseCase by lazy { AssignTaskUseCase(planRepository) }
+    val syncTasksUseCase by lazy { SyncTasksUseCase(planRepository) }
 
 
     override fun onCreate() {

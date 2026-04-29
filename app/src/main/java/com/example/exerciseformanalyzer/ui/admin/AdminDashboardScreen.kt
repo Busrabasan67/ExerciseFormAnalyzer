@@ -12,14 +12,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.exerciseformanalyzer.ui.dashboard.DashboardViewModel
+import com.example.exerciseformanalyzer.ui.dashboard.AdminViewModel
 import com.example.exerciseformanalyzer.ui.dashboard.AdminPanelType
 import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDashboardScreen(
-    viewModel: DashboardViewModel,
+    viewModel: AdminViewModel,
+    patientViewModel: com.example.exerciseformanalyzer.ui.dashboard.PatientViewModel,
+    expertViewModel: com.example.exerciseformanalyzer.ui.dashboard.ExpertViewModel,
     onNavigateToCamera: (com.example.exerciseformanalyzer.model.ExerciseType?) -> Unit,
     onNavigateToTaskExercise: (com.example.exerciseformanalyzer.ui.dashboard.TaskExerciseStartParams) -> Unit,
     onNavigateToProfile: () -> Unit,
@@ -101,7 +103,7 @@ fun AdminDashboardScreen(
                 }
                 AdminPanelType.PATIENT -> {
                     com.example.exerciseformanalyzer.ui.dashboard.PatientDashboardScreen(
-                        viewModel = viewModel,
+                        viewModel = patientViewModel,
                         onNavigateToCamera = onNavigateToCamera,
                         onNavigateToTaskExercise = onNavigateToTaskExercise,
                         onNavigateToProfile = onNavigateToProfile,
@@ -113,7 +115,7 @@ fun AdminDashboardScreen(
                 }
                 AdminPanelType.EXPERT -> {
                     com.example.exerciseformanalyzer.ui.dashboard.ExpertDashboardScreen(
-                        viewModel = viewModel,
+                        viewModel = expertViewModel,
                         onNavigateToProfile = onNavigateToProfile,
                         onNavigateToPatientDetail = onNavigateToPatientDetail,
                         onNavigateToSocial = onNavigateToSocial,

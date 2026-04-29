@@ -77,7 +77,13 @@ object CalorieCalculator {
 
     /**
      * Oturum sonunda tam özet için kullanılan yardımcı fonksiyon.
-     * ExerciseType + kullanıcı ağırlığı + süre verilince kalori hesaplar.
+     * ExerciseType + kullanıcı ağırlığı + süre/tekrar verilince kalori hesaplar.
+     *
+     * Formül: Kalori = MET × ağırlık(kg) × süre(saat)
+     * Tekrar bazlı egzersizlerde: tekrar başına ortalama 6 saniyelik süre varsayılır.
+     *
+     * @param reps Tekrar sayısı — 0 ise süre bazlı hesap yapılır
+     * @param customMetValue Veritabanından gelen özel MET değeri; null ise defaultMet kullanılır
      */
     fun calculateForSession(
         exerciseType: ExerciseType,
@@ -86,13 +92,15 @@ object CalorieCalculator {
         reps: Int = 0,
         customMetValue: Float? = null
     ): Float {
-        // Yeni basit mantık (USER talebi):
-        // tekrar bazlı: reps * 0.5
-        // süre bazlı: seconds * 0.1
-        return if (reps > 0) {
-            (reps * 0.5f)
+        val metValue = customMetValue ?: defaultMet(exerciseType)
+
+        // Tekrar bazlı: her tekrar ≈ 6 saniye hareket + 3 saniye dinlenme = 9 sn
+        val effectiveDuration = if (reps > 0 && durationSeconds <= 0) {
+            reps * 9L
         } else {
-            (durationSeconds * 0.1f)
+            durationSeconds
         }
+
+        return calculate(metValue, weightKg, effectiveDuration)
     }
 }

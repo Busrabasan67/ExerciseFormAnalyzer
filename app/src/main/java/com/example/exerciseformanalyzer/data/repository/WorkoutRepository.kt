@@ -10,23 +10,28 @@ package com.example.exerciseformanalyzer.data.repository
 // UI (ViewModel) doğrudan DAO veya Firebase'e erişmez; bu repository üzerinden geçer.
 
 import com.example.exerciseformanalyzer.data.local.dao.ExerciseDao
+import com.example.exerciseformanalyzer.data.local.dao.TaskAssignmentDao
 import com.example.exerciseformanalyzer.data.local.dao.UserDao
 import com.example.exerciseformanalyzer.data.local.dao.WorkoutPlanDao
 import com.example.exerciseformanalyzer.data.local.dao.WorkoutReportDao
+import com.example.exerciseformanalyzer.data.local.dao.BadgeDao
 import com.example.exerciseformanalyzer.data.local.entity.WorkoutReportEntity
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
 import com.example.exerciseformanalyzer.domain.CalorieCalculator
+import com.example.exerciseformanalyzer.domain.model.TaskContext
+import com.example.exerciseformanalyzer.domain.repository.IWorkoutRepository
 import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.model.firestore.FirestoreWorkoutReport
 import kotlinx.coroutines.flow.Flow
 
 class WorkoutRepository(
     private val reportDao: WorkoutReportDao,
-    private val taskDao: com.example.exerciseformanalyzer.data.local.dao.TaskAssignmentDao,
+    private val taskDao: TaskAssignmentDao,
     private val exerciseDao: ExerciseDao,
     private val userDao: UserDao,
+    private val badgeDao: BadgeDao,
     private val firestoreService: FirestoreService
-) {
+) : IWorkoutRepository {
 
     /**
      * Egzersiz tamamlandığında çağrılır.
@@ -37,7 +42,7 @@ class WorkoutRepository(
      * @param localUserId Room'daki lokal kullanıcı ID'si (geriye uyumluluk)
      * @param taskContext Görev bağlamlı seans için taskId + exerciseIndex. Serbest egzersizde null.
      */
-    suspend fun saveWorkoutResult(
+    override suspend fun saveWorkoutResult(
         userUid: String,
         localUserId: Int,
         exerciseType: ExerciseType,
@@ -46,7 +51,7 @@ class WorkoutRepository(
         reps: Int,
         durationSeconds: Long,
         feedback: String?,
-        taskContext: com.example.exerciseformanalyzer.ui.MainViewModel.TaskContext? = null
+        taskContext: TaskContext?
     ) {
         // 1. Kullanıcı ağırlığını Room'dan çek (profil varsa MET daha doğru sonuç verir)
         val weightKg = if (userUid.isNotEmpty()) {
@@ -225,12 +230,24 @@ class WorkoutRepository(
                 )
                 firestoreService.createActivity(activity)
 
-                // 7. Rozet İlerlemesini Güncelle (Faz 4)
-                // Bu kısım normalde bir Worker veya özel bir Manager ile yapılmalı 
-                // ancak prototip için burada gerçekleştiriyoruz.
-                val badgeDao = (userDao as? com.example.exerciseformanalyzer.data.local.dao.UserDao)?.let { null } // DAO erişimi lazım
-                // Geçici olarak: Sadece rozet ilerlemesini logla veya Firestore'a gönder.
+                // 7. Rozet İlerlemesini Güncelle
                 // Gerçek uygulamada BadgeManager.evaluate(userId, exerciseType, reps) çağrılır.
+                // Prototip: Antrenman sayacı rozeti için basit bir stub ilerleme kaydedelim
+                if (userUid.isNotEmpty()) {
+                    val progress = badgeDao.getProgress(userUid, "first_workout")
+                    if (progress == null) {
+                        badgeDao.updateProgress(
+                            com.example.exerciseformanalyzer.data.local.entity.UserBadgeProgressEntity(
+                                userId = userUid,
+                                badgeId = "first_workout",
+                                currentProgress = 1,
+                                targetValue = 1,
+                                isUnlocked = true,
+                                unlockedAt = System.currentTimeMillis()
+                            )
+                        )
+                    }
+                }
             } catch (e: Exception) {
                 android.util.Log.w("WorkoutRepository", "Anlık sync başarısız, SyncWorker bekliyor: ${e.message}")
             }
@@ -240,24 +257,19 @@ class WorkoutRepository(
     /**
      * Hastanın geçmiş raporlarını gerçek zamanlı izle (Flow — UI otomatik güncellenir).
      */
-    fun observePatientHistory(userUid: String): Flow<List<WorkoutReportEntity>> {
+    override fun observePatientHistory(userUid: String): Flow<List<WorkoutReportEntity>> {
         return reportDao.observeReportsByUid(userUid)
     }
 
     /**
      * Lokal ID bazlı geçmiş (geriye uyumluluk).
      */
-    suspend fun getPatientHistory(userId: Int): List<WorkoutReportEntity> {
+    override suspend fun getPatientHistory(userId: Int): List<WorkoutReportEntity> {
         return reportDao.getReportsByUser(userId)
     }
 
     /**
      * AI motoru açılırken egzersiz kurallarını getirmek için kullanılır.
      */
-    suspend fun getExerciseRules(exerciseId: Int) = exerciseDao.getExerciseById(exerciseId)
-
-    /**
-     * Hastanın bugünkü görevlerini arayüze verir. (Eski Plan yapısından yeni yapıya adaptasyon)
-     */
-    suspend fun getPatientTasks(localUserId: Int) = emptyList<Any>()
-}
+    override suspend fun getExerciseRules(exerciseId: Int) = exerciseDao.getExerciseById(exerciseId)
+}

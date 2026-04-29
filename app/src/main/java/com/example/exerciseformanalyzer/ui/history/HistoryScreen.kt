@@ -9,12 +9,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.exerciseformanalyzer.ui.dashboard.DashboardViewModel
+import com.example.exerciseformanalyzer.ui.dashboard.PatientViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    viewModel: DashboardViewModel,
+    viewModel: PatientViewModel,
     onNavigateBack: () -> Unit
 ) {
     val reports by viewModel.observeMyReports().collectAsState(initial = emptyList())

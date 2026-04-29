@@ -5,7 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
 import com.example.exerciseformanalyzer.data.local.entity.WorkoutReportEntity
-import com.example.exerciseformanalyzer.data.repository.AuthResult
+import com.example.exerciseformanalyzer.domain.model.AuthResult
 import com.example.exerciseformanalyzer.model.ExerciseType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

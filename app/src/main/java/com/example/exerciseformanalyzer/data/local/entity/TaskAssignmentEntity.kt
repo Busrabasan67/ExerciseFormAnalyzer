@@ -11,7 +11,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 // Görev durumu — WorkManager'ın kontrol edeceği alan
-enum class TaskStatus { PENDING, DONE, MISSED }
+enum class TaskStatus { PENDING, COMPLETED, MISSED }
 
 @Entity(tableName = "task_assignments")
 data class TaskAssignmentEntity(
