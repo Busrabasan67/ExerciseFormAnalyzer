@@ -12,13 +12,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
-import com.example.exerciseformanalyzer.ui.dashboard.DashboardViewModel
+import com.example.exerciseformanalyzer.ui.dashboard.PatientViewModel
 import com.example.exerciseformanalyzer.model.firestore.FirestoreActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SocialFeedScreen(
-    viewModel: DashboardViewModel,
+    viewModel: PatientViewModel,
     onNavigateBack: () -> Unit
 ) {
     val activities by viewModel.activities.collectAsState()

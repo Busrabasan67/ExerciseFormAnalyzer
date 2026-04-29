@@ -19,6 +19,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.exerciseformanalyzer.model.*
+import com.example.exerciseformanalyzer.domain.model.TaskContext
+import com.example.exerciseformanalyzer.ui.workout.ExerciseUiState
 
 // ─── Renk Paleti ──────────────────────────────────────────────────────────────
 
@@ -47,7 +49,7 @@ fun ExerciseOverlay(
     isPaused: Boolean = false,
     isResting: Boolean = false,
     restTimeLeft: Int = 0,
-    taskContext: MainViewModel.TaskContext? = null,
+    taskContext: TaskContext? = null,
     onPauseToggle: () -> Unit = {},
     onEndRest: () -> Unit = {},
     onEndWorkout: () -> Unit = {},
@@ -257,7 +259,7 @@ private fun AnalyzingOverlay(
     isPaused: Boolean,
     isResting: Boolean,
     restTimeLeft: Int,
-    taskContext: MainViewModel.TaskContext?,
+    taskContext: TaskContext?,
     onPauseToggle: () -> Unit,
     onEndRest: () -> Unit,
     onEndWorkout: () -> Unit
@@ -347,7 +349,7 @@ private fun TopInfoPanel(
     isInFrame: Boolean,
     sessionDurationSec: Long,
     isPaused: Boolean,
-    taskContext: MainViewModel.TaskContext?,
+    taskContext: TaskContext?,
     onPauseToggle: () -> Unit,
     onEndWorkout: () -> Unit,
     modifier: Modifier = Modifier
@@ -418,7 +420,7 @@ private fun BottomFeedbackPanel(
     repState: RepetitionState,
     isPersonVisible: Boolean,
     sessionDurationSec: Long,
-    taskContext: MainViewModel.TaskContext?,
+    taskContext: TaskContext?,
     modifier: Modifier = Modifier
 ) {
     Column(

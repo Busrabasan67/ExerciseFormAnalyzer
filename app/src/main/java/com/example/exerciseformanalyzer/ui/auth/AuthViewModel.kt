@@ -4,9 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
-import com.example.exerciseformanalyzer.data.repository.AuthRepository
-import com.example.exerciseformanalyzer.data.repository.AuthResult
-import com.example.exerciseformanalyzer.data.repository.UserRepository
+import com.example.exerciseformanalyzer.domain.model.AuthResult
+import com.example.exerciseformanalyzer.domain.repository.IAuthRepository
+import com.example.exerciseformanalyzer.domain.repository.IUserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,10 +24,15 @@ sealed class AuthUiState {
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val authRepository: AuthRepository = (application as MainApplication).authRepository
+    private val authRepository: IAuthRepository = (application as MainApplication).authRepository
     val currentUid: String? get() = authRepository.currentUid
-    private val userRepository: UserRepository = (application as MainApplication).userRepository
-    private val userPrefs: com.example.exerciseformanalyzer.data.preferences.UserPreferencesRepository = (application as MainApplication).userPreferencesRepository
+    private val userRepository: IUserRepository = (application as MainApplication).userRepository
+    private val userPrefs = (application as MainApplication).userPreferencesRepository
+
+    private val loginUseCase = (application as MainApplication).loginUseCase
+    private val registerUseCase = (application as MainApplication).registerUseCase
+    private val logoutUseCase = (application as MainApplication).logoutUseCase
+    private val checkAutoLoginUseCase = (application as MainApplication).checkAutoLoginUseCase
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
@@ -36,29 +41,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         if (_uiState.value != AuthUiState.Idle) return
         
         viewModelScope.launch {
-            val uid = authRepository.currentUid
-            val isLoggedIn = authRepository.isLoggedIn
-            
-            if (uid != null && isLoggedIn) {
-                val rememberMe = userPrefs.rememberMe.first()
-                val timestamp = userPrefs.loginTimestamp.first()
-                val daysPassed = (System.currentTimeMillis() - timestamp) / (1000 * 60 * 60 * 24)
-
-                // 3 gün kuralı: Beni hatırla seçiliyse 3 gün, seçili değilse hemen çıkış
-                if (rememberMe && daysPassed < 3) {
-                    _uiState.value = AuthUiState.Loading
-                    authRepository.syncUserProfileFromFirestore(uid)
-                    userRepository.observeCurrentUser(uid).take(1).collect { user ->
-                        if (user != null) {
-                            _uiState.value = AuthUiState.Success(uid, user.role.uppercase())
-                        }
-                    }
-                } else if (!rememberMe) {
-                    // Eğer beni hatırla seçili değilse, uygulama yeniden açıldığında çıkış yaptır
-                    logout()
-                } else {
-                    // 3 gün dolmuşsa çıkış yaptır
-                    logout()
+            _uiState.value = AuthUiState.Loading
+            when (val result = checkAutoLoginUseCase()) {
+                is com.example.exerciseformanalyzer.domain.usecase.auth.CheckAutoLoginUseCase.AutoLoginResult.LoggedIn -> {
+                    _uiState.value = AuthUiState.Success(result.uid, result.role)
+                }
+                is com.example.exerciseformanalyzer.domain.usecase.auth.CheckAutoLoginUseCase.AutoLoginResult.NotLoggedIn -> {
+                    _uiState.value = AuthUiState.Idle
+                    userPrefs.clearUserSession()
                 }
             }
         }
@@ -73,7 +63,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.value = AuthUiState.Loading
         viewModelScope.launch {
-            when (val result = authRepository.loginWithEmail(email, pass)) {
+            when (val result = loginUseCase(email, pass)) {
                 is AuthResult.Success -> {
                     val uid = result.data.uid
                     // Start observing the DB to get the user role
@@ -103,7 +93,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.value = AuthUiState.Loading
         viewModelScope.launch {
-            when (val result = authRepository.registerWithEmail(fullName, email, pass, role)) {
+            when (val result = registerUseCase(fullName, email, pass, role)) {
                 is AuthResult.Success -> {
                     _uiState.value = AuthUiState.Success(result.data.uid, role.uppercase())
                 }
@@ -121,7 +111,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     
     fun logout() {
         viewModelScope.launch {
-            authRepository.signOut()
+            logoutUseCase()
             userPrefs.clearUserSession()
             _uiState.value = AuthUiState.Idle
         }

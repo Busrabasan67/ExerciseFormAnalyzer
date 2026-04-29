@@ -30,7 +30,7 @@ import java.util.Calendar
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpertDashboardScreen(
-    viewModel: DashboardViewModel,
+    viewModel: ExpertViewModel,
     onNavigateToProfile: () -> Unit,
     onNavigateToPatientDetail: (String) -> Unit,
     onNavigateToSocial: () -> Unit,

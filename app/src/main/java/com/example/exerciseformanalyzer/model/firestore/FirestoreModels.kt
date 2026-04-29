@@ -97,7 +97,7 @@ data class FirestoreTaskAssignment(
     val daysOfWeek: List<Int> = emptyList(), // 1=Mon, ..., 7=Sun
     val autoRepeat: Boolean = false,
     val repeatDurationWeeks: Int? = null,
-    val status: String = "PENDING", // "PENDING" | "DONE" | "MISSED"
+    val status: String = "PENDING", // "PENDING" | "COMPLETED" | "MISSED"
     val exercises: List<FirestoreExerciseItem> = emptyList(),
     @ServerTimestamp val createdAt: Date? = null
 )

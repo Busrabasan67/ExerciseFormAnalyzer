@@ -174,12 +174,11 @@ fun TaskCard(
             val finalStatusText = when (task.status) {
                 "COMPLETED"   -> "Tüm Görev Tamamlandı!"
                 "IN_PROGRESS" -> "Devam Ediyor..."
-                "DONE"        -> "Tamamlandı"
                 "MISSED"      -> "Kaçırıldı"
                 else          -> "Bekliyor"
             }
             val finalStatusColor =
-                if (task.status == "COMPLETED" || task.status == "DONE")
+                if (task.status == "COMPLETED")
                     MaterialTheme.colorScheme.primary
                 else
                     MaterialTheme.colorScheme.secondary

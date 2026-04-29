@@ -17,10 +17,12 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.example.exerciseformanalyzer.camera.CameraManager
+import com.example.exerciseformanalyzer.ui.workout.WorkoutViewModel
+import com.example.exerciseformanalyzer.ui.workout.ExerciseUiState
 
 /**
  * Sadece kamera + overlay içerir.
- * Hareket seçimi ve görev bağlamı bu ekrandan ÖNCE mainViewModel.setTargetExercise() ile set edilir.
+ * Hareket seçimi ve görev bağlamı bu ekrandan ÖNCE workoutViewModel.setTargetExercise() ile set edilir.
  * Bu ekran ViewModel'den sadece okur; setTargetExercise çağırmaz.
  *
  * NEDEN: ExerciseSelectionScreen veya PatientDashboard'dan "Başla" ile gelindiğinde
@@ -30,7 +32,7 @@ import com.example.exerciseformanalyzer.camera.CameraManager
  */
 @Composable
 fun CameraPreviewScreen(
-    viewModel: MainViewModel,
+    viewModel: WorkoutViewModel,
     onNavigateBack: () -> Unit = {}
 ) {
     val context = LocalContext.current

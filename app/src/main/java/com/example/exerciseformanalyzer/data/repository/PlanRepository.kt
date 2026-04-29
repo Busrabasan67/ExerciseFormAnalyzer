@@ -14,6 +14,7 @@ import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
 import com.example.exerciseformanalyzer.data.local.entity.TaskStatus
 import com.example.exerciseformanalyzer.data.local.entity.WorkoutPlanEntity
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
+import com.example.exerciseformanalyzer.domain.repository.IPlanRepository
 import com.example.exerciseformanalyzer.model.firestore.FirestoreTaskAssignment
 import kotlinx.coroutines.flow.Flow
 
@@ -21,25 +22,25 @@ class PlanRepository(
     private val planDao: WorkoutPlanDao,
     private val taskDao: TaskAssignmentDao,
     private val firestoreService: FirestoreService
-) {
+) : IPlanRepository {
 
     private val TAG = "PlanRepository"
 
     /**
      * Hastanın aktif olan bekleyen görevlerini UI için reaktif olarak izler.
      */
-    fun observePendingTasks(patientUid: String): Flow<List<TaskAssignmentEntity>> {
+    override fun observePendingTasks(patientUid: String): Flow<List<TaskAssignmentEntity>> {
         return taskDao.observePendingTasksForPatient(patientUid)
     }
 
     /**
      * Hastanın tüm görev geçmişini izler (tamamlananlar ve kaçırılanlar dahil).
      */
-    fun observeAllTasks(patientUid: String): Flow<List<TaskAssignmentEntity>> {
+    override fun observeAllTasks(patientUid: String): Flow<List<TaskAssignmentEntity>> {
         return taskDao.observeAllTasksForPatient(patientUid)
     }
 
-    fun observeTasksByExpert(expertUid: String): Flow<List<TaskAssignmentEntity>> {
+    override fun observeTasksByExpert(expertUid: String): Flow<List<TaskAssignmentEntity>> {
         return taskDao.observeTasksByExpert(expertUid)
     }
 
@@ -48,17 +49,17 @@ class PlanRepository(
      * İçerisinde birden fazla görev (Task) olabilir.
      * Önce Room'a yazılır, internet varsa anında Firestore'a itilir.
      */
-    suspend fun createTaskAssignment(
+    override suspend fun createTaskAssignment(
         expertUid: String,
         patientUid: String,
         title: String,
         note: String,
         dueDate: Long,
         exercises: List<com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem>,
-        scheduleType: String = "DAILY",
-        daysOfWeek: List<Int> = emptyList(),
-        autoRepeat: Boolean = false,
-        repeatDurationWeeks: Int? = null
+        scheduleType: String,
+        daysOfWeek: List<Int>,
+        autoRepeat: Boolean,
+        repeatDurationWeeks: Int?
     ): Result<Unit> {
         return try {
             // JSON stringine çevir
@@ -130,7 +131,7 @@ class PlanRepository(
     /**
      * Egzersiz tamamlandığında görevi DONE olarak işaretler.
      */
-    suspend fun completeTask(taskId: Int, firebaseDocId: String?, reportId: Int) {
+    override suspend fun completeTask(taskId: Int, firebaseDocId: String?, reportId: Int) {
         val completedAt = System.currentTimeMillis()
         
         // 1. Room'u güncelle
@@ -141,7 +142,7 @@ class PlanRepository(
             try {
                 firestoreService.updateTaskStatus(
                     taskDocId = firebaseDocId,
-                    status = TaskStatus.DONE.name,
+                    status = TaskStatus.COMPLETED.name,
                     completedAt = completedAt
                 )
             } catch (e: Exception) {
@@ -153,7 +154,7 @@ class PlanRepository(
     /**
      * Firestore'dan hastaya atanmış görevleri çeker ve Room'a eşler.
      */
-    suspend fun syncTasksForPatient(patientUid: String) {
+    override suspend fun syncTasksForPatient(patientUid: String) {
         try {
             val fsTasks = firestoreService.getTasksForPatient(patientUid)
             for ((docId, fsTask) in fsTasks) {

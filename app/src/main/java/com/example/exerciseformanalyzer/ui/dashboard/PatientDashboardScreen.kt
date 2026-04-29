@@ -40,7 +40,7 @@ data class TaskExerciseStartParams(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatientDashboardScreen(
-    viewModel: DashboardViewModel,
+    viewModel: PatientViewModel,
     onNavigateToCamera: (ExerciseType?) -> Unit,
     onNavigateToTaskExercise: (TaskExerciseStartParams) -> Unit,
     onNavigateToProfile: () -> Unit,
@@ -253,7 +253,7 @@ fun PatientDashboardScreen(
                 }
             } else {
                 // STATS TAB
-                val stats by viewModel.observePatientStats(viewModel.currentUid).collectAsState(initial = com.example.exerciseformanalyzer.model.WorkoutStats())
+                val stats by viewModel.patientStats.collectAsState()
                 
                 Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                     var selectedStatsTab by remember { mutableIntStateOf(0) }
