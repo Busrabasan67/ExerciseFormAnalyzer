@@ -151,6 +151,18 @@ class PlanRepository(
         }
     }
 
+    override suspend fun deactivateDoctorTasks(doctorId: String, patientId: String): Result<Unit> {
+        return try {
+            // 1. Firestore tarafında deaktif et
+            firestoreService.deactivateTasksByDoctor(doctorId, patientId)
+            // 2. Lokal Room DB tarafında deaktif et
+            taskDao.deactivateTasksByDoctor(doctorId, patientId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Firestore'dan hastaya atanmış görevleri çeker ve Room'a eşler.
      */

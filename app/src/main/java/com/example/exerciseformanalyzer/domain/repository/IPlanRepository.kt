@@ -40,4 +40,7 @@ interface IPlanRepository {
 
     /** Firestore'dan hastanın görevlerini çekip Room'a senkronize eder. */
     suspend fun syncTasksForPatient(patientUid: String)
+
+    /** Bir uzmanın belirli bir hastaya atadığı tüm aktif görevleri pasife çeker. */
+    suspend fun deactivateDoctorTasks(doctorId: String, patientId: String): Result<Unit>
 }

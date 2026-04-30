@@ -45,6 +45,12 @@ interface IUserRepository {
         expertUid: String
     ): Result<Unit>
 
+    /** Hastayı uzmanın listesinden kaldır. */
+    suspend fun removePatientFromExpert(patientId: String, expertId: String): Result<Unit>
+
+    /** Doktor-hasta ilişkisi aktif mi? */
+    suspend fun isDoctorPatientRelationActive(doctorId: String, patientId: String): Boolean
+
     /** Uzmanın bağlı hastalarını Firestore'dan çekip Room'a yazar. */
     suspend fun syncPatientsForExpert(expertUid: String)
 

@@ -59,6 +59,19 @@ class FirestoreService {
             .update("expertId", expertUid).await()
     }
 
+    /** Doktor-hasta ilişkisi hala aktif mi kontrol et. */
+    suspend fun checkRelationActive(doctorId: String, patientId: String): Boolean {
+        val doc = db.collection(USERS).document(patientId).get().await()
+        val currentExpertId = doc.getString("expertId") ?: ""
+        return currentExpertId == doctorId
+    }
+
+    /** Hastanın expertId alanını temizle. */
+    suspend fun unlinkPatientFromExpert(patientUid: String) {
+        db.collection(USERS).document(patientUid)
+            .update("expertId", "").await()
+    }
+
     /** Uzmanın hastalarını listele. */
     suspend fun getPatientsByExpert(expertUid: String): List<FirestoreUser> {
         return db.collection(USERS)
@@ -126,6 +139,21 @@ class FirestoreService {
                 val model = doc.toObject<FirestoreTaskAssignment>() ?: return@mapNotNull null
                 Pair(doc.id, model)
             }
+    }
+
+    /** Uzmanın belirli bir hastaya atadığı aktif görevleri pasif yap. */
+    suspend fun deactivateTasksByDoctor(doctorId: String, patientId: String) {
+        val tasks = db.collection(TASK_ASSIGNMENTS)
+            .whereEqualTo("doctorId", doctorId)
+            .whereEqualTo("patientId", patientId)
+            .get().await()
+        
+        tasks.documents.forEach { doc ->
+            val status = doc.getString("status") ?: ""
+            if (status == "PENDING" || status == "IN_PROGRESS") {
+                doc.reference.update("status", "inactive").await()
+            }
+        }
     }
 
     // =====================================================================
@@ -258,6 +286,18 @@ class FirestoreService {
     suspend fun updateRequestStatus(requestId: String, status: String) {
         db.collection(PATIENT_REQUESTS).document(requestId)
             .update("status", status).await()
+    }
+
+    /** İlgili doktor ve hasta arasındaki tüm istekleri 'removed' yap. */
+    suspend fun markRequestsAsRemoved(doctorId: String, patientId: String) {
+        val requests = db.collection(PATIENT_REQUESTS)
+            .whereEqualTo("doctorId", doctorId)
+            .whereEqualTo("patientId", patientId)
+            .get().await()
+        
+        requests.documents.forEach { doc ->
+            doc.reference.update("status", "removed").await()
+        }
     }
     // =====================================================================
     // SOSYAL VE OYUNLAŞTIRMA (FAZ 4)

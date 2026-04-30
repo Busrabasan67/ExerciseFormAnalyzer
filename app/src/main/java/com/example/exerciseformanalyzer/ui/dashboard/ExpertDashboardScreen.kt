@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Delete
 import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.ui.dashboard.components.AssignTaskDialog
 import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
@@ -57,6 +58,8 @@ fun ExpertDashboardScreen(
     var assignmentPatientId by remember { mutableStateOf<String?>(null) }
     var assignmentTitle by remember { mutableStateOf("") }
     var assignmentNote by remember { mutableStateOf("") }
+    
+    var patientIdToRemove by remember { mutableStateOf<String?>(null) }
     
     LaunchedEffect(viewModel.currentUid) {
         if (viewModel.currentUid.isNotEmpty()) {
@@ -141,7 +144,15 @@ fun ExpertDashboardScreen(
                                 }
                             }
 
-                            if (!requestStatus.isNullOrEmpty()) {
+                            if (requestStatus == "REMOVED") {
+                                Text("Hasta listenizden kaldırıldı.", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 4.dp))
+                                LaunchedEffect(Unit) {
+                                    kotlinx.coroutines.delay(3000)
+                                    viewModel.clearRequestStatus()
+                                }
+                            }
+
+                            if (!requestStatus.isNullOrEmpty() && requestStatus != "REMOVED") {
                                 Text(requestStatus ?: "", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 4.dp))
                                 LaunchedEffect(requestStatus) {
                                     kotlinx.coroutines.delay(3000)
@@ -179,8 +190,15 @@ fun ExpertDashboardScreen(
                         items(patients) { patient ->
                             Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                                 Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(patient.fullName, style = MaterialTheme.typography.titleMedium)
-                                    Text(patient.email, style = MaterialTheme.typography.bodyMedium)
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(patient.fullName, style = MaterialTheme.typography.titleMedium)
+                                            Text(patient.email, style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                        IconButton(onClick = { patientIdToRemove = patient.uid }) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Kaldır", tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Button(onClick = { 
@@ -293,6 +311,27 @@ fun ExpertDashboardScreen(
                     onLogout()
                 },
                 onDismiss = { viewModel.setShowLogoutDialog(false) }
+            )
+        }
+
+        patientIdToRemove?.let { pid ->
+            AlertDialog(
+                onDismissRequest = { patientIdToRemove = null },
+                title = { Text("Hastayı kaldır") },
+                text = { Text("Bu hastayı listenizden kaldırmak istediğinize emin misiniz?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.removePatient(pid)
+                        patientIdToRemove = null
+                    }) {
+                        Text("Kaldır", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { patientIdToRemove = null }) {
+                        Text("İptal")
+                    }
+                }
             )
         }
     }

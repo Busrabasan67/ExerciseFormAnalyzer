@@ -23,6 +23,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import org.json.JSONArray
 import com.example.exerciseformanalyzer.model.ExerciseType
+import android.widget.Toast
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
 import com.example.exerciseformanalyzer.ui.dashboard.components.*
 
@@ -57,6 +60,8 @@ fun PatientDashboardScreen(
     val incomingRequests by viewModel.incomingRequests.collectAsState()
     val isEmailVerified = viewModel.isEmailVerified
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
+    val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var selectedMainTab by remember { mutableIntStateOf(0) }
     val mainTabs = listOf("Genel Bakış", "İstatistikler")
@@ -190,7 +195,28 @@ fun PatientDashboardScreen(
                             Text("Bekleyen görev yok", style = MaterialTheme.typography.bodyMedium)
                         } else {
                             categorizedTasks.pending.forEach { task ->
-                                TaskCard(task, onNavigateToTaskExercise, onNavigateToCamera)
+                                val isExpertLinked = task.expertUid == "SYSTEM" || task.expertUid == (currentUser?.expertUid ?: "")
+                                TaskCard(
+                                    task = task,
+                                    isExpertLinked = isExpertLinked,
+                                    onNavigateToTaskExercise = { params ->
+                                        scope.launch {
+                                            if (task.status == "inactive" || task.status == "removed") {
+                                                Toast.makeText(context, "Bu görev artık aktif değil.", Toast.LENGTH_SHORT).show()
+                                                return@launch
+                                            }
+                                            if (task.expertUid != "SYSTEM") {
+                                                val isActive = viewModel.checkDoctorPatientRelation(task.expertUid, currentUser?.uid ?: "")
+                                                if (!isActive) {
+                                                    Toast.makeText(context, "Doktorunuzla olan bağlantınız kesildiği için bu göreve başlayamazsınız.", Toast.LENGTH_LONG).show()
+                                                    return@launch
+                                                }
+                                            }
+                                            onNavigateToTaskExercise(params)
+                                        }
+                                    },
+                                    onNavigateToCamera = onNavigateToCamera
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
@@ -201,7 +227,30 @@ fun PatientDashboardScreen(
                             Text("Devam eden görev yok", style = MaterialTheme.typography.bodyMedium)
                         } else {
                             categorizedTasks.ongoing.forEach { task ->
-                                TaskCard(task, onNavigateToTaskExercise, onNavigateToCamera)
+                                val isExpertLinked = task.expertUid == "SYSTEM" || task.expertUid == (currentUser?.expertUid ?: "")
+                                TaskCard(
+                                    task = task,
+                                    isExpertLinked = isExpertLinked,
+                                    onNavigateToTaskExercise = { params ->
+                                        scope.launch {
+                                            if (task.status == "inactive" || task.status == "removed") {
+                                                Toast.makeText(context, "Bu görev artık aktif değil.", Toast.LENGTH_SHORT).show()
+                                                return@launch
+                                            }
+                                            
+                                            if (task.expertUid != "SYSTEM") {
+                                                val isActive = viewModel.checkDoctorPatientRelation(task.expertUid, currentUser?.uid ?: "")
+                                                if (!isActive) {
+                                                    Toast.makeText(context, "Doktorunuzla olan bağlantınız kesildiği için bu göreve başlayamazsınız.", Toast.LENGTH_LONG).show()
+                                                    // Yerel DB'yi de güncelle ki UI yenilensin
+                                                    return@launch
+                                                }
+                                            }
+                                            onNavigateToTaskExercise(params)
+                                        }
+                                    },
+                                    onNavigateToCamera = onNavigateToCamera
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
@@ -212,7 +261,13 @@ fun PatientDashboardScreen(
                             Text("Tamamlanan görev yok", style = MaterialTheme.typography.bodyMedium)
                         } else {
                             categorizedTasks.completed.forEach { task ->
-                                TaskCard(task, onNavigateToTaskExercise, onNavigateToCamera)
+                                val isExpertLinked = task.expertUid == "SYSTEM" || task.expertUid == (currentUser?.expertUid ?: "")
+                                TaskCard(
+                                    task = task,
+                                    isExpertLinked = isExpertLinked,
+                                    onNavigateToTaskExercise = { /* Tamamlanan görev için genellikle başla aktif olmaz ama Card imzasını korumalıyız */ },
+                                    onNavigateToCamera = onNavigateToCamera
+                                )
                             }
                         }
                     }

@@ -131,6 +131,32 @@ class UserRepository(
         }
     }
 
+    override suspend fun removePatientFromExpert(patientId: String, expertId: String): Result<Unit> {
+        return try {
+            // 1. Firestore'da bağı kopar
+            firestoreService.unlinkPatientFromExpert(patientId)
+            // 2. İstekleri temizle
+            firestoreService.markRequestsAsRemoved(expertId, patientId)
+            
+            // 3. Room'da güncelle (expertUid'yi boşalt)
+            val existing = userDao.getUserByUid(patientId)
+            if (existing != null) {
+                userDao.updateUser(existing.copy(expertUid = ""))
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun isDoctorPatientRelationActive(doctorId: String, patientId: String): Boolean {
+        return try {
+            firestoreService.checkRelationActive(doctorId, patientId)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     /** BAĞLANTI İSTEKLERİ - YENİ MODÜL */
     override suspend fun sendConnectionRequest(patient: FirestoreUser, doctor: UserEntity): Result<Unit> {
         return try {

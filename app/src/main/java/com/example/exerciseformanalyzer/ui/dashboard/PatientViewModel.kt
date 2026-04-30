@@ -239,4 +239,8 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
+
+    suspend fun checkDoctorPatientRelation(doctorId: String, patientId: String): Boolean {
+        return userRepo.isDoctorPatientRelationActive(doctorId, patientId)
+    }
 }

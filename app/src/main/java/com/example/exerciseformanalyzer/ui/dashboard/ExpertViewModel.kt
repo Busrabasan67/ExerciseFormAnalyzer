@@ -127,6 +127,23 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun removePatient(patientId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val uid = currentUid
+            if (uid.isEmpty()) return@launch
+            
+            // 1. Kullanıcı bağını kopar
+            val result = userRepo.removePatientFromExpert(patientId, uid)
+            if (result.isSuccess) {
+                // 2. Bu doktorun o hastaya atadığı görevleri deaktif et
+                planRepo.deactivateDoctorTasks(uid, patientId)
+                _requestStatus.value = "REMOVED"
+            } else {
+                _searchError.value = "Hasta kaldırılamadı: ${result.exceptionOrNull()?.message}"
+            }
+        }
+    }
+
     fun clearRequestStatus() { _requestStatus.value = null }
 
     fun setShowLogoutDialog(show: Boolean) {

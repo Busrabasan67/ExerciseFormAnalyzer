@@ -62,4 +62,7 @@ interface TaskAssignmentDao {
 
     @Query("UPDATE task_assignments SET isSynced = 1, firebaseDocId = :docId WHERE id = :taskId")
     suspend fun markTaskAsSynced(taskId: Int, docId: String)
+
+    @Query("UPDATE task_assignments SET status = 'inactive' WHERE expertUid = :doctorId AND patientUid = :patientId AND (status = 'PENDING' OR status = 'IN_PROGRESS')")
+    suspend fun deactivateTasksByDoctor(doctorId: String, patientId: String)
 }

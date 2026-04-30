@@ -16,6 +16,7 @@ import org.json.JSONArray
 @Composable
 fun TaskCard(
     task: TaskAssignmentEntity,
+    isExpertLinked: Boolean,
     onNavigateToTaskExercise: (TaskExerciseStartParams) -> Unit,
     onNavigateToCamera: (ExerciseType?) -> Unit
 ) {
@@ -144,6 +145,8 @@ fun TaskCard(
                             val exerciseType = ExerciseType.values()
                                 .find { it.name.equals(exData.name, ignoreCase = true) }
 
+                            val isInactive = task.status == "inactive" || task.status == "removed" || !isExpertLinked
+
                             Button(
                                 onClick = {
                                     if (exerciseType != null) {
@@ -164,6 +167,7 @@ fun TaskCard(
                                         onNavigateToCamera(null)
                                     }
                                 },
+                                enabled = !isInactive,
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                 modifier = Modifier.height(28.dp)
                             ) {
@@ -179,11 +183,17 @@ fun TaskCard(
                 "COMPLETED"   -> "Tüm Görev Tamamlandı!"
                 "IN_PROGRESS" -> "Devam Ediyor..."
                 "MISSED"      -> "Kaçırıldı"
-                else          -> "Bekliyor"
+                "inactive", "removed" -> "Bu görev artık aktif değil."
+                else          -> {
+                    if (!isExpertLinked) "Bu görev artık aktif değil."
+                    else "Bekliyor"
+                }
             }
             val finalStatusColor =
                 if (task.status == "COMPLETED")
                     MaterialTheme.colorScheme.primary
+                else if (task.status == "inactive" || task.status == "removed" || !isExpertLinked)
+                    MaterialTheme.colorScheme.error
                 else
                     MaterialTheme.colorScheme.secondary
 
