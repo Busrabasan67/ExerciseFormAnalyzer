@@ -24,13 +24,16 @@ import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.model.firestore.FirestoreWorkoutReport
 import kotlinx.coroutines.flow.Flow
 
+import com.example.exerciseformanalyzer.domain.repository.IPlanRepository
+
 class WorkoutRepository(
     private val reportDao: WorkoutReportDao,
     private val taskDao: TaskAssignmentDao,
     private val exerciseDao: ExerciseDao,
     private val userDao: UserDao,
     private val badgeDao: BadgeDao,
-    private val firestoreService: FirestoreService
+    private val firestoreService: FirestoreService,
+    private val planRepository: IPlanRepository
 ) : IWorkoutRepository {
 
     /**
@@ -158,8 +161,22 @@ class WorkoutRepository(
                             isSynced = false
                         )
                         taskDao.updateTask(updatedTask)
+                        
+                        // 4.1 Modern Dashboard (TaskProgressEntity) gncellemesi
+                        if (!task.firebaseDocId.isNullOrEmpty()) {
+                            val pKey = planRepository.getPeriodKey(taskContext.scheduleType)
+                            planRepository.updateExerciseProgress(
+                                firebaseTaskId = task.firebaseDocId!!,
+                                patientUid = userUid,
+                                exerciseType = taskContext.exerciseType,
+                                periodKey = pKey,
+                                completedSets = taskContext.completedSets + 1, // Mevcut tamamlanan + bu seans
+                                totalSets = exObj.optInt("sets", 1)
+                            )
+                        }
+                        
                         android.util.Log.d("WorkoutRepository",
-                            "Görev güncellendi: id=${task.id} status=$newTaskStatus exerciseIdx=${taskContext.exerciseIndex}")
+                            "Grev gncellendi: id=${task.id} status=$newTaskStatus exerciseIdx=${taskContext.exerciseIndex}")
 
                         // Firestore'a anında itmeyi dene (başarısız olursa SyncWorker yapar)
                         if (!task.firebaseDocId.isNullOrEmpty()) {

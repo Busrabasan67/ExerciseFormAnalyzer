@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
 import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
+import com.example.exerciseformanalyzer.data.local.entity.TaskProgressEntity
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.data.local.entity.WorkoutReportEntity
 import com.example.exerciseformanalyzer.model.WorkoutStats
@@ -13,24 +14,16 @@ import com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUserBadgeProgress
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
 
 data class CategorizedTasks(
-    val pending: List<TaskAssignmentEntity> = emptyList(),
-    val ongoing: List<TaskAssignmentEntity> = emptyList(),
+    val today: List<TaskAssignmentEntity> = emptyList(),
+    val inProgress: List<TaskAssignmentEntity> = emptyList(),
+    val inactiveToday: List<TaskAssignmentEntity> = emptyList(),
     val completed: List<TaskAssignmentEntity> = emptyList()
 )
 
@@ -70,11 +63,24 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         return userRepo.observeCurrentUser(uid)
     }
 
-    fun observeMyTasks(): Flow<List<TaskAssignmentEntity>> {
-        val uid = currentUid
-        if (uid.isEmpty()) return emptyFlow()
-        return planRepo.observeAllTasks(uid)
-    }
+    val categorizedTasks: StateFlow<CategorizedTasks> = planRepo.observeAllTasks(currentUid)
+        .map { allTasks ->
+            val todayList = mutableListOf<TaskAssignmentEntity>()
+            val progressList = mutableListOf<TaskAssignmentEntity>()
+            val inactiveList = mutableListOf<TaskAssignmentEntity>()
+            val completedList = mutableListOf<TaskAssignmentEntity>()
+
+            allTasks.forEach { task ->
+                val isActiveToday = isTaskActiveToday(task)
+                when {
+                    task.status == "DONE" || task.status == "COMPLETED" -> completedList.add(task)
+                    task.status == "IN_PROGRESS" -> progressList.add(task)
+                    isActiveToday -> todayList.add(task)
+                    else -> inactiveList.add(task)
+                }
+            }
+            CategorizedTasks(todayList, progressList, inactiveList, completedList)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CategorizedTasks())
 
     fun observeMyReports(): Flow<List<WorkoutReportEntity>> {
         val uid = currentUid
@@ -85,49 +91,10 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     fun observePatientStats(): Flow<WorkoutStats> {
         return combine(
             observeMyReports(),
-            observeMyTasks()
+            planRepo.observeAllTasks(currentUid)
         ) { reports, tasks ->
             calculateStats(reports, tasks)
         }
-    }
-
-    fun observeCategorizedTasks(): Flow<CategorizedTasks> {
-        return observeMyTasks().map { categorizeTasks(it) }
-    }
-
-    private fun categorizeTasks(tasks: List<TaskAssignmentEntity>): CategorizedTasks {
-        val pending = mutableListOf<TaskAssignmentEntity>()
-        val ongoing = mutableListOf<TaskAssignmentEntity>()
-        val completed = mutableListOf<TaskAssignmentEntity>()
-
-        tasks.forEach { task ->
-            try {
-                val arr = org.json.JSONArray(task.exercisesJson)
-                var anyProgress = false
-                var allDone = true
-
-                for (i in 0 until arr.length()) {
-                    val obj = arr.getJSONObject(i)
-                    val c = obj.optInt("completedSets", 0)
-                    val t = obj.optInt("sets", 1)
-                    if (c > 0) anyProgress = true
-                    if (c < t) allDone = false
-                }
-
-                when {
-                    allDone || task.status == "COMPLETED" -> completed.add(task)
-                    anyProgress -> ongoing.add(task)
-                    else -> pending.add(task)
-                }
-            } catch (e: Exception) {
-                when (task.status) {
-                    "COMPLETED" -> completed.add(task)
-                    "IN_PROGRESS" -> ongoing.add(task)
-                    else -> pending.add(task)
-                }
-            }
-        }
-        return CategorizedTasks(pending, ongoing, completed)
     }
 
     private fun calculateStats(reports: List<WorkoutReportEntity>, tasks: List<TaskAssignmentEntity>): WorkoutStats {
@@ -135,7 +102,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         val dailyMap = mutableMapOf<String, Float>()
         
         for (i in 6 downTo 0) {
-            val date = java.util.Calendar.getInstance().apply { add(java.util.Calendar.DAY_OF_YEAR, -i) }.time
+            val date = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }.time
             dailyMap[sdf.format(date)] = 0f
         }
         
@@ -150,11 +117,10 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
             index.toFloat() to report.score.toFloat()
         }
         
-        val cat = categorizeTasks(tasks)
         val completionStats = mapOf(
-            "PENDING" to cat.pending.size,
-            "IN_PROGRESS" to cat.ongoing.size,
-            "COMPLETED" to cat.completed.size
+            "PENDING" to tasks.count { it.status == "PENDING" },
+            "IN_PROGRESS" to tasks.count { it.status == "IN_PROGRESS" },
+            "COMPLETED" to tasks.count { it.status == "DONE" || it.status == "COMPLETED" }
         )
         
         return WorkoutStats(
@@ -170,7 +136,6 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
             val uid = currentUid
             
             if (uid.isNotEmpty()) {
-                // Her zaman görevleri senkronize et (Kullanıcı profili Room'dan gelmese bile)
                 planRepo.syncTasksForPatient(uid)
                 loadDynamicSocialData()
 
@@ -179,9 +144,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                     if (user != null) {
                         _incomingRequests.value = userRepo.getPendingRequests(user.uid)
                     }
-                } catch (e: Exception) {
-                    // Ignore
-                }
+                } catch (e: Exception) { }
             }
         }
     }
@@ -192,15 +155,21 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                 _activities.value = leaderboardRepo.getRecentActivities()
                 _leaderboard.value = leaderboardRepo.getGlobalLeaderboard()
                 _userBadges.value = leaderboardRepo.getUserBadges(currentUid)
-            } catch (e: Exception) {
-            }
+            } catch (e: Exception) { }
         }
     }
 
-    fun respondToRequest(requestId: String, status: String, expertUid: String) {
+    fun respondToRequest(request: FirestorePatientRequest, status: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val uid = currentUid
-            val result = userRepo.respondToConnectionRequest(requestId, status, uid, expertUid)
+            val result = userRepo.respondToConnectionRequest(
+                requestId = request.requestId,
+                status = status.uppercase(),
+                patientUid = uid,
+                expertUid = request.doctorId,
+                patientName = request.patientName,
+                patientEmail = request.patientEmail
+            )
             if (result.isSuccess) {
                 syncPatientData(null)
             }
@@ -220,6 +189,81 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun getPeriodKey(scheduleType: String): String {
+        return planRepo.getPeriodKey(scheduleType)
+    }
+
+    fun updateExerciseProgress(
+        firebaseTaskId: String,
+        exerciseType: String,
+        scheduleType: String,
+        newCompletedSets: Int,
+        totalSets: Int,
+        onDone: () -> Unit = {}
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            planRepo.updateExerciseProgress(
+                firebaseTaskId = firebaseTaskId,
+                patientUid = currentUid,
+                exerciseType = exerciseType,
+                periodKey = getPeriodKey(scheduleType),
+                completedSets = newCompletedSets,
+                totalSets = totalSets
+            )
+            withContext(Dispatchers.Main) { onDone() }
+        }
+    }
+
+    fun isTaskActiveToday(task: TaskAssignmentEntity): Boolean {
+        if (task.status == "inactive") return false
+        
+        val cal = Calendar.getInstance()
+        val today = when (cal.get(Calendar.DAY_OF_WEEK)) {
+            Calendar.MONDAY -> 1
+            Calendar.TUESDAY -> 2
+            Calendar.WEDNESDAY -> 3
+            Calendar.THURSDAY -> 4
+            Calendar.FRIDAY -> 5
+            Calendar.SATURDAY -> 6
+            Calendar.SUNDAY -> 7
+            else -> 1
+        }
+
+        return when (task.scheduleType) {
+            "DAILY" -> true
+            "WEEKLY" -> true 
+            "CUSTOM" -> {
+                try {
+                    val days = org.json.JSONArray(task.daysOfWeekJson)
+                    var found = false
+                    for (i in 0 until days.length()) {
+                        if (days.getInt(i) == today) found = true
+                    }
+                    found
+                } catch (e: Exception) { false }
+            }
+            else -> true
+        }
+    }
+
+    fun checkDoctorPatientRelation(doctorId: String, onResult: (Boolean) -> Unit) {
+        if (doctorId == "SYSTEM") {
+            onResult(true)
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val patientId = currentUid
+            val isActive = userRepo.isDoctorPatientRelationActive(doctorId, patientId)
+            withContext(Dispatchers.Main) {
+                onResult(isActive)
+            }
+        }
+    }
+
+    fun observeTaskProgress(taskId: String, scheduleType: String): Flow<TaskProgressEntity?> {
+        return planRepo.observeTaskProgress(taskId, getPeriodKey(scheduleType))
+    }
+
     fun applyRecommendedPlan(plan: com.example.exerciseformanalyzer.domain.RecommendedPlan) {
         viewModelScope.launch(Dispatchers.IO) {
             val uid = currentUid
@@ -229,18 +273,61 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                     patientUid = uid,
                     title = plan.title,
                     note = plan.note,
-                    dueDate = System.currentTimeMillis() + 86400000,
+                    dueDate = System.currentTimeMillis() + (7 * 24 * 60 * 60 * 1000L),
                     exercises = plan.exercises,
                     scheduleType = "DAILY",
                     daysOfWeek = emptyList(),
-                    autoRepeat = false,
-                    repeatDurationWeeks = null
+                    autoRepeat = true,
+                    repeatDurationWeeks = 4
                 )
             }
         }
     }
 
-    suspend fun checkDoctorPatientRelation(doctorId: String, patientId: String): Boolean {
-        return userRepo.isDoctorPatientRelationActive(doctorId, patientId)
+    /**
+     * Egzersiz başlatılabilir mi kontrolü.
+     * Sonuç callback ile döner — UI bunu Snackbar için kullanır.
+     */
+    fun canStartExercise(
+        task: TaskAssignmentEntity,
+        exerciseType: String,
+        progressJson: String,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        // 1. Görev aktif mi?
+        if (task.status == "inactive" || task.status == "removed") {
+            onResult(false, "Bu görev artık aktif değil.")
+            return
+        }
+        // 2. Bugün aktif mi?
+        if (!isTaskActiveToday(task)) {
+            onResult(false, "Bu görev bugün için planlanmamış.")
+            return
+        }
+        // 3. Egzersiz bu periyotta zaten tamamlandı mı?
+        try {
+            val arr = org.json.JSONArray(progressJson)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                if (obj.optString("exerciseType") == exerciseType &&
+                    obj.optString("status") == "completed") {
+                    onResult(false, "Bu egzersiz bu periyotta zaten tamamlandı.")
+                    return
+                }
+            }
+        } catch (_: Exception) {}
+
+        // 4. Doktor-hasta ilişkisi kontrolü (async)
+        if (task.expertUid == "SYSTEM") {
+            onResult(true, "")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val isActive = userRepo.isDoctorPatientRelationActive(task.expertUid, currentUid)
+            withContext(Dispatchers.Main) {
+                if (isActive) onResult(true, "")
+                else onResult(false, "Uzmanla bağlantınız aktif değil.")
+            }
+        }
     }
 }

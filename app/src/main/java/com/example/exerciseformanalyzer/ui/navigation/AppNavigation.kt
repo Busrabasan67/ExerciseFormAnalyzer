@@ -161,16 +161,18 @@ fun AppNavigation(
                     }
                 },
                 onNavigateToTaskExercise = { params ->
-                    // Görev bağlamlı egzersiz — taskId + index ile kesin eşleşme garantisi
                     val ctx = TaskContext(
                         taskId = params.taskId,
+                        firebaseTaskId = params.firebaseTaskId,
                         exerciseIndex = params.exerciseIndex,
+                        exerciseType = params.exerciseType.name,
                         targetType = params.targetType,
                         targetReps = params.targetReps,
                         targetDurationSeconds = params.targetDurationSeconds,
                         targetSets = params.targetSets,
                         completedSets = params.completedSets,
-                        restTimeSeconds = params.restTimeSeconds
+                        restTimeSeconds = params.restTimeSeconds,
+                        scheduleType = params.scheduleType
                     )
                     workoutViewModel.setTargetExercise(params.exerciseType, taskContext = ctx)
                     navController.navigate(Route.Camera.route)
@@ -228,13 +230,16 @@ fun AppNavigation(
                 onNavigateToTaskExercise = { params ->
                     val ctx = TaskContext(
                         taskId = params.taskId,
+                        firebaseTaskId = params.firebaseTaskId,
                         exerciseIndex = params.exerciseIndex,
+                        exerciseType = params.exerciseType.name,
                         targetType = params.targetType,
                         targetReps = params.targetReps,
                         targetDurationSeconds = params.targetDurationSeconds,
                         targetSets = params.targetSets,
                         completedSets = params.completedSets,
-                        restTimeSeconds = params.restTimeSeconds
+                        restTimeSeconds = params.restTimeSeconds,
+                        scheduleType = params.scheduleType
                     )
                     workoutViewModel.setTargetExercise(params.exerciseType, taskContext = ctx)
                     navController.navigate(Route.Camera.route)

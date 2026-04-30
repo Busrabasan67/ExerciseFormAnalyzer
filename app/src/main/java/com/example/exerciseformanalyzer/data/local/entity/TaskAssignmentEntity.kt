@@ -39,6 +39,6 @@ data class TaskAssignmentEntity(
 
     val completedAt: Long? = null,
     val linkedReportId: Int? = null,
-
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis()
 )

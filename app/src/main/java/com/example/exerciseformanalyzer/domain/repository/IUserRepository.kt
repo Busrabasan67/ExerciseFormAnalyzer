@@ -42,7 +42,9 @@ interface IUserRepository {
         requestId: String,
         status: String,
         patientUid: String,
-        expertUid: String
+        expertUid: String,
+        patientName: String = "",
+        patientEmail: String = ""
     ): Result<Unit>
 
     /** Hastayı uzmanın listesinden kaldır. */

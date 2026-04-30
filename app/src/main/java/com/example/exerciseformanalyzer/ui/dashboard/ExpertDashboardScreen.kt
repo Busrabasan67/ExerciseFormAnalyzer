@@ -12,6 +12,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.example.exerciseformanalyzer.R
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +33,17 @@ import com.example.exerciseformanalyzer.ui.dashboard.components.AssignTaskDialog
 import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
 import org.json.JSONArray
 import java.util.Calendar
+import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.Locale
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,8 +55,8 @@ fun ExpertDashboardScreen(
     onLogout: () -> Unit
 ) {
     val patients by viewModel.observeMyPatients().collectAsState(initial = emptyList())
-    val tasks by viewModel.observeTasksByExpert().collectAsState(initial = emptyList())
-    
+    val tasks by viewModel.filteredTasks.collectAsState(initial = emptyList())
+    val selectedFilter by viewModel.selectedFilter.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
     val sentRequests by viewModel.sentRequests.collectAsState()
     val searchError by viewModel.searchError.collectAsState()
@@ -280,22 +294,34 @@ fun ExpertDashboardScreen(
                     }
                 }
                 2 -> {
-                    // FOLLOW-UP
-                    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                        item {
-                            Text("Verilen Görevlerin Durumu", style = MaterialTheme.typography.titleLarge)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            if (tasks.isEmpty()) {
-                                Text("Henüz bir görev atamadınız.")
+                    // FOLLOW-UP / TAKİP
+                    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                        Text("Verilen Görevlerin Durumu", style = MaterialTheme.typography.titleLarge)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        TaskFilterChips(
+                            selectedFilter = selectedFilter,
+                            onFilterSelected = { viewModel.setFilter(it) }
+                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        if (tasks.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("Seçili kriterde görev bulunamadı.")
                             }
-                        }
-                        items(tasks) { task ->
-                            val pName = patients.find { it.uid == task.patientUid }?.fullName ?: "Bilinmeyen"
-                            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("Hasta: $pName", color = MaterialTheme.colorScheme.primary)
-                                    Text("Başlık: ${task.title}")
-                                    Text("Durum: ${task.status}", style = MaterialTheme.typography.labelMedium)
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                contentPadding = PaddingValues(bottom = 80.dp)
+                            ) {
+                                items(tasks) { task ->
+                                    val patient = patients.find { it.uid == task.patientUid }
+                                    TaskTrackingCard(
+                                        task = task,
+                                        patientName = patient?.fullName ?: "Bilinmeyen Hasta"
+                                    )
                                 }
                             }
                         }
@@ -333,6 +359,220 @@ fun ExpertDashboardScreen(
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+fun TaskFilterChips(
+    selectedFilter: TaskFilter,
+    onFilterSelected: (TaskFilter) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        TaskFilter.values().forEach { filter ->
+            FilterChip(
+                selected = selectedFilter == filter,
+                onClick = { onFilterSelected(filter) },
+                label = {
+                    val label = when(filter) {
+                        TaskFilter.ALL -> "Hepsi"
+                        TaskFilter.PENDING -> "Bekleyenler"
+                        TaskFilter.IN_PROGRESS -> "Devam Edenler"
+                        TaskFilter.COMPLETED -> "Tamamlananlar"
+                        TaskFilter.INACTIVE -> "Pasifler"
+                    }
+                    Text(label)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun TaskTrackingCard(
+    task: TaskAssignmentEntity,
+    patientName: String
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+    
+    // Parse exercises to calculate progress
+    val exercises = remember(task.exercisesJson) {
+        try {
+            val arr = JSONArray(task.exercisesJson)
+            List(arr.length()) { i ->
+                val obj = arr.getJSONObject(i)
+                obj
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+    
+    val totalSets = exercises.sumOf { it.optInt("sets", 0) }
+    val completedSets = exercises.sumOf { it.optInt("completedSets", 0) }
+    val progress = if (totalSets > 0) completedSets.toFloat() / totalSets else 0f
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Hasta: $patientName",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = task.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                TaskStatusBadge(task.status)
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Info Rows
+            TaskInfoRow(Icons.Default.Event, "Verildi: ${sdf.format(Date(task.createdAt))}")
+            
+            val planText = when(task.scheduleType) {
+                "DAILY" -> "Her Gün"
+                "WEEKLY" -> "Haftalık"
+                "CUSTOM" -> {
+                    val days = try {
+                        val arr = JSONArray(task.daysOfWeekJson)
+                        val dayNames = listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+                        List(arr.length()) { i -> dayNames.getOrNull(arr.getInt(i) - 1) ?: "" }
+                            .filter { it.isNotEmpty() }
+                            .joinToString(", ")
+                    } catch (e: Exception) { "Belirtilmedi" }
+                    "Özel Günler • $days"
+                }
+                else -> task.scheduleType
+            }
+            TaskInfoRow(Icons.Default.Repeat, "Plan: $planText")
+            
+            if (task.repeatDurationWeeks != null) {
+                TaskInfoRow(Icons.Default.Timer, "Süre: ${task.repeatDurationWeeks} hafta")
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Progress Section
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Egzersiz: ${exercises.size}", style = MaterialTheme.typography.bodySmall)
+                Text("Set: $completedSets / $totalSets", style = MaterialTheme.typography.bodySmall)
+            }
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            TaskProgressBar(progress)
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Expand Toggle
+            TextButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.align(Alignment.End),
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text(if (expanded) "Özeti Kapat" else "Detay")
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null
+                )
+            }
+            
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(top = 8.dp)) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    exercises.forEach { ex ->
+                        ExerciseDetailRow(ex)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TaskInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+    }
+}
+
+@Composable
+fun TaskStatusBadge(status: String) {
+    val (text, color) = when (status) {
+        "PENDING" -> "Bekliyor" to Color(0xFFFBC02D) // Sarımsı
+        "IN_PROGRESS" -> "Devam Ediyor" to Color(0xFF2196F3) // Mavi
+        "COMPLETED", "DONE" -> "Tamamlandı" to Color(0xFF4CAF50) // Yeşil
+        "MISSED" -> "Kaçırıldı" to Color(0xFFF44336) // Kırmızı
+        "inactive", "removed" -> "Pasif" to Color.Gray
+        else -> status to Color.Gray
+    }
+    
+    Surface(
+        color = color.copy(alpha = 0.15f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+fun TaskProgressBar(progress: Float) {
+    Column {
+        LinearProgressIndicator(
+            progress = progress,
+            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+        )
+        Text(
+            text = "%${(progress * 100).toInt()}",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.align(Alignment.End),
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+@Composable
+fun ExerciseDetailRow(ex: org.json.JSONObject) {
+    val name = ex.optString("exerciseType", "Egzersiz")
+    val sets = ex.optInt("sets", 0)
+    val comp = ex.optInt("completedSets", 0)
+    val reps = ex.optInt("targetReps", 0)
+    val dur = ex.optInt("targetDurationSeconds", 0)
+    val targetStr = if (reps > 0) "$reps Tekrar" else "$dur Sn"
+    
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text("$comp / $sets Set", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(targetStr, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            val difficulty = ex.optString("difficulty", "MEDIUM")
+            Text(difficulty, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
         }
     }
 }

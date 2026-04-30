@@ -23,6 +23,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest
+import kotlinx.coroutines.flow.combine
+
+enum class TaskFilter { ALL, PENDING, IN_PROGRESS, COMPLETED, INACTIVE }
 
 class ExpertViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -49,6 +52,24 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _showLogoutDialog = MutableStateFlow(false)
     val showLogoutDialog: StateFlow<Boolean> = _showLogoutDialog.asStateFlow()
+
+    private val _selectedFilter = MutableStateFlow(TaskFilter.ALL)
+    val selectedFilter: StateFlow<TaskFilter> = _selectedFilter.asStateFlow()
+
+    // Filtrelenmiş görevleri reaktif olarak sağlar
+    val filteredTasks: Flow<List<TaskAssignmentEntity>> = combine(
+        observeTasksByExpert(),
+        _selectedFilter
+    ) { tasks, filter ->
+        val sortedTasks = tasks.sortedByDescending { it.createdAt }
+        when (filter) {
+            TaskFilter.ALL -> sortedTasks
+            TaskFilter.PENDING -> sortedTasks.filter { it.status == "PENDING" }
+            TaskFilter.IN_PROGRESS -> sortedTasks.filter { it.status == "IN_PROGRESS" }
+            TaskFilter.COMPLETED -> sortedTasks.filter { it.status == "COMPLETED" || it.status == "DONE" }
+            TaskFilter.INACTIVE -> sortedTasks.filter { it.status == "inactive" || it.status == "removed" }
+        }
+    }
 
     fun observeCurrentUser(): Flow<UserEntity?> {
         val uid = currentUid
@@ -145,6 +166,10 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun clearRequestStatus() { _requestStatus.value = null }
+
+    fun setFilter(filter: TaskFilter) {
+        _selectedFilter.value = filter
+    }
 
     fun setShowLogoutDialog(show: Boolean) {
         _showLogoutDialog.value = show

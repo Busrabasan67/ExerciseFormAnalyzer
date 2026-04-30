@@ -211,3 +211,15 @@ data class FirestoreGroupJoinRequest(
     val status: String = "PENDING", // "PENDING" | "ACCEPTED" | "REJECTED"
     @ServerTimestamp val createdAt: Date? = null
 )
+
+// =========================================================
+// GÖREV İLERLEMESİ — task_progress/{taskId}_{periodKey}
+// =========================================================
+data class FirestoreTaskProgress(
+    val taskId: String = "",
+    val patientId: String = "",
+    val periodKey: String = "", // "2026-05-01" or "2026-W18"
+    val exercises: List<FirestoreExerciseItem> = emptyList(),
+    val status: String = "PENDING",
+    val updatedAt: Long = System.currentTimeMillis()
+)

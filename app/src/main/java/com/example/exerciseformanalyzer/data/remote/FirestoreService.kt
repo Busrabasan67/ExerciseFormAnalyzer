@@ -26,6 +26,8 @@ class FirestoreService {
         const val GROUP_INVITES   = "group_invites"
         const val PATIENT_REQUESTS = "patient_requests"
         const val GROUP_JOIN_REQUESTS = "group_join_requests"
+        const val DOCTOR_PATIENTS = "doctor_patients"
+    const val TASK_PROGRESS = "task_progress"
     }
 
     // =====================================================================
@@ -59,6 +61,38 @@ class FirestoreService {
             .update("expertId", expertUid).await()
     }
 
+    /** İsteği kabul et ve ilişkiyi kur (Transaction). */
+    suspend fun acceptConnectionRequestTransaction(
+        requestId: String,
+        doctorId: String,
+        patientId: String,
+        patientName: String,
+        patientEmail: String
+    ) {
+        db.runTransaction { transaction ->
+            // 1. İstek durumunu güncelle
+            val requestRef = db.collection(PATIENT_REQUESTS).document(requestId)
+            transaction.update(requestRef, "status", "ACCEPTED")
+
+            // 2. doctor_patients koleksiyonuna ekle
+            val relationId = "${doctorId}_${patientId}"
+            val relationRef = db.collection(DOCTOR_PATIENTS).document(relationId)
+            val relationData = mapOf(
+                "doctorId" to doctorId,
+                "patientId" to patientId,
+                "patientName" to patientName,
+                "patientEmail" to patientEmail,
+                "status" to "active",
+                "createdAt" to System.currentTimeMillis()
+            )
+            transaction.set(relationRef, relationData)
+
+            // 3. Kullanıcı dökümanındaki expertId'yi güncelle
+            val userRef = db.collection(USERS).document(patientId)
+            transaction.update(userRef, "expertId", doctorId)
+        }.await()
+    }
+
     /** Doktor-hasta ilişkisi hala aktif mi kontrol et. */
     suspend fun checkRelationActive(doctorId: String, patientId: String): Boolean {
         val doc = db.collection(USERS).document(patientId).get().await()
@@ -74,10 +108,22 @@ class FirestoreService {
 
     /** Uzmanın hastalarını listele. */
     suspend fun getPatientsByExpert(expertUid: String): List<FirestoreUser> {
-        return db.collection(USERS)
-            .whereEqualTo("expertId", expertUid)
+        // Artık doctor_patients koleksiyonundan çekiyoruz
+        val relations = db.collection(DOCTOR_PATIENTS)
+            .whereEqualTo("doctorId", expertUid)
+            .whereEqualTo("status", "active")
             .get().await()
-            .documents.mapNotNull { it.toObject<FirestoreUser>() }
+
+        val patients = mutableListOf<FirestoreUser>()
+        for (doc in relations.documents) {
+            val pId = doc.getString("patientId") ?: continue
+            val userDoc = db.collection(USERS).document(pId).get().await()
+            val user = userDoc.toObject<FirestoreUser>()
+            if (user != null) {
+                patients.add(user)
+            }
+        }
+        return patients
     }
 
     /** E-posta ile canlı hasta arama (Prefix search). */
@@ -118,6 +164,20 @@ class FirestoreService {
     // =====================================================================
 
     /** Yeni görev oluşturur; doc ID'sini döner. */
+    suspend fun getTaskProgress(taskId: String, periodKey: String): FirestoreTaskProgress? {
+        val docId = "${taskId}_${periodKey}"
+        return try {
+            db.collection(TASK_PROGRESS).document(docId).get().await().toObject(FirestoreTaskProgress::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun updateTaskProgress(progress: FirestoreTaskProgress) {
+        val docId = "${progress.taskId}_${progress.periodKey}"
+        db.collection(TASK_PROGRESS).document(docId).set(progress).await()
+    }
+
     suspend fun createTask(task: FirestoreTaskAssignment): String {
         return db.collection(TASK_ASSIGNMENTS).add(task).await().id
     }

@@ -27,9 +27,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         GroupMemberEntity::class,
         ExerciseSessionEntity::class,
         BadgeEntity::class,
-        UserBadgeProgressEntity::class
+        UserBadgeProgressEntity::class,
+        TaskProgressEntity::class
     ],
-    version = 9,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -45,6 +46,7 @@ abstract class AppDatabase : RoomDatabase() {
     // Yeni DAO
     abstract fun exerciseSessionDao(): ExerciseSessionDao
     abstract fun badgeDao(): BadgeDao
+    abstract fun taskProgressDao(): TaskProgressDao
 
     companion object {
         @Volatile
@@ -111,6 +113,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE task_assignments ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `task_progress` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                        `taskId` TEXT NOT NULL, 
+                        `patientUid` TEXT NOT NULL, 
+                        `periodKey` TEXT NOT NULL, 
+                        `progressJson` TEXT NOT NULL, 
+                        `status` TEXT NOT NULL, 
+                        `lastUpdatedAt` INTEGER NOT NULL, 
+                        `isSynced` INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -118,7 +143,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "exercise_app_database"
                 )
-                .addMigrations(MIGRATION_3_4, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                .addMigrations(MIGRATION_3_4, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .build()
                 INSTANCE = instance
                 instance

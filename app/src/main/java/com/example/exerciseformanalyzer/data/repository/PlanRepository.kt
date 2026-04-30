@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 class PlanRepository(
     private val planDao: WorkoutPlanDao,
     private val taskDao: TaskAssignmentDao,
+    private val progressDao: com.example.exerciseformanalyzer.data.local.dao.TaskProgressDao,
     private val firestoreService: FirestoreService
 ) : IPlanRepository {
 
@@ -96,7 +97,8 @@ class PlanRepository(
                 repeatDurationWeeks = repeatDurationWeeks,
                 status = TaskStatus.PENDING.name,
                 exercisesJson = exercisesJson,
-                isSynced = false
+                isSynced = false,
+                createdAt = System.currentTimeMillis()
             )
             val taskId = taskDao.insertTask(localTask)
 
@@ -208,7 +210,8 @@ class PlanRepository(
                         daysOfWeekJson = daysOfWeekJson,
                         autoRepeat = fsTask.autoRepeat,
                         repeatDurationWeeks = fsTask.repeatDurationWeeks,
-                        exercisesJson = exJson
+                        exercisesJson = exJson,
+                        createdAt = fsTask.createdAt?.time ?: existingTask.createdAt
                     )
                     taskDao.updateTask(updated)
                 } else {
@@ -226,7 +229,8 @@ class PlanRepository(
                         autoRepeat = fsTask.autoRepeat,
                         repeatDurationWeeks = fsTask.repeatDurationWeeks,
                         exercisesJson = exJson,
-                        isSynced = true
+                        isSynced = true,
+                        createdAt = fsTask.createdAt?.time ?: System.currentTimeMillis()
                     )
                     taskDao.insertTask(newTask)
                 }
@@ -234,5 +238,154 @@ class PlanRepository(
         } catch (e: Exception) {
             Log.e(TAG, "Sync tasks for patient failed", e)
         }
+    }
+    override fun getPeriodKey(scheduleType: String): String {
+        val cal = java.util.Calendar.getInstance()
+        return when (scheduleType) {
+            "WEEKLY" -> {
+                val year = cal.get(java.util.Calendar.YEAR)
+                val week = cal.get(java.util.Calendar.WEEK_OF_YEAR)
+                "$year-W$week"
+            }
+            else -> { // DAILY or CUSTOM
+                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                sdf.format(cal.time)
+            }
+        }
+    }
+
+    override suspend fun getTaskProgress(taskId: String, periodKey: String, patientUid: String): com.example.exerciseformanalyzer.data.local.entity.TaskProgressEntity {
+        // 1. Lokalde ara
+        val local = progressDao.getProgress(taskId, periodKey)
+        if (local != null) return local
+
+        // 2. Firestore'da ara
+        val fsProgress = firestoreService.getTaskProgress(taskId, periodKey)
+        if (fsProgress != null) {
+            val entity = com.example.exerciseformanalyzer.data.local.entity.TaskProgressEntity(
+                taskId = fsProgress.taskId,
+                patientUid = fsProgress.patientId,
+                periodKey = fsProgress.periodKey,
+                progressJson = org.json.JSONArray(fsProgress.exercises.map { ex ->
+                    org.json.JSONObject().apply {
+                        put("exerciseType", ex.exerciseType)
+                        put("completedSets", ex.completedSets)
+                        put("status", ex.status)
+                    }
+                }).toString(),
+                status = fsProgress.status.lowercase(),
+                lastUpdatedAt = fsProgress.updatedAt,
+                isSynced = true
+            )
+            progressDao.insertProgress(entity)
+            return entity
+        }
+
+        // 3. Hiç yoksa yeni oluştur
+        val newProgress = com.example.exerciseformanalyzer.data.local.entity.TaskProgressEntity(
+            taskId = taskId,
+            patientUid = patientUid,
+            periodKey = periodKey,
+            progressJson = "[]",
+            status = "pending",
+            isSynced = false
+        )
+        val id = progressDao.insertProgress(newProgress)
+        return newProgress.copy(id = id.toInt())
+    }
+
+    override suspend fun updateTaskProgress(progress: com.example.exerciseformanalyzer.data.local.entity.TaskProgressEntity) {
+        progressDao.updateProgress(progress)
+        
+        // Sync to Firestore
+        try {
+            val exercisesList = mutableListOf<com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem>()
+            val arr = org.json.JSONArray(progress.progressJson)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                exercisesList.add(com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem(
+                    exerciseType = obj.getString("exerciseType"),
+                    completedSets = obj.getInt("completedSets"),
+                    status = obj.getString("status")
+                ))
+            }
+
+            val fs = com.example.exerciseformanalyzer.model.firestore.FirestoreTaskProgress(
+                taskId = progress.taskId,
+                patientId = progress.patientUid,
+                periodKey = progress.periodKey,
+                exercises = exercisesList,
+                status = progress.status.uppercase(),
+                updatedAt = System.currentTimeMillis()
+            )
+            firestoreService.updateTaskProgress(fs)
+            progressDao.markAsSynced(progress.id)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to sync progress to Firestore", e)
+        }
+    }
+
+    override fun observeTaskProgress(taskId: String, periodKey: String): Flow<com.example.exerciseformanalyzer.data.local.entity.TaskProgressEntity?> {
+        return progressDao.observeProgress(taskId, periodKey)
+    }
+
+    override suspend fun updateExerciseProgress(
+        firebaseTaskId: String,
+        patientUid: String,
+        exerciseType: String,
+        periodKey: String,
+        completedSets: Int,
+        totalSets: Int
+    ) {
+        val existing = getTaskProgress(firebaseTaskId, periodKey, patientUid)
+        
+        // Parse current progress
+        val progressArr = try {
+            org.json.JSONArray(existing.progressJson)
+        } catch (e: Exception) { org.json.JSONArray() }
+
+        // Find and update this exercise
+        var found = false
+        for (i in 0 until progressArr.length()) {
+            val obj = progressArr.getJSONObject(i)
+            if (obj.optString("exerciseType") == exerciseType) {
+                obj.put("completedSets", completedSets)
+                obj.put("status", if (completedSets >= totalSets) "completed" else "in_progress")
+                obj.put("updatedAt", System.currentTimeMillis())
+                found = true
+                break
+            }
+        }
+        if (!found) {
+            progressArr.put(org.json.JSONObject().apply {
+                put("exerciseType", exerciseType)
+                put("completedSets", completedSets)
+                put("status", if (completedSets >= totalSets) "completed" else "in_progress")
+                put("updatedAt", System.currentTimeMillis())
+            })
+        }
+
+        // Recalculate overall status
+        var allCompleted = progressArr.length() > 0
+        var anyStarted = false
+        for (i in 0 until progressArr.length()) {
+            val s = progressArr.getJSONObject(i).optString("status", "pending")
+            if (s != "completed") allCompleted = false
+            if (s != "pending") anyStarted = true
+        }
+        
+        val overallStatus = when {
+            allCompleted -> "completed"
+            anyStarted -> "in_progress"
+            else -> "pending"
+        }
+
+        val updated = existing.copy(
+            progressJson = progressArr.toString(),
+            status = overallStatus,
+            lastUpdatedAt = System.currentTimeMillis(),
+            isSynced = false
+        )
+        updateTaskProgress(updated)
     }
 }

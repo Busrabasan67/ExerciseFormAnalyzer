@@ -69,7 +69,8 @@ class MainApplication : Application() {
             exerciseDao = database.exerciseDao(),
             userDao = database.userDao(),
             badgeDao = database.badgeDao(),
-            firestoreService = firestoreService
+            firestoreService = firestoreService,
+            planRepository = planRepository
         )
     }
 
@@ -84,6 +85,7 @@ class MainApplication : Application() {
         PlanRepository(
             planDao = database.workoutPlanDao(),
             taskDao = database.taskAssignmentDao(),
+            progressDao = database.taskProgressDao(),
             firestoreService = firestoreService
         )
     }

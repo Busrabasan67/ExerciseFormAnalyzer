@@ -192,11 +192,21 @@ class UserRepository(
     }
 
     /** İsteği yanıtla ve gerekirse bağı kur. */
-    override suspend fun respondToConnectionRequest(requestId: String, status: String, patientUid: String, expertUid: String): Result<Unit> {
+    override suspend fun respondToConnectionRequest(
+        requestId: String,
+        status: String,
+        patientUid: String,
+        expertUid: String,
+        patientName: String,
+        patientEmail: String
+    ): Result<Unit> {
         return try {
-            firestoreService.updateRequestStatus(requestId, status)
             if (status == "ACCEPTED") {
-                linkPatientToExpert(patientUid, expertUid)
+                firestoreService.acceptConnectionRequestTransaction(
+                    requestId, expertUid, patientUid, patientName, patientEmail
+                )
+            } else {
+                firestoreService.updateRequestStatus(requestId, status)
             }
             Result.success(Unit)
         } catch (e: Exception) {
