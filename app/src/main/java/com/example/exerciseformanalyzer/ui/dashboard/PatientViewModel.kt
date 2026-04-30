@@ -9,7 +9,7 @@ import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.data.local.entity.WorkoutReportEntity
 import com.example.exerciseformanalyzer.model.WorkoutStats
 import com.example.exerciseformanalyzer.model.firestore.FirestoreActivity
-import com.example.exerciseformanalyzer.model.firestore.FirestoreConnectionRequest
+import com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUserBadgeProgress
 import kotlinx.coroutines.Dispatchers
@@ -47,8 +47,8 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     private val _requestStatus = MutableStateFlow<String?>(null)
     val requestStatus: StateFlow<String?> = _requestStatus.asStateFlow()
 
-    private val _incomingRequests = MutableStateFlow<List<Pair<String, FirestoreConnectionRequest>>>(emptyList())
-    val incomingRequests: StateFlow<List<Pair<String, FirestoreConnectionRequest>>> = _incomingRequests.asStateFlow()
+    private val _incomingRequests = MutableStateFlow<List<FirestorePatientRequest>>(emptyList())
+    val incomingRequests: StateFlow<List<FirestorePatientRequest>> = _incomingRequests.asStateFlow()
 
     private val _activities = MutableStateFlow<List<FirestoreActivity>>(emptyList())
     val activities: StateFlow<List<FirestoreActivity>> = _activities.asStateFlow()
@@ -177,7 +177,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                 try {
                     val user = userRepo.observeCurrentUser(uid).first()
                     if (user != null) {
-                        _incomingRequests.value = userRepo.getPendingRequests(user.email)
+                        _incomingRequests.value = userRepo.getPendingRequests(user.uid)
                     }
                 } catch (e: Exception) {
                     // Ignore

@@ -172,13 +172,16 @@ data class FirestoreUserBadgeProgress(
 )
 
 // =========================================================
-// BAĞLANTI İSTEĞİ — connection_requests/{docId}
+// HASTA BAĞLANTI İSTEĞİ — patient_requests/{docId}
 // =========================================================
-data class FirestoreConnectionRequest(
-    val fromExpertId: String = "",
-    val fromExpertName: String = "",
-    val toPatientEmail: String = "",
-    val status: String = "PENDING", // "PENDING" | "ACCEPTED" | "REJECTED"
+data class FirestorePatientRequest(
+    val requestId: String = "",    // Döküman ID'si (opsiyonel içerde tutmak için)
+    val doctorId: String = "",
+    val doctorName: String = "",
+    val patientId: String = "",
+    val patientName: String = "",
+    val patientEmail: String = "",
+    val status: String = "pending", // "pending" | "accepted" | "rejected"
     @ServerTimestamp val createdAt: Date? = null
 )
 

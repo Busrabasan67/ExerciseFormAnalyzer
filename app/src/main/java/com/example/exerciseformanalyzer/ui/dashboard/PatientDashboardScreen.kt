@@ -137,19 +137,19 @@ fun PatientDashboardScreen(
                         if (incomingRequests.isNotEmpty()) {
                             Text("Bağlantı İstekleri", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(8.dp))
-                            incomingRequests.forEach { (id, req) ->
+                            incomingRequests.forEach { req ->
                                 Card(
                                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                                     elevation = CardDefaults.cardElevation(4.dp)
                                 ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
-                                        Text("${req.fromExpertName} size bağlantı isteği gönderdi.", style = MaterialTheme.typography.bodyMedium)
+                                        Text("${req.doctorName} size bağlantı isteği gönderdi.", style = MaterialTheme.typography.bodyMedium)
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Button(onClick = { viewModel.respondToRequest(id, "ACCEPTED", req.fromExpertId) }) {
+                                            Button(onClick = { viewModel.respondToRequest(req.requestId, "accepted", req.doctorId) }) {
                                                 Text("Kabul Et")
                                             }
-                                            OutlinedButton(onClick = { viewModel.respondToRequest(id, "REJECTED", req.fromExpertId) }) {
+                                            OutlinedButton(onClick = { viewModel.respondToRequest(req.requestId, "rejected", req.doctorId) }) {
                                                 Text("Reddet")
                                             }
                                         }

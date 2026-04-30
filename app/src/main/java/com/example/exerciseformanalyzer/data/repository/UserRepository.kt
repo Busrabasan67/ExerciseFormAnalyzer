@@ -84,6 +84,10 @@ class UserRepository(
         return firestoreService.findUserByEmail(email)
     }
 
+    override suspend fun searchPatientsByEmail(query: String): List<FirestoreUser> {
+        return firestoreService.searchPatientsByEmail(query)
+    }
+
     /**
      * Uzman, hastayı UID ile kendi listesine ekler.
      */
@@ -128,14 +132,15 @@ class UserRepository(
     }
 
     /** BAĞLANTI İSTEKLERİ - YENİ MODÜL */
-
-    override suspend fun sendConnectionRequest(patientEmail: String, fromExpert: UserEntity): Result<Unit> {
+    override suspend fun sendConnectionRequest(patient: FirestoreUser, doctor: UserEntity): Result<Unit> {
         return try {
-            val request = com.example.exerciseformanalyzer.model.firestore.FirestoreConnectionRequest(
-                fromExpertId = fromExpert.uid,
-                fromExpertName = fromExpert.fullName,
-                toPatientEmail = patientEmail,
-                status = "PENDING"
+            val request = com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest(
+                doctorId = doctor.uid,
+                doctorName = doctor.fullName,
+                patientId = patient.uid,
+                patientName = patient.fullName,
+                patientEmail = patient.email,
+                status = "pending"
             )
             firestoreService.sendConnectionRequest(request)
             Result.success(Unit)
@@ -144,10 +149,17 @@ class UserRepository(
         }
     }
 
-    /** Hastaya gelen bekleyen istekleri Firestore'dan anlık çek. */
-    override suspend fun getPendingRequests(patientEmail: String): List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreConnectionRequest>> {
+    override suspend fun getPendingRequests(patientId: String): List<com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest> {
         return try {
-            firestoreService.getPendingRequestsForPatient(patientEmail)
+            firestoreService.getPendingRequestsForPatient(patientId)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    override suspend fun getSentRequestsByDoctor(doctorId: String): List<com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest> {
+        return try {
+            firestoreService.getSentRequestsByDoctor(doctorId)
         } catch (e: Exception) {
             emptyList()
         }

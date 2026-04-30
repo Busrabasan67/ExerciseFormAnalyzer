@@ -24,7 +24,7 @@ class FirestoreService {
         const val GROUPS          = "groups"
         const val GROUP_MEMBERS   = "group_members"
         const val GROUP_INVITES   = "group_invites"
-        const val CONNECTION_REQUESTS = "connection_requests"
+        const val PATIENT_REQUESTS = "patient_requests"
         const val GROUP_JOIN_REQUESTS = "group_join_requests"
     }
 
@@ -63,6 +63,18 @@ class FirestoreService {
     suspend fun getPatientsByExpert(expertUid: String): List<FirestoreUser> {
         return db.collection(USERS)
             .whereEqualTo("expertId", expertUid)
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestoreUser>() }
+    }
+
+    /** E-posta ile canlı hasta arama (Prefix search). */
+    suspend fun searchPatientsByEmail(query: String): List<FirestoreUser> {
+        // 'role' filtresini kaldırdık çünkü composite index gerektiriyor. 
+        // ViewModel tarafında filtreleme yapacağız.
+        return db.collection(USERS)
+            .whereGreaterThanOrEqualTo("email", query)
+            .whereLessThanOrEqualTo("email", query + "\uf8ff")
+            .limit(20)
             .get().await()
             .documents.mapNotNull { it.toObject<FirestoreUser>() }
     }
@@ -219,25 +231,32 @@ class FirestoreService {
     // =====================================================================
 
     /** Bir uzmandan hastaya bağlantı isteği gönderir. */
-    suspend fun sendConnectionRequest(request: FirestoreConnectionRequest) {
-        db.collection(CONNECTION_REQUESTS).add(request).await()
+    suspend fun sendConnectionRequest(request: FirestorePatientRequest) {
+        val doc = db.collection(PATIENT_REQUESTS).document()
+        val finalRequest = request.copy(requestId = doc.id)
+        doc.set(finalRequest).await()
     }
 
-    /** Hastaya gelen bekleyen (PENDING) istekleri listele. */
-    suspend fun getPendingRequestsForPatient(patientEmail: String): List<Pair<String, FirestoreConnectionRequest>> {
-        return db.collection(CONNECTION_REQUESTS)
-            .whereEqualTo("toPatientEmail", patientEmail)
-            .whereEqualTo("status", "PENDING")
+    /** Hastaya gelen bekleyen (pending) istekleri listele. */
+    suspend fun getPendingRequestsForPatient(patientId: String): List<FirestorePatientRequest> {
+        return db.collection(PATIENT_REQUESTS)
+            .whereEqualTo("patientId", patientId)
+            .whereEqualTo("status", "pending")
             .get().await()
-            .documents.mapNotNull { doc ->
-                val model = doc.toObject<FirestoreConnectionRequest>() ?: return@mapNotNull null
-                Pair(doc.id, model)
-            }
+            .documents.mapNotNull { it.toObject<FirestorePatientRequest>() }
     }
 
-    /** İsteği güncelle (ACCEPTED / REJECTED). */
+    /** Uzmanın gönderdiği istekleri listele. */
+    suspend fun getSentRequestsByDoctor(doctorId: String): List<FirestorePatientRequest> {
+        return db.collection(PATIENT_REQUESTS)
+            .whereEqualTo("doctorId", doctorId)
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestorePatientRequest>() }
+    }
+
+    /** İsteği güncelle (accepted / rejected). */
     suspend fun updateRequestStatus(requestId: String, status: String) {
-        db.collection(CONNECTION_REQUESTS).document(requestId)
+        db.collection(PATIENT_REQUESTS).document(requestId)
             .update("status", status).await()
     }
     // =====================================================================

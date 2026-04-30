@@ -11,6 +11,8 @@ import com.example.exerciseformanalyzer.model.WorkoutStats
 import com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +20,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest
 
 class ExpertViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -29,14 +33,19 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
 
     val currentUid: String get() = authRepo.currentUid ?: ""
 
-    private val _searchResult = MutableStateFlow<FirestoreUser?>(null)
-    val searchResult: StateFlow<FirestoreUser?> = _searchResult.asStateFlow()
+    private val _searchResults = MutableStateFlow<List<FirestoreUser>>(emptyList())
+    val searchResults: StateFlow<List<FirestoreUser>> = _searchResults.asStateFlow()
+
+    private val _sentRequests = MutableStateFlow<List<FirestorePatientRequest>>(emptyList())
+    val sentRequests: StateFlow<List<FirestorePatientRequest>> = _sentRequests.asStateFlow()
 
     private val _searchError = MutableStateFlow<String?>(null)
     val searchError: StateFlow<String?> = _searchError.asStateFlow()
 
     private val _requestStatus = MutableStateFlow<String?>(null)
     val requestStatus: StateFlow<String?> = _requestStatus.asStateFlow()
+
+    private var searchJob: Job? = null
 
     private val _showLogoutDialog = MutableStateFlow(false)
     val showLogoutDialog: StateFlow<Boolean> = _showLogoutDialog.asStateFlow()
@@ -64,50 +73,53 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
             val uid = currentUid
             if (uid.isNotEmpty()) {
                 userRepo.syncPatientsForExpert(uid)
+                loadSentRequests()
             }
         }
     }
 
-    fun searchPatient(email: String) {
+    private fun loadSentRequests() {
         viewModelScope.launch(Dispatchers.IO) {
+            val uid = currentUid
+            if (uid.isNotEmpty()) {
+                _sentRequests.value = userRepo.getSentRequestsByDoctor(uid)
+            }
+        }
+    }
+
+    fun searchPatients(query: String) {
+        searchJob?.cancel()
+        if (query.length < 2) {
+            _searchResults.value = emptyList()
+            return
+        }
+
+        searchJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(300) // Debounce
             _searchError.value = null
-            _searchResult.value = null
+            val cleanQuery = query.trim().lowercase()
             try {
-                val user = userRepo.findPatientByEmail(email)
-                if (user != null) {
-                    _searchResult.value = user
-                } else {
-                    _searchError.value = "Hasta bulunamadı"
-                }
+                val connectedPatients = observeMyPatients().first().map { it.uid }
+                val results = userRepo.searchPatientsByEmail(cleanQuery)
+                    .filter { it.role == "PATIENT" && it.uid != currentUid && it.uid !in connectedPatients }
+                _searchResults.value = results
             } catch (e: Exception) {
                 _searchError.value = e.message
             }
         }
     }
 
-    fun linkPatient(patientUid: String) {
+    fun sendConnectionRequest(patient: FirestoreUser) {
         viewModelScope.launch(Dispatchers.IO) {
             val uid = currentUid
-            if (uid.isNotEmpty()) {
-                val result = userRepo.linkPatientToExpert(patientUid, uid)
-                if (result.isSuccess) {
-                    _searchResult.value = null
-                } else {
-                    _searchError.value = "Başarısız: ${result.exceptionOrNull()?.message}"
-                }
-            }
-        }
-    }
+            if (uid.isEmpty()) return@launch
 
-    fun sendRequest(patientEmail: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            _requestStatus.value = null
-            val expertProfile = userRepo.observeCurrentUser(currentUid).first()
-            if (expertProfile != null) {
-                val result = userRepo.sendConnectionRequest(patientEmail, expertProfile)
+            val doctorProfile = userRepo.observeCurrentUser(uid).first()
+            if (doctorProfile != null) {
+                val result = userRepo.sendConnectionRequest(patient, doctorProfile)
                 if (result.isSuccess) {
-                    _requestStatus.value = "SUCCESS"
-                    _searchResult.value = null
+                    _requestStatus.value = "İstek gönderildi"
+                    loadSentRequests() // Refresh requests list
                 } else {
                     _searchError.value = "İstek gönderilemedi: ${result.exceptionOrNull()?.message}"
                 }

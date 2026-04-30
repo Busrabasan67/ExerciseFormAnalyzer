@@ -9,6 +9,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.unit.dp
 import com.example.exerciseformanalyzer.R
 import androidx.compose.runtime.LaunchedEffect
@@ -39,7 +42,8 @@ fun ExpertDashboardScreen(
     val patients by viewModel.observeMyPatients().collectAsState(initial = emptyList())
     val tasks by viewModel.observeTasksByExpert().collectAsState(initial = emptyList())
     
-    val searchResult by viewModel.searchResult.collectAsState()
+    val searchResults by viewModel.searchResults.collectAsState()
+    val sentRequests by viewModel.sentRequests.collectAsState()
     val searchError by viewModel.searchError.collectAsState()
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
     val requestStatus by viewModel.requestStatus.collectAsState()
@@ -54,8 +58,10 @@ fun ExpertDashboardScreen(
     var assignmentTitle by remember { mutableStateOf("") }
     var assignmentNote by remember { mutableStateOf("") }
     
-    LaunchedEffect(Unit) {
-        viewModel.syncExpertData()
+    LaunchedEffect(viewModel.currentUid) {
+        if (viewModel.currentUid.isNotEmpty()) {
+            viewModel.syncExpertData()
+        }
     }
 
     Scaffold(
@@ -92,11 +98,17 @@ fun ExpertDashboardScreen(
                         item {
                             OutlinedTextField(
                                 value = searchQuery,
-                                onValueChange = { searchQuery = it },
+                                onValueChange = { 
+                                    searchQuery = it
+                                    viewModel.searchPatients(it)
+                                },
                                 label = { Text("Hasta E-posta Ara") },
                                 modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = { viewModel.searchPatients(searchQuery) }),
                                 trailingIcon = {
-                                    IconButton(onClick = { viewModel.searchPatient(searchQuery) }) {
+                                    IconButton(onClick = { viewModel.searchPatients(searchQuery) }) {
                                         Icon(Icons.Default.Search, contentDescription = "Ara")
                                     }
                                 }
@@ -104,27 +116,63 @@ fun ExpertDashboardScreen(
                             if (!searchError.isNullOrEmpty()) {
                                 Text(text = searchError ?: "", color = MaterialTheme.colorScheme.error)
                             }
-                            searchResult?.let { user ->
-                                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                                    Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(user.fullName, style = MaterialTheme.typography.titleMedium)
-                                            Text(user.email, style = MaterialTheme.typography.bodySmall)
-                                        }
-                                        Button(onClick = { viewModel.sendRequest(user.email) }) {
-                                            Text("İstek Gönder")
+                            
+                            // Arama Sonuçları (Autocomplete)
+                            if (searchQuery.length >= 2 && searchResults.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Arama Sonuçları", style = MaterialTheme.typography.labelMedium)
+                                searchResults.forEach { user ->
+                                    val isPending = sentRequests.any { it.patientId == user.uid && it.status == "pending" }
+                                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                        Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(user.fullName, style = MaterialTheme.typography.titleSmall)
+                                                Text(user.email, style = MaterialTheme.typography.bodySmall)
+                                            }
+                                            Button(
+                                                onClick = { viewModel.sendConnectionRequest(user) },
+                                                enabled = !isPending,
+                                                colors = if (isPending) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant) else ButtonDefaults.buttonColors()
+                                            ) {
+                                                Text(if (isPending) "Beklemede" else "İstek Gönder")
+                                            }
                                         }
                                     }
                                 }
                             }
-                            if (requestStatus == "SUCCESS") {
-                                Text("İstek gönderildi.", color = MaterialTheme.colorScheme.primary)
-                                LaunchedEffect(Unit) {
+
+                            if (!requestStatus.isNullOrEmpty()) {
+                                Text(requestStatus ?: "", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 4.dp))
+                                LaunchedEffect(requestStatus) {
                                     kotlinx.coroutines.delay(3000)
                                     viewModel.clearRequestStatus()
                                 }
                             }
-                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Bekleyen İstekler Bölümü
+                            if (sentRequests.any { it.status == "pending" }) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Bekleyen İstekler", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                sentRequests.filter { it.status == "pending" }.forEach { req ->
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+                                    ) {
+                                        Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(req.patientName, style = MaterialTheme.typography.titleSmall)
+                                                Text(req.patientEmail, style = MaterialTheme.typography.bodySmall)
+                                            }
+                                            Text("Beklemede", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                                HorizontalDivider()
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
+
                             Text(stringResource(R.string.patients_label), style = MaterialTheme.typography.titleLarge)
                             Spacer(modifier = Modifier.height(8.dp))
                         }
