@@ -48,6 +48,7 @@ data class FirestoreUser(
     val xpMultiplier: Float = 1.0f,
     val fcmToken: String = "",
     val badges: List<String> = emptyList(),
+    val defaultRestSeconds: Int = 90,
 
     @ServerTimestamp val createdAt: Date? = null
 )

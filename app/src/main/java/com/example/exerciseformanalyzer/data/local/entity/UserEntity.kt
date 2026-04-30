@@ -67,5 +67,7 @@ data class UserEntity(
     val fcmToken: String? = null,
 
     // Kullanıcı durumu: "ACTIVE", "PASSIVE", "DELETED"
-    val status: String = "ACTIVE"
+    val status: String = "ACTIVE",
+
+    val defaultRestSeconds: Int = 90
 )

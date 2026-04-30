@@ -34,7 +34,8 @@ data class TaskExerciseStartParams(
     val targetReps: Int,
     val targetDurationSeconds: Int,
     val targetSets: Int,
-    val completedSets: Int
+    val completedSets: Int,
+    val restTimeSeconds: Int
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,7 +52,7 @@ fun PatientDashboardScreen(
 ) {
     val currentUser by viewModel.observeCurrentUser().collectAsState(initial = null)
     val tasks by viewModel.observeMyTasks().collectAsState(initial = emptyList())
-    val categorizedTasks by viewModel.categorizedTasks.collectAsState()
+    val categorizedTasks by viewModel.observeCategorizedTasks().collectAsState(initial = CategorizedTasks())
     val reports by viewModel.observeMyReports().collectAsState(initial = emptyList())
     val incomingRequests by viewModel.incomingRequests.collectAsState()
     val isEmailVerified = viewModel.isEmailVerified
@@ -253,7 +254,7 @@ fun PatientDashboardScreen(
                 }
             } else {
                 // STATS TAB
-                val stats by viewModel.patientStats.collectAsState()
+                val stats by viewModel.observePatientStats().collectAsState(initial = com.example.exerciseformanalyzer.model.WorkoutStats())
                 
                 Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                     var selectedStatsTab by remember { mutableIntStateOf(0) }

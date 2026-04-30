@@ -17,5 +17,6 @@ data class TaskContext(
     val targetReps: Int,
     val targetDurationSeconds: Int,
     val targetSets: Int,
-    val completedSets: Int
+    val completedSets: Int,
+    val restTimeSeconds: Int
 )

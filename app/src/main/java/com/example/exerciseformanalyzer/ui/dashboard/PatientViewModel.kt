@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -81,17 +82,18 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         return workoutRepo.observePatientHistory(uid)
     }
 
-    val patientStats: StateFlow<WorkoutStats> = combine(
-        observeMyReports(),
-        observeMyTasks()
-    ) { reports, tasks ->
-        calculateStats(reports, tasks)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WorkoutStats())
+    fun observePatientStats(): Flow<WorkoutStats> {
+        return combine(
+            observeMyReports(),
+            observeMyTasks()
+        ) { reports, tasks ->
+            calculateStats(reports, tasks)
+        }
+    }
 
-    val categorizedTasks: StateFlow<CategorizedTasks> = observeMyTasks()
-        .combine(MutableStateFlow(Unit)) { tasks, _ ->
-            categorizeTasks(tasks)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CategorizedTasks())
+    fun observeCategorizedTasks(): Flow<CategorizedTasks> {
+        return observeMyTasks().map { categorizeTasks(it) }
+    }
 
     private fun categorizeTasks(tasks: List<TaskAssignmentEntity>): CategorizedTasks {
         val pending = mutableListOf<TaskAssignmentEntity>()
@@ -167,11 +169,19 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
             expertUid?.let { userRepo.syncExpertProfileLocally(it) }
             val uid = currentUid
             
-            val user = userRepo.observeCurrentUser(uid).first()
-            if (user != null) {
-                _incomingRequests.value = userRepo.getPendingRequests(user.email)
+            if (uid.isNotEmpty()) {
+                // Her zaman görevleri senkronize et (Kullanıcı profili Room'dan gelmese bile)
                 planRepo.syncTasksForPatient(uid)
                 loadDynamicSocialData()
+
+                try {
+                    val user = userRepo.observeCurrentUser(uid).first()
+                    if (user != null) {
+                        _incomingRequests.value = userRepo.getPendingRequests(user.email)
+                    }
+                } catch (e: Exception) {
+                    // Ignore
+                }
             }
         }
     }

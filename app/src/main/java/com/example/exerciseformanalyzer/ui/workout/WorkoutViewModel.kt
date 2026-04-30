@@ -80,10 +80,26 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
 
     // Bu geçici bir state; asıl dil Settings'den gelir, başlatırken güncelleyeceğiz
     private var currentLanguage = "tr"
+    
+    private var defaultRestSeconds = 90
 
     init {
         initPoseLandmarker()
         startAnalysisProcessor()
+        fetchDefaultRestSeconds()
+    }
+
+    private fun fetchDefaultRestSeconds() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val firebaseUid = (getApplication<MainApplication>()).authRepository.currentUid
+            if (!firebaseUid.isNullOrEmpty()) {
+                val userDao = (getApplication<MainApplication>()).database.userDao()
+                val user = userDao.getUserByUid(firebaseUid)
+                if (user != null) {
+                    defaultRestSeconds = user.defaultRestSeconds
+                }
+            }
+        }
     }
 
     fun initTextToSpeech(langCode: String) {
@@ -258,12 +274,21 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                 speak(if (currentLanguage == "tr") "Egzersiz tamamlandı." else "Exercise completed.")
                 endWorkout()
             } else {
-                speak(if (currentLanguage == "tr") "Set tamamlandı. 60 ila 90 saniye dinlenin." else "Set completed. Rest for 60 to 90 seconds.")
+                val restTime = if (ctx.restTimeSeconds > 0) ctx.restTimeSeconds else defaultRestSeconds
+                speak(if (currentLanguage == "tr") "Set tamamlandı. $restTime saniye dinlenin." else "Set completed. Rest for $restTime seconds.")
                 _isResting.value = true
-                _restTimeLeft.value = 90
+                _restTimeLeft.value = restTime
                 _isPaused.value = false
             }
         }
+    }
+
+    fun manualRest() {
+        if (_activeTaskContext.value != null) return // Görevli antrenmanlarda çalışmaz
+        speak(if (currentLanguage == "tr") "Set tamamlandı. $defaultRestSeconds saniye dinlenin." else "Set completed. Rest for $defaultRestSeconds seconds.")
+        _isResting.value = true
+        _restTimeLeft.value = defaultRestSeconds
+        _isPaused.value = false
     }
 
     fun endRest() {

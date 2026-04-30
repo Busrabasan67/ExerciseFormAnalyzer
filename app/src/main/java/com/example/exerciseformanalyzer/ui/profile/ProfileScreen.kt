@@ -48,6 +48,7 @@ fun ProfileScreen(
     var activityLevel by remember { mutableStateOf("medium") }
     var goal by remember { mutableStateOf("general_health") }
     var exerciseLevel by remember { mutableStateOf("beginner") }
+    var defaultRestSecondsStr by remember { mutableStateOf("90") }
 
     // Kullanıcı değiştiğinde ve edit mode kapalıyken state'leri güncelle
     LaunchedEffect(user, isEditMode) {
@@ -62,6 +63,7 @@ fun ProfileScreen(
             activityLevel = user?.activityLevel ?: "medium"
             goal = user?.goal ?: "general_health"
             exerciseLevel = user?.exerciseLevel ?: "beginner"
+            defaultRestSecondsStr = user?.defaultRestSeconds?.toString() ?: "90"
         }
     }
 
@@ -94,7 +96,8 @@ fun ProfileScreen(
                                     hasMeniscus = hasMeniscus,
                                     activityLevel = activityLevel,
                                     goal = goal,
-                                    exerciseLevel = exerciseLevel
+                                    exerciseLevel = exerciseLevel,
+                                    defaultRestSeconds = defaultRestSecondsStr.toIntOrNull() ?: 90
                                 )
                                 viewModel.updateProfile(updated) { success ->
                                     if (success) isEditMode = false
@@ -156,6 +159,15 @@ fun ProfileScreen(
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                         )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    OutlinedTextField(
+                        value = defaultRestSecondsStr,
+                        onValueChange = { defaultRestSecondsStr = it },
+                        label = { Text("Varsayılan Dinlenme Süresi (saniye)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     Text("Hedef", style = MaterialTheme.typography.labelMedium)
@@ -227,6 +239,7 @@ fun ProfileScreen(
                     Text("Hastalık: ${user?.diseaseInfo ?: "-"}")
                     Text("Fıtık: ${if (user?.hasHernia == true) "Var" else "Yok"}")
                     Text("Menisküs: ${if (user?.hasMeniscus == true) "Var" else "Yok"}")
+                    Text("Varsayılan Dinlenme Süresi: ${user?.defaultRestSeconds ?: 90} sn")
 
                     Spacer(modifier = Modifier.height(16.dp))
                     

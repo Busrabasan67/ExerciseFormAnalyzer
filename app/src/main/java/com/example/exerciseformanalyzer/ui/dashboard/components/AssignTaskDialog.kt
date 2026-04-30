@@ -1,15 +1,25 @@
 package com.example.exerciseformanalyzer.ui.dashboard.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.ui.dashboard.ExpertViewModel.TaskExerciseInput
 import java.util.Calendar
@@ -23,145 +33,328 @@ fun AssignTaskDialog(
     var title by remember { mutableStateOf("Haftalık Antrenman") }
     var note by remember { mutableStateOf("") }
     
-    // Eksik alanlar için stateler eklendi
     var sched by remember { mutableStateOf("DAILY") }
-    var days by remember { mutableStateOf(emptyList<Int>()) }
+    val days = remember { mutableStateListOf<Int>() }
     var auto by remember { mutableStateOf(false) }
-    var weeks by remember { mutableStateOf<Int?>(null) }
+    var weeksStr by remember { mutableStateOf("") }
     
-    // Default task list with 1 item
     val exercises = remember { mutableStateListOf(TaskExerciseInput()) }
     var showError by remember { mutableStateOf("") }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismissRequest,
-        title = { Text("Yeni Görev Ata") },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Görev Başlığı") },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                )
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    label = { Text("Açıklama / Not") },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                )
-                Text("Egzersizler:", style = MaterialTheme.typography.titleSmall)
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                LazyColumn(modifier = Modifier.heightIn(max = 250.dp)) {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.9f)
+                .clip(RoundedCornerShape(16.dp)),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        "Gelişmiş Görev Planla",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(16.dp)
+                ) {
+                    item {
+                        OutlinedTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            label = { Text("Görev Başlığı") },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                        )
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it },
+                            label = { Text("Özel Notlar") },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                        )
+                    }
+
+                    // Zamanlama Bölümü
+                    item {
+                        Text("Zamanlama", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            listOf("DAILY" to "Her Gün", "WEEKLY" to "Haftalık", "CUSTOM" to "Özel Günler").forEach { (type, label) ->
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { sched = type }) {
+                                    RadioButton(selected = sched == type, onClick = { sched = type })
+                                    Text(label, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+
+                        if (sched == "CUSTOM") {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            val dayNames = listOf(
+                                2 to "Pzt", 3 to "Sal", 4 to "Çar", 5 to "Per", 6 to "Cum", 7 to "Cmt", 1 to "Paz"
+                            )
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                dayNames.forEach { (calDay, label) ->
+                                    val isSelected = days.contains(calDay)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = {
+                                            if (isSelected) days.remove(calDay) else days.add(calDay)
+                                        },
+                                        label = { Text(label) }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = auto, onCheckedChange = { auto = it })
+                            Text("Otomatik Tekrarla")
+                        }
+
+                        if (auto) {
+                            OutlinedTextField(
+                                value = weeksStr,
+                                onValueChange = { weeksStr = it },
+                                label = { Text("Süre (Hafta)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            )
+                        }
+                        
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                    }
+
+                    // Egzersiz İçeriği Bölümü
+                    item {
+                        Text("Egzersiz İçeriği", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
                     itemsIndexed(exercises) { index, item ->
-                        ExerciseRow(
+                        ExerciseAdvancedCard(
                             item = item,
-                            onUpdate = { updatedItem -> exercises[index] = updatedItem },
+                            onUpdate = { exercises[index] = it },
                             onRemove = { exercises.removeAt(index) }
                         )
-                        Divider()
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    item {
+                        Button(
+                            onClick = { exercises.add(TaskExerciseInput()) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Ekle")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Egzersiz Ekle")
+                        }
+                        
+                        if (showError.isNotEmpty()) {
+                            Text(showError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                        }
                     }
                 }
-                
-                TextButton(
-                    onClick = { exercises.add(TaskExerciseInput()) },
-                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp)
+
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Text("+ Egzersiz Ekle")
-                }
-                
-                if (showError.isNotEmpty()) {
-                    Text(showError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                val c = Calendar.getInstance()
-                c.add(Calendar.DAY_OF_YEAR, 1) // Yarına kadar (Basitlik için)
-                
-                when {
-                    exercises.isEmpty() -> showError = "En az 1 egzersiz eklemelisiniz."
-                    exercises.any { it.targetValue.toIntOrNull() == null || (it.targetValue.toIntOrNull() ?: 0) <= 0 } -> 
-                        showError = "Tüm hedefler 0'dan büyük bir sayı olmalıdır."
-                    else -> {
-                        onAssignTask(title, note, c.timeInMillis, exercises.toList(), sched, days, auto, weeks)
+                    TextButton(onClick = onDismissRequest) {
+                        Text("İptal")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = {
+                        val c = Calendar.getInstance()
+                        c.add(Calendar.DAY_OF_YEAR, 1) // Yarına kadar (Basitlik için)
+                        val w = weeksStr.toIntOrNull()
+                        
+                        when {
+                            exercises.isEmpty() -> showError = "En az 1 egzersiz eklemelisiniz."
+                            exercises.any { it.targetValue.toIntOrNull() == null || (it.targetValue.toIntOrNull() ?: 0) <= 0 } -> 
+                                showError = "Tüm hedefler 0'dan büyük bir sayı olmalıdır."
+                            sched == "CUSTOM" && days.isEmpty() -> showError = "Özel günler için en az bir gün seçmelisiniz."
+                            auto && (w == null || w <= 0) -> showError = "Geçerli bir hafta süresi girmelisiniz."
+                            else -> {
+                                onAssignTask(title, note, c.timeInMillis, exercises.toList(), sched, days.toList(), auto, w)
+                            }
+                        }
+                    }) {
+                        Text("Görevi Yayınla")
                     }
                 }
-            }) {
-                Text("Ata")
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) { Text("İptal") }
         }
-    )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ExerciseRow(
+fun ExerciseAdvancedCard(
     item: TaskExerciseInput,
     onUpdate: (TaskExerciseInput) -> Unit,
     onRemove: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                // Egzersiz Dropdown
+                var expandedEx by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = expandedEx,
+                    onExpandedChange = { expandedEx = !expandedEx },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        readOnly = true,
+                        value = item.exerciseType.displayName,
+                        onValueChange = { },
+                        label = { Text("Egzersiz") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedEx) },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedEx,
+                        onDismissRequest = { expandedEx = false }
+                    ) {
+                        ExerciseType.values().filter { it != ExerciseType.UNKNOWN }.forEach { selectionOption ->
+                            DropdownMenuItem(
+                                text = { Text(selectionOption.displayName) },
+                                onClick = {
+                                    val isDuration = selectionOption == ExerciseType.PLANK
+                                    onUpdate(item.copy(exerciseType = selectionOption, isDurationBased = isDuration))
+                                    expandedEx = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                IconButton(onClick = onRemove, modifier = Modifier.padding(start = 8.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = item.targetValue,
+                    onValueChange = { onUpdate(item.copy(targetValue = it)) },
+                    label = { Text(if (item.isDurationBased) "Süre (Sn)" else "Tekrar") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = item.sets.toString(),
+                    onValueChange = {
+                        val s = it.toIntOrNull() ?: 1
+                        onUpdate(item.copy(sets = s))
+                    },
+                    label = { Text("Set") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = item.restTimeSeconds.toString(),
+                    onValueChange = {
+                        val rt = it.toIntOrNull() ?: 0
+                        onUpdate(item.copy(restTimeSeconds = rt))
+                    },
+                    label = { Text("Dinlenme (Sn)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Zorluk Dropdown
+                var expandedDiff by remember { mutableStateOf(false) }
+                val diffs = listOf("EASY" to "Kolay", "MEDIUM" to "Orta", "HARD" to "Zor")
+                ExposedDropdownMenuBox(
+                    expanded = expandedDiff,
+                    onExpandedChange = { expandedDiff = !expandedDiff },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        readOnly = true,
+                        value = diffs.find { it.first == item.difficulty }?.second ?: "Orta",
+                        onValueChange = { },
+                        label = { Text("Zorluk") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDiff) },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedDiff,
+                        onDismissRequest = { expandedDiff = false }
+                    ) {
+                        diffs.forEach { (dVal, dLabel) ->
+                            DropdownMenuItem(
+                                text = { Text(dLabel) },
+                                onClick = {
+                                    onUpdate(item.copy(difficulty = dVal))
+                                    expandedDiff = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            // Kategori Dropdown
+            var expandedCat by remember { mutableStateOf(false) }
+            val cats = listOf("STRENGTH" to "Güç", "CARDIO" to "Kardiyo", "FLEXIBILITY" to "Esneklik", "BALANCE" to "Denge", "REHAB" to "Rehabilitasyon")
             ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded }
+                expanded = expandedCat,
+                onExpandedChange = { expandedCat = !expandedCat },
+                modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedTextField(
                     readOnly = true,
-                    value = item.exerciseType.displayName,
+                    value = cats.find { it.first == item.category }?.second ?: "Güç",
                     onValueChange = { },
-                    label = { Text("Egzersiz") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    label = { Text("Kategori") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCat) },
                     colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                    modifier = Modifier.menuAnchor()
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
                 )
                 ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                    expanded = expandedCat,
+                    onDismissRequest = { expandedCat = false }
                 ) {
-                    ExerciseType.values().filter { it != ExerciseType.UNKNOWN }.forEach { selectionOption ->
+                    cats.forEach { (cVal, cLabel) ->
                         DropdownMenuItem(
-                            text = { Text(selectionOption.displayName) },
+                            text = { Text(cLabel) },
                             onClick = {
-                                val isDuration = selectionOption == ExerciseType.PLANK
-                                onUpdate(item.copy(exerciseType = selectionOption, isDurationBased = isDuration))
-                                expanded = false
+                                onUpdate(item.copy(category = cVal))
+                                expandedCat = false
                             }
                         )
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            OutlinedTextField(
-                value = item.targetValue,
-                onValueChange = { onUpdate(item.copy(targetValue = it)) },
-                label = { Text(if (item.isDurationBased) "Süre (Saniye)" else "Tekrar Sayısı") }
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            OutlinedTextField(
-                value = item.sets.toString(),
-                onValueChange = {
-                    val s = it.toIntOrNull() ?: 1
-                    onUpdate(item.copy(sets = s))
-                },
-                label = { Text("Set Sayısı") }
-            )
-        }
-        
-        IconButton(onClick = onRemove, modifier = Modifier.padding(start = 8.dp)) {
-            Icon(Icons.Default.Delete, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
         }
     }
 }

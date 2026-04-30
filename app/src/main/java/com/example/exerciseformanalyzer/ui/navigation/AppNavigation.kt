@@ -169,7 +169,8 @@ fun AppNavigation(
                         targetReps = params.targetReps,
                         targetDurationSeconds = params.targetDurationSeconds,
                         targetSets = params.targetSets,
-                        completedSets = params.completedSets
+                        completedSets = params.completedSets,
+                        restTimeSeconds = params.restTimeSeconds
                     )
                     workoutViewModel.setTargetExercise(params.exerciseType, taskContext = ctx)
                     navController.navigate(Route.Camera.route)
@@ -232,7 +233,8 @@ fun AppNavigation(
                         targetReps = params.targetReps,
                         targetDurationSeconds = params.targetDurationSeconds,
                         targetSets = params.targetSets,
-                        completedSets = params.completedSets
+                        completedSets = params.completedSets,
+                        restTimeSeconds = params.restTimeSeconds
                     )
                     workoutViewModel.setTargetExercise(params.exerciseType, taskContext = ctx)
                     navController.navigate(Route.Camera.route)

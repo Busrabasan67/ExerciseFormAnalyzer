@@ -148,7 +148,8 @@ class AuthRepository(
             isSmoker = profile.isSmoker,
             isDrinker = profile.isDrinker,
             expertUid = profile.expertId,
-            isSynced = true  // Firestore'dan geldiği için senkronize
+            isSynced = true,  // Firestore'dan geldiği için senkronize
+            defaultRestSeconds = profile.defaultRestSeconds
         )
         userDao.insertUser(entity) // OnConflictStrategy.REPLACE ile günceller
     }

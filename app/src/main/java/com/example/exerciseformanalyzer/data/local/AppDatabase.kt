@@ -29,7 +29,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BadgeEntity::class,
         UserBadgeProgressEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -105,6 +105,12 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE users ADD COLUMN defaultRestSeconds INTEGER NOT NULL DEFAULT 90")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -112,8 +118,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "exercise_app_database"
                 )
-                .addMigrations(MIGRATION_3_4, MIGRATION_6_7, MIGRATION_7_8)
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_3_4, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .build()
                 INSTANCE = instance
                 instance

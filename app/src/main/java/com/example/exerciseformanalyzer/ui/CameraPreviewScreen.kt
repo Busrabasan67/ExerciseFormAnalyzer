@@ -126,6 +126,7 @@ fun CameraPreviewScreen(
             restTimeLeft = restTimeLeft,
             taskContext = activeTaskContext,
             onPauseToggle = { viewModel.togglePause() },
+            onManualRest = { viewModel.manualRest() },
             onEndRest = { viewModel.endRest() },
             onEndWorkout = { viewModel.endWorkout() },
             modifier = Modifier.fillMaxSize()

@@ -48,7 +48,8 @@ fun TaskCard(
                 val actualReps: Int,
                 val actualDur: Int,
                 val status: String,
-                val progressStr: String
+                val progressStr: String,
+                val restTimeSeconds: Int
             )
 
             val parsedExercises = remember(task.exercisesJson) {
@@ -66,6 +67,7 @@ fun TaskCard(
                         val sets = ex.optInt("sets", 1)
                         val cSets = ex.optInt("completedSets", 0)
                         val exStatus = ex.optString("status", "PENDING")
+                        val restTime = ex.optInt("restTimeSeconds", 90)
 
                         val progressStr = if (tType == "DURATION") {
                             "Set: $cSets/$sets • $aDur/$tDur Sn"
@@ -85,7 +87,8 @@ fun TaskCard(
                                 actualReps = aReps,
                                 actualDur = aDur,
                                 status = exStatus,
-                                progressStr = progressStr
+                                progressStr = progressStr,
+                                restTimeSeconds = restTime
                             )
                         )
                     }
@@ -153,7 +156,8 @@ fun TaskCard(
                                                 targetReps = exData.targetReps,
                                                 targetDurationSeconds = exData.targetDur,
                                                 targetSets = exData.sets,
-                                                completedSets = exData.completedSets
+                                                completedSets = exData.completedSets,
+                                                restTimeSeconds = exData.restTimeSeconds
                                             )
                                         )
                                     } else {

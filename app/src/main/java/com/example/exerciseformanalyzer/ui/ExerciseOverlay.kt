@@ -51,6 +51,7 @@ fun ExerciseOverlay(
     restTimeLeft: Int = 0,
     taskContext: TaskContext? = null,
     onPauseToggle: () -> Unit = {},
+    onManualRest: () -> Unit = {},
     onEndRest: () -> Unit = {},
     onEndWorkout: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -84,6 +85,7 @@ fun ExerciseOverlay(
                     restTimeLeft = restTimeLeft,
                     taskContext = taskContext,
                     onPauseToggle = onPauseToggle,
+                    onManualRest = onManualRest,
                     onEndRest = onEndRest,
                     onEndWorkout = onEndWorkout
                 )
@@ -261,6 +263,7 @@ private fun AnalyzingOverlay(
     restTimeLeft: Int,
     taskContext: TaskContext?,
     onPauseToggle: () -> Unit,
+    onManualRest: () -> Unit,
     onEndRest: () -> Unit,
     onEndWorkout: () -> Unit
 ) {
@@ -276,6 +279,7 @@ private fun AnalyzingOverlay(
             isPaused = isPaused,
             taskContext = taskContext,
             onPauseToggle = onPauseToggle,
+            onManualRest = onManualRest,
             onEndWorkout = onEndWorkout,
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -351,6 +355,7 @@ private fun TopInfoPanel(
     isPaused: Boolean,
     taskContext: TaskContext?,
     onPauseToggle: () -> Unit,
+    onManualRest: () -> Unit,
     onEndWorkout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -387,6 +392,12 @@ private fun TopInfoPanel(
         Row {
             Button(onClick = onPauseToggle, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) {
                 Text(if (isPaused) "Devam Et" else "Duraklat", fontSize = 12.sp)
+            }
+            if (taskContext == null) {
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = onManualRest, colors = ButtonDefaults.buttonColors(containerColor = ColorNeutral)) {
+                    Text("Seti Bitir", fontSize = 12.sp, color = Color.Black)
+                }
             }
             Spacer(Modifier.width(8.dp))
             Button(onClick = onEndWorkout, colors = ButtonDefaults.buttonColors(containerColor = ColorBadForm)) {

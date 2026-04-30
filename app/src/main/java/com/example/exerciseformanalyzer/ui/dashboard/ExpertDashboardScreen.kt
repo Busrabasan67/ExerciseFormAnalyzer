@@ -184,20 +184,6 @@ fun ExpertDashboardScreen(
                                     }
                                 }
                                 
-                                Spacer(modifier = Modifier.height(16.dp))
-                                OutlinedTextField(
-                                    value = assignmentTitle,
-                                    onValueChange = { assignmentTitle = it },
-                                    label = { Text("Görev Başlığı") },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                OutlinedTextField(
-                                    value = assignmentNote,
-                                    onValueChange = { assignmentNote = it },
-                                    label = { Text("Not (Opsiyonel)") },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
                                 Spacer(modifier = Modifier.height(24.dp))
                                 
                                 Button(
