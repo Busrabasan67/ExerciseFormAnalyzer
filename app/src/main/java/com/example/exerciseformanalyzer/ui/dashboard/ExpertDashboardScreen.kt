@@ -308,7 +308,11 @@ fun ExpertDashboardScreen(
                         
                         if (tasks.isEmpty()) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("Seçili kriterde görev bulunamadı.")
+                                if (selectedFilter == TaskFilter.ALL) {
+                                    Text("Henüz görev yok.")
+                                } else {
+                                    Text("Seçili kriterde görev bulunamadı.")
+                                }
                             }
                         } else {
                             LazyColumn(
@@ -442,7 +446,8 @@ fun TaskTrackingCard(
             Spacer(modifier = Modifier.height(12.dp))
             
             // Info Rows
-            TaskInfoRow(Icons.Default.Event, "Verildi: ${sdf.format(Date(task.createdAt))}")
+            val createdAtText = if (task.createdAt > 0L) sdf.format(Date(task.createdAt)) else "Belirtilmedi"
+            TaskInfoRow(Icons.Default.Event, "Verildi: $createdAtText")
             
             val planText = when(task.scheduleType) {
                 "DAILY" -> "Her Gün"
@@ -513,14 +518,15 @@ fun TaskInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: Str
 }
 
 @Composable
-fun TaskStatusBadge(status: String) {
-    val (text, color) = when (status) {
-        "PENDING" -> "Bekliyor" to Color(0xFFFBC02D) // Sarımsı
-        "IN_PROGRESS" -> "Devam Ediyor" to Color(0xFF2196F3) // Mavi
-        "COMPLETED", "DONE" -> "Tamamlandı" to Color(0xFF4CAF50) // Yeşil
-        "MISSED" -> "Kaçırıldı" to Color(0xFFF44336) // Kırmızı
+fun TaskStatusBadge(status: String?) {
+    val safeStatus = status?.lowercase() ?: "pending"
+    val (text, color) = when (safeStatus) {
+        "pending" -> "Bekliyor" to Color(0xFFFBC02D) // Sarımsı
+        "in_progress" -> "Devam Ediyor" to Color(0xFF2196F3) // Mavi
+        "completed", "done" -> "Tamamlandı" to Color(0xFF4CAF50) // Yeşil
+        "missed" -> "Kaçırıldı" to Color(0xFFF44336) // Kırmızı
         "inactive", "removed" -> "Pasif" to Color.Gray
-        else -> status to Color.Gray
+        else -> (status ?: "Bekliyor") to Color.Gray
     }
     
     Surface(

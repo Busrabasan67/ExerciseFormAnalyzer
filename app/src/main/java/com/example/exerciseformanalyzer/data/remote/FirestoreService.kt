@@ -201,6 +201,17 @@ class FirestoreService {
             }
     }
 
+    /** Uzmanın atadığı görevleri Firestore'dan çek. */
+    suspend fun getTasksForExpert(expertUid: String): List<Pair<String, FirestoreTaskAssignment>> {
+        return db.collection(TASK_ASSIGNMENTS)
+            .whereEqualTo("expertId", expertUid)
+            .get().await()
+            .documents.mapNotNull { doc ->
+                val model = doc.toObject<FirestoreTaskAssignment>() ?: return@mapNotNull null
+                Pair(doc.id, model)
+            }
+    }
+
     /** Uzmanın belirli bir hastaya atadığı aktif görevleri pasif yap. */
     suspend fun deactivateTasksByDoctor(doctorId: String, patientId: String) {
         val tasks = db.collection(TASK_ASSIGNMENTS)

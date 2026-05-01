@@ -509,7 +509,8 @@ private fun PatientTaskCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Veriliş: ${sdf.format(Date(task.createdAt))}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                val dateText = if (task.createdAt > 0L) sdf.format(Date(task.createdAt)) else "Belirtilmedi"
+                Text("Veriliş: $dateText", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
 
             // ── İlerleme çubuğu ──

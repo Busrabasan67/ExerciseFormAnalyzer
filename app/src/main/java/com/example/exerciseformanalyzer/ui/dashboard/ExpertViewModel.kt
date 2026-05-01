@@ -15,17 +15,30 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest
-import kotlinx.coroutines.flow.combine
 
 enum class TaskFilter { ALL, PENDING, IN_PROGRESS, COMPLETED, INACTIVE }
+
+// ============================================================
+// UZMAN TAKİP — UI State
+// ============================================================
+data class DoctorTrackingUiState(
+    val allTasks: List<TaskAssignmentEntity> = emptyList(),
+    val filteredTasks: List<TaskAssignmentEntity> = emptyList(),
+    val selectedFilter: TaskFilter = TaskFilter.ALL,
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
+)
 
 class ExpertViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -53,23 +66,57 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
     private val _showLogoutDialog = MutableStateFlow(false)
     val showLogoutDialog: StateFlow<Boolean> = _showLogoutDialog.asStateFlow()
 
+    // ── Uzman Takip Filtresi — PatientViewModel'den TAMAMEN BAĞIMSIZ ──
     private val _selectedFilter = MutableStateFlow(TaskFilter.ALL)
     val selectedFilter: StateFlow<TaskFilter> = _selectedFilter.asStateFlow()
 
-    // Filtrelenmiş görevleri reaktif olarak sağlar
-    val filteredTasks: Flow<List<TaskAssignmentEntity>> = combine(
-        observeTasksByExpert(),
+    /**
+     * UZMAN TAKİP EKRANI — kendi atadığı tüm görevler.
+     * Flow, UID'nin hazır olduğu anda (abone olunduğunda) başlar.
+     * PatientViewModel ile hiçbir state paylaşılmaz.
+     */
+    private fun doctorTasksFlow(): Flow<List<TaskAssignmentEntity>> = flow {
+        val uid = currentUid
+        android.util.Log.d("DoctorTracking", "doctorTasksFlow started: currentDoctorId=$uid")
+        if (uid.isEmpty()) {
+            emit(emptyList())
+            return@flow
+        }
+        planRepo.observeTasksForDoctorTracking(uid).collect { tasks ->
+            android.util.Log.d("DoctorTracking", "loaded task count=${tasks.size}, doctorId=$uid")
+            tasks.forEach { task ->
+                android.util.Log.d(
+                    "DoctorTracking",
+                    "  taskId=${task.id}, doctorId=${task.expertUid}, " +
+                    "patientId=${task.patientUid}, status=${task.status}"
+                )
+            }
+            emit(tasks.map { if (it.status.isEmpty()) it.copy(status = "PENDING") else it })
+        }
+    }
+
+    val filteredTasks: StateFlow<List<TaskAssignmentEntity>> = combine(
+        doctorTasksFlow(),
         _selectedFilter
     ) { tasks, filter ->
         val sortedTasks = tasks.sortedByDescending { it.createdAt }
+        android.util.Log.d("DoctorTracking", "filteredTasks: all=${tasks.size}, filter=$filter")
         when (filter) {
             TaskFilter.ALL -> sortedTasks
-            TaskFilter.PENDING -> sortedTasks.filter { it.status == "PENDING" }
-            TaskFilter.IN_PROGRESS -> sortedTasks.filter { it.status == "IN_PROGRESS" }
-            TaskFilter.COMPLETED -> sortedTasks.filter { it.status == "COMPLETED" || it.status == "DONE" }
-            TaskFilter.INACTIVE -> sortedTasks.filter { it.status == "inactive" || it.status == "removed" }
+            TaskFilter.PENDING -> sortedTasks.filter {
+                it.status.lowercase() in listOf("pending", "active")
+            }
+            TaskFilter.IN_PROGRESS -> sortedTasks.filter {
+                it.status.lowercase() == "in_progress"
+            }
+            TaskFilter.COMPLETED -> sortedTasks.filter {
+                it.status.lowercase() in listOf("completed", "done")
+            }
+            TaskFilter.INACTIVE -> sortedTasks.filter {
+                it.status.lowercase() in listOf("inactive", "removed")
+            }
         }
-    }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun observeCurrentUser(): Flow<UserEntity?> {
         val uid = currentUid
@@ -83,17 +130,15 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         return userRepo.observePatients(uid)
     }
 
-    fun observeTasksByExpert(): Flow<List<TaskAssignmentEntity>> {
-        val uid = currentUid
-        if (uid.isEmpty()) return emptyFlow()
-        return planRepo.observeTasksByExpert(uid)
-    }
+    // Eski yöntem — geriye dönük uyumluluk için korundu
+    fun observeTasksByExpert(): Flow<List<TaskAssignmentEntity>> = doctorTasksFlow()
 
     fun syncExpertData() {
         viewModelScope.launch(Dispatchers.IO) {
             val uid = currentUid
             if (uid.isNotEmpty()) {
                 userRepo.syncPatientsForExpert(uid)
+                planRepo.syncTasksForExpert(uid)
                 loadSentRequests()
             }
         }
@@ -116,7 +161,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         searchJob = viewModelScope.launch(Dispatchers.IO) {
-            delay(300) // Debounce
+            delay(300)
             _searchError.value = null
             val cleanQuery = query.trim().lowercase()
             try {
@@ -140,7 +185,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
                 val result = userRepo.sendConnectionRequest(patient, doctorProfile)
                 if (result.isSuccess) {
                     _requestStatus.value = "İstek gönderildi"
-                    loadSentRequests() // Refresh requests list
+                    loadSentRequests()
                 } else {
                     _searchError.value = "İstek gönderilemedi: ${result.exceptionOrNull()?.message}"
                 }
@@ -152,11 +197,9 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             val uid = currentUid
             if (uid.isEmpty()) return@launch
-            
-            // 1. Kullanıcı bağını kopar
+
             val result = userRepo.removePatientFromExpert(patientId, uid)
             if (result.isSuccess) {
-                // 2. Bu doktorun o hastaya atadığı görevleri deaktif et
                 planRepo.deactivateDoctorTasks(uid, patientId)
                 _requestStatus.value = "REMOVED"
             } else {
@@ -197,10 +240,10 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
     )
 
     fun assignTask(
-        patientUid: String, 
-        title: String, 
-        note: String, 
-        dueDate: Long, 
+        patientUid: String,
+        title: String,
+        note: String,
+        dueDate: Long,
         exercises: List<TaskExerciseInput>,
         scheduleType: String = "DAILY",
         daysOfWeek: List<Int> = emptyList(),

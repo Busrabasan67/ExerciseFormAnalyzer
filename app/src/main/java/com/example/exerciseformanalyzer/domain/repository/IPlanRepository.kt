@@ -6,22 +6,36 @@ import com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Antrenman plan ve grev ynetimi iin domain-layer szlemesi.
+ * Antrenman plan ve görev yönetimi için domain-layer sözleşmesi.
  */
 interface IPlanRepository {
 
-    /** Hastann bekleyen (PENDING) grevlerini reaktif izler. */
+    /** Hastanın bekleyen (PENDING) görevlerini reaktif izler. */
     fun observePendingTasks(patientUid: String): Flow<List<TaskAssignmentEntity>>
 
-    /** Hastann tm grev gemiini reaktif izler. */
+    /** Hastanın tüm görev geçmişini reaktif izler. */
     fun observeAllTasks(patientUid: String): Flow<List<TaskAssignmentEntity>>
 
-    /** Uzmann atad grevleri reaktif izler. */
+    /** Uzmanın atadığı görevleri reaktif izler (geriye dönük uyumluluk). */
     fun observeTasksByExpert(expertUid: String): Flow<List<TaskAssignmentEntity>>
 
     /**
-     * Uzman tarafndan yeni grev atamas oluturur.
-     * Room'a yazar  Firestore'a anlk ykleme dener.
+     * UZMAN TAKİP EKRANI — sadece bu uzmanın oluşturduğu görevleri döner.
+     * Status filtresi UYGULANMAZ. Tüm görevler görünür.
+     * UI katmanında filtreleme yapılır.
+     */
+    fun observeTasksForDoctorTracking(doctorId: String): Flow<List<TaskAssignmentEntity>>
+
+    /**
+     * HASTA ANA EKRANI — sadece bu hastaya atanmış görevleri döner.
+     * doctorId kontrolü YAPILMAZ. patientId ile sorgular.
+     * Filtreleme, zaman ve period mantığı ViewModel'de yapılır.
+     */
+    fun observeTasksForPatientHome(patientId: String): Flow<List<TaskAssignmentEntity>>
+
+    /**
+     * Uzman tarafından yeni görev ataması oluşturur.
+     * Room'a yazar → Firestore'a anlık yükleme dener.
      */
     suspend fun createTaskAssignment(
         expertUid: String,
@@ -36,16 +50,19 @@ interface IPlanRepository {
         repeatDurationWeeks: Int? = null
     ): Result<Unit>
 
-    /** Grevi tamamland olarak iaretler. */
+    /** Görevi tamamlandı olarak işaretler. */
     suspend fun completeTask(taskId: Int, firebaseDocId: String?, reportId: Int)
 
-    /** Firestore'dan hastann grevlerini ekip Room'a senkronize eder. */
+    /** Firestore'dan hastanın görevlerini çekip Room'a senkronize eder. */
     suspend fun syncTasksForPatient(patientUid: String)
 
-    /** Bir uzmann belirli bir hastaya atad tm aktif grevleri pasife eker. */
+    /** Firestore'dan uzmanın atadığı görevleri çekip Room'a senkronize eder. */
+    suspend fun syncTasksForExpert(expertUid: String)
+
+    /** Bir uzmanın belirli bir hastaya atadığı tüm aktif görevleri pasife çeker. */
     suspend fun deactivateDoctorTasks(doctorId: String, patientId: String): Result<Unit>
 
-    // Grev lerleme Metotlar
+    // Görev İlerleme Metotları
     fun getPeriodKey(scheduleType: String): String
     suspend fun getTaskProgress(taskId: String, periodKey: String, patientUid: String): TaskProgressEntity
     suspend fun updateTaskProgress(progress: TaskProgressEntity)

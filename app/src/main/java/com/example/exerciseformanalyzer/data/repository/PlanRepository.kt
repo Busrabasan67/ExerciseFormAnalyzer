@@ -45,6 +45,16 @@ class PlanRepository(
         return taskDao.observeTasksByExpert(expertUid)
     }
 
+    /** UZMAN TAKİP EKRANI — doctorId eşleşen tüm görevleri döner, filtre yok. */
+    override fun observeTasksForDoctorTracking(doctorId: String): Flow<List<TaskAssignmentEntity>> {
+        return taskDao.observeTasksByExpert(doctorId)
+    }
+
+    /** HASTA ANA EKRANI — patientId eşleşen tüm görevleri döner. doctorId kontrolü yok. */
+    override fun observeTasksForPatientHome(patientId: String): Flow<List<TaskAssignmentEntity>> {
+        return taskDao.observeAllTasksForPatient(patientId)
+    }
+
     /**
      * Uzman tarafından yeni bir antrenman planı oluşturulur.
      * İçerisinde birden fazla görev (Task) olabilir.
@@ -239,6 +249,74 @@ class PlanRepository(
             Log.e(TAG, "Sync tasks for patient failed", e)
         }
     }
+
+    override suspend fun syncTasksForExpert(expertUid: String) {
+        try {
+            val fsTasks = firestoreService.getTasksForExpert(expertUid)
+            for ((docId, fsTask) in fsTasks) {
+                val existingTask = taskDao.getTaskByFirebaseDocId(docId)
+                
+                val jsonArray = org.json.JSONArray()
+                for (ex in fsTask.exercises) {
+                    val obj = org.json.JSONObject()
+                    obj.put("exerciseType", ex.exerciseType)
+                    obj.put("targetType", ex.targetType)
+                    if (ex.targetReps != null) obj.put("targetReps", ex.targetReps)
+                    if (ex.targetDurationSeconds != null) obj.put("targetDurationSeconds", ex.targetDurationSeconds)
+                    if (ex.actualReps != null) obj.put("actualReps", ex.actualReps)
+                    if (ex.actualDurationSeconds != null) obj.put("actualDurationSeconds", ex.actualDurationSeconds)
+                    obj.put("sets", ex.sets)
+                    obj.put("completedSets", ex.completedSets)
+                    obj.put("restTimeSeconds", ex.restTimeSeconds)
+                    obj.put("difficulty", ex.difficulty)
+                    obj.put("category", ex.category)
+                    if (ex.videoUrl != null) obj.put("videoUrl", ex.videoUrl)
+                    obj.put("status", ex.status)
+                    jsonArray.put(obj)
+                }
+                val exJson = jsonArray.toString()
+                val daysOfWeekJson = org.json.JSONArray(fsTask.daysOfWeek).toString()
+
+                if (existingTask != null) {
+                    if (!existingTask.isSynced) continue
+                    
+                    val updated = existingTask.copy(
+                        title = fsTask.title,
+                        note = fsTask.note,
+                        status = fsTask.status,
+                        dueDate = fsTask.dueDate,
+                        scheduleType = fsTask.scheduleType,
+                        daysOfWeekJson = daysOfWeekJson,
+                        autoRepeat = fsTask.autoRepeat,
+                        repeatDurationWeeks = fsTask.repeatDurationWeeks,
+                        exercisesJson = exJson,
+                        createdAt = fsTask.createdAt?.time ?: existingTask.createdAt
+                    )
+                    taskDao.updateTask(updated)
+                } else {
+                    val newTask = TaskAssignmentEntity(
+                        firebaseDocId = docId,
+                        patientUid = fsTask.patientId,
+                        expertUid = fsTask.expertId,
+                        title = fsTask.title,
+                        note = fsTask.note,
+                        status = fsTask.status,
+                        dueDate = fsTask.dueDate,
+                        scheduleType = fsTask.scheduleType,
+                        daysOfWeekJson = daysOfWeekJson,
+                        autoRepeat = fsTask.autoRepeat,
+                        repeatDurationWeeks = fsTask.repeatDurationWeeks,
+                        exercisesJson = exJson,
+                        isSynced = true,
+                        createdAt = fsTask.createdAt?.time ?: System.currentTimeMillis()
+                    )
+                    taskDao.insertTask(newTask)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Sync tasks for expert failed", e)
+        }
+    }
     override fun getPeriodKey(scheduleType: String): String {
         val cal = java.util.Calendar.getInstance()
         return when (scheduleType) {
@@ -350,7 +428,7 @@ class PlanRepository(
             val obj = progressArr.getJSONObject(i)
             if (obj.optString("exerciseType") == exerciseType) {
                 obj.put("completedSets", completedSets)
-                obj.put("status", if (completedSets >= totalSets) "completed" else "in_progress")
+                obj.put("status", if (completedSets >= totalSets) "COMPLETED" else "IN_PROGRESS")
                 obj.put("updatedAt", System.currentTimeMillis())
                 found = true
                 break
@@ -360,7 +438,7 @@ class PlanRepository(
             progressArr.put(org.json.JSONObject().apply {
                 put("exerciseType", exerciseType)
                 put("completedSets", completedSets)
-                put("status", if (completedSets >= totalSets) "completed" else "in_progress")
+                put("status", if (completedSets >= totalSets) "COMPLETED" else "IN_PROGRESS")
                 put("updatedAt", System.currentTimeMillis())
             })
         }
@@ -369,15 +447,15 @@ class PlanRepository(
         var allCompleted = progressArr.length() > 0
         var anyStarted = false
         for (i in 0 until progressArr.length()) {
-            val s = progressArr.getJSONObject(i).optString("status", "pending")
-            if (s != "completed") allCompleted = false
-            if (s != "pending") anyStarted = true
+            val s = progressArr.getJSONObject(i).optString("status", "PENDING")
+            if (s != "COMPLETED") allCompleted = false
+            if (s != "PENDING") anyStarted = true
         }
         
         val overallStatus = when {
-            allCompleted -> "completed"
-            anyStarted -> "in_progress"
-            else -> "pending"
+            allCompleted -> "COMPLETED"
+            anyStarted -> "IN_PROGRESS"
+            else -> "PENDING"
         }
 
         val updated = existing.copy(

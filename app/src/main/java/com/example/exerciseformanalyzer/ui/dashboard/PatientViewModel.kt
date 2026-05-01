@@ -20,11 +20,26 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
+// ============================================================
+// HASTA EKRANI — Kategorize görev state'i (ExpertViewModel'den bağımsız)
+// ============================================================
 data class CategorizedTasks(
     val today: List<TaskAssignmentEntity> = emptyList(),
     val inProgress: List<TaskAssignmentEntity> = emptyList(),
     val inactiveToday: List<TaskAssignmentEntity> = emptyList(),
     val completed: List<TaskAssignmentEntity> = emptyList()
+)
+
+// ============================================================
+// HASTA UI STATE (DoctorTrackingUiState'den tamamen ayrı)
+// ============================================================
+data class PatientTasksUiState(
+    val todayTasks: List<TaskAssignmentEntity> = emptyList(),
+    val inProgressTasks: List<TaskAssignmentEntity> = emptyList(),
+    val inactiveTodayTasks: List<TaskAssignmentEntity> = emptyList(),
+    val completedTasks: List<TaskAssignmentEntity> = emptyList(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
 )
 
 class PatientViewModel(application: Application) : AndroidViewModel(application) {
@@ -63,24 +78,76 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         return userRepo.observeCurrentUser(uid)
     }
 
-    val categorizedTasks: StateFlow<CategorizedTasks> = planRepo.observeAllTasks(currentUid)
-        .map { allTasks ->
+    /**
+     * HASTA ANA EKRANI — observeTasksForPatientHome kullanır.
+     * doctorId ile ASLA filtrelemez. ExpertViewModel ile state paylaşılmaz.
+     *
+     * Kategorilendirme mantığı:
+     *  - inactive/removed    → inactiveList (hiç gösterilmez)
+     *  - period.status == in_progress → progressList
+     *  - period.status == completed   → completedList (o periyod için)
+     *  - isActiveToday && status aktif → todayList
+     *  - diğer              → inactiveList (bugün yok)
+     */
+    val categorizedTasks: StateFlow<CategorizedTasks> = flow {
+        val uid = currentUid
+        android.util.Log.d("PatientTasks", "categorizedTasks started: currentPatientId=$uid")
+        if (uid.isEmpty()) {
+            emit(CategorizedTasks())
+            return@flow
+        }
+        // SADECE patientId ile sorgula — doctorId ile değil
+        planRepo.observeTasksForPatientHome(uid).collect { allTasks ->
+            android.util.Log.d("PatientTasks", "loaded task count=${allTasks.size}, patientId=$uid")
+
             val todayList = mutableListOf<TaskAssignmentEntity>()
             val progressList = mutableListOf<TaskAssignmentEntity>()
             val inactiveList = mutableListOf<TaskAssignmentEntity>()
             val completedList = mutableListOf<TaskAssignmentEntity>()
 
-            allTasks.forEach { task ->
+            for (task in allTasks) {
+                val status = task.status.orEmpty().lowercase()
+                val pKey = getPeriodKey(task.scheduleType)
+                val taskIdForProgress = task.firebaseDocId ?: task.id.toString()
+
+                android.util.Log.d(
+                    "PatientTasks",
+                    "  taskId=${task.id}, doctorId=${task.expertUid}, " +
+                    "patientId=${task.patientUid}, status=$status, " +
+                    "frequency=${task.scheduleType}, periodKey=$pKey"
+                )
+
+                // 1. Pasif/silindi → direkt gösterme
+                if (status in listOf("inactive", "removed")) {
+                    continue // inactiveList'e bile ekleme
+                }
+
+                // 2. Bugün aktif mi?
                 val isActiveToday = isTaskActiveToday(task)
+                android.util.Log.d("PatientTasks", "    todayActive=$isActiveToday")
+
+                // 3. Periyot ilerlemesini oku (suspend değil, blocking Flow.first)
+                val progress = planRepo.getTaskProgress(taskIdForProgress, pKey, uid)
+                val progStatus = progress.status.orEmpty().lowercase()
+
                 when {
-                    task.status == "DONE" || task.status == "COMPLETED" -> completedList.add(task)
-                    task.status == "IN_PROGRESS" -> progressList.add(task)
+                    // Periyot devam ediyor
+                    progStatus == "in_progress" -> progressList.add(task)
+
+                    // Periyot bugün tamamlandı (ertesi gün tekrar todayList'e düşer)
+                    progStatus == "completed" -> completedList.add(task)
+
+                    // Bugün aktif ve henüz başlanmamış
                     isActiveToday -> todayList.add(task)
+
+                    // Aktif ama bugün günü değil
                     else -> inactiveList.add(task)
                 }
             }
-            CategorizedTasks(todayList, progressList, inactiveList, completedList)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CategorizedTasks())
+
+            emit(CategorizedTasks(todayList, progressList, inactiveList, completedList))
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CategorizedTasks())
 
     fun observeMyReports(): Flow<List<WorkoutReportEntity>> {
         val uid = currentUid
@@ -91,7 +158,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     fun observePatientStats(): Flow<WorkoutStats> {
         return combine(
             observeMyReports(),
-            planRepo.observeAllTasks(currentUid)
+            planRepo.observeTasksForPatientHome(currentUid)
         ) { reports, tasks ->
             calculateStats(reports, tasks)
         }
@@ -100,29 +167,29 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     private fun calculateStats(reports: List<WorkoutReportEntity>, tasks: List<TaskAssignmentEntity>): WorkoutStats {
         val sdf = SimpleDateFormat("dd MMM", Locale.getDefault())
         val dailyMap = mutableMapOf<String, Float>()
-        
+
         for (i in 6 downTo 0) {
             val date = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }.time
             dailyMap[sdf.format(date)] = 0f
         }
-        
+
         reports.forEach { report ->
             val dayKey = sdf.format(Date(report.timestamp))
             if (dailyMap.containsKey(dayKey)) {
                 dailyMap[dayKey] = (dailyMap[dayKey] ?: 0f) + report.caloriesBurned
             }
         }
-        
+
         val scoreTrend = reports.take(20).reversed().mapIndexed { index, report ->
             index.toFloat() to report.score.toFloat()
         }
-        
+
         val completionStats = mapOf(
-            "PENDING" to tasks.count { it.status == "PENDING" },
-            "IN_PROGRESS" to tasks.count { it.status == "IN_PROGRESS" },
-            "COMPLETED" to tasks.count { it.status == "DONE" || it.status == "COMPLETED" }
+            "PENDING" to tasks.count { it.status.lowercase() in listOf("pending", "active") },
+            "IN_PROGRESS" to tasks.count { it.status.lowercase() == "in_progress" },
+            "COMPLETED" to tasks.count { it.status.lowercase() in listOf("done", "completed") }
         )
-        
+
         return WorkoutStats(
             dailyCalories = dailyMap.toList(),
             scoreTrend = scoreTrend,
@@ -134,7 +201,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch(Dispatchers.IO) {
             expertUid?.let { userRepo.syncExpertProfileLocally(it) }
             val uid = currentUid
-            
+
             if (uid.isNotEmpty()) {
                 planRepo.syncTasksForPatient(uid)
                 loadDynamicSocialData()
@@ -214,24 +281,29 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Görev bugün aktif mi? — DAILY, WEEKLY, CUSTOM kontrolü.
+     * Status inactive/removed olan görevler aktif sayılmaz.
+     */
     fun isTaskActiveToday(task: TaskAssignmentEntity): Boolean {
-        if (task.status == "inactive") return false
-        
+        val status = task.status.orEmpty().lowercase()
+        if (status in listOf("inactive", "removed")) return false
+
         val cal = Calendar.getInstance()
         val today = when (cal.get(Calendar.DAY_OF_WEEK)) {
-            Calendar.MONDAY -> 1
-            Calendar.TUESDAY -> 2
+            Calendar.MONDAY    -> 1
+            Calendar.TUESDAY   -> 2
             Calendar.WEDNESDAY -> 3
-            Calendar.THURSDAY -> 4
-            Calendar.FRIDAY -> 5
-            Calendar.SATURDAY -> 6
-            Calendar.SUNDAY -> 7
-            else -> 1
+            Calendar.THURSDAY  -> 4
+            Calendar.FRIDAY    -> 5
+            Calendar.SATURDAY  -> 6
+            Calendar.SUNDAY    -> 7
+            else               -> 1
         }
 
         return when (task.scheduleType) {
-            "DAILY" -> true
-            "WEEKLY" -> true 
+            "DAILY"  -> true
+            "WEEKLY" -> true
             "CUSTOM" -> {
                 try {
                     val days = org.json.JSONArray(task.daysOfWeekJson)
@@ -286,7 +358,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
 
     /**
      * Egzersiz başlatılabilir mi kontrolü.
-     * Sonuç callback ile döner — UI bunu Snackbar için kullanır.
+     * Hasta tarafında SADECE patientId == currentUid olan görevler için çalışır.
      */
     fun canStartExercise(
         task: TaskAssignmentEntity,
@@ -295,29 +367,35 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         onResult: (Boolean, String) -> Unit
     ) {
         // 1. Görev aktif mi?
-        if (task.status == "inactive" || task.status == "removed") {
+        val taskStatus = task.status.orEmpty().lowercase()
+        if (taskStatus in listOf("inactive", "removed")) {
             onResult(false, "Bu görev artık aktif değil.")
             return
         }
-        // 2. Bugün aktif mi?
+        // 2. Hasta bu görevin sahibi mi?
+        if (task.patientUid != currentUid) {
+            onResult(false, "Bu görev size ait değil.")
+            return
+        }
+        // 3. Bugün aktif mi?
         if (!isTaskActiveToday(task)) {
             onResult(false, "Bu görev bugün için planlanmamış.")
             return
         }
-        // 3. Egzersiz bu periyotta zaten tamamlandı mı?
+        // 4. Egzersiz bu periyotta zaten tamamlandı mı?
         try {
             val arr = org.json.JSONArray(progressJson)
             for (i in 0 until arr.length()) {
                 val obj = arr.getJSONObject(i)
                 if (obj.optString("exerciseType") == exerciseType &&
-                    obj.optString("status") == "completed") {
+                    obj.optString("status").lowercase() == "completed") {
                     onResult(false, "Bu egzersiz bu periyotta zaten tamamlandı.")
                     return
                 }
             }
         } catch (_: Exception) {}
 
-        // 4. Doktor-hasta ilişkisi kontrolü (async)
+        // 5. Doktor-hasta ilişkisi kontrolü (async)
         if (task.expertUid == "SYSTEM") {
             onResult(true, "")
             return
