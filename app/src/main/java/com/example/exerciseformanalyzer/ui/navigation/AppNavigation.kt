@@ -202,6 +202,7 @@ fun AppNavigation(
                 viewModel = expertViewModel,
                 onNavigateToProfile = { navController.navigate(Route.Profile.route) },
                 onNavigateToPatientDetail = { uid -> navController.navigate(Route.PatientDetail.createRoute(uid)) },
+                onNavigateToGroups = { navController.navigate(Route.Community.route) },
                 onNavigateToSocial = { navController.navigate(Route.SocialFeed.route) },
                 onLogout = {
                     authViewModel.logout()

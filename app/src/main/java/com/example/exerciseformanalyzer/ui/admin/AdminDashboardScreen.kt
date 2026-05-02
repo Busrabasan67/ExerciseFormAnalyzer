@@ -118,6 +118,7 @@ fun AdminDashboardScreen(
                         viewModel = expertViewModel,
                         onNavigateToProfile = onNavigateToProfile,
                         onNavigateToPatientDetail = onNavigateToPatientDetail,
+                        onNavigateToGroups = onNavigateToGroups,
                         onNavigateToSocial = onNavigateToSocial,
                         onLogout = onLogout
                     )

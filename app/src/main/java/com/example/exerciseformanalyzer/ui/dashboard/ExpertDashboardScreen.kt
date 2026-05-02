@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -43,6 +44,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,6 +55,7 @@ fun ExpertDashboardScreen(
     viewModel: ExpertViewModel,
     onNavigateToProfile: () -> Unit,
     onNavigateToPatientDetail: (String) -> Unit,
+    onNavigateToGroups: () -> Unit,
     onNavigateToSocial: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -62,6 +67,8 @@ fun ExpertDashboardScreen(
     val searchError by viewModel.searchError.collectAsState()
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
     val requestStatus by viewModel.requestStatus.collectAsState()
+    val hasCommunityNotifications by viewModel.hasCommunityNotifications.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Hastalarım", "Görev Ata", "Takip")
@@ -81,6 +88,16 @@ fun ExpertDashboardScreen(
         }
     }
 
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshCommunityNotifications()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -88,6 +105,17 @@ fun ExpertDashboardScreen(
                 actions = {
                     IconButton(onClick = onNavigateToSocial) { 
                         Icon(imageVector = Icons.Default.Share, contentDescription = "Sosyal Feed") 
+                    }
+                    TextButton(onClick = onNavigateToGroups) {
+                        BadgedBox(
+                            badge = {
+                                if (hasCommunityNotifications) {
+                                    Badge()
+                                }
+                            }
+                        ) {
+                            Text(stringResource(R.string.groups_title))
+                        }
                     }
                     TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
                     TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 

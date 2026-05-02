@@ -86,20 +86,32 @@ fun CommunityScreen(
     val snackbarHost = remember { SnackbarHostState() }
     var selectedTab by remember { mutableIntStateOf(0) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var waitingCreateSuccess by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.loadAll() }
 
-    LaunchedEffect(selectedTab) { viewModel.loadAll() }
+    LaunchedEffect(selectedTab) {
+        viewModel.loadAll()
+        when (selectedTab) {
+            2 -> viewModel.markInvitesSeen()
+            3 -> viewModel.markIncomingJoinRequestsSeen()
+        }
+    }
 
     LaunchedEffect(event) {
         when (val e = event) {
             is CommunityEvent.Success -> {
                 snackbarHost.showSnackbar(e.message)
-                showCreateDialog = false
+                if (waitingCreateSuccess) {
+                    selectedTab = 0
+                    showCreateDialog = false
+                    waitingCreateSuccess = false
+                }
                 viewModel.resetEvent()
             }
             is CommunityEvent.Error -> {
                 snackbarHost.showSnackbar("Hata: ${e.message}")
+                waitingCreateSuccess = false
                 viewModel.resetEvent()
             }
             else -> {}
@@ -121,7 +133,7 @@ fun CommunityScreen(
                     )
                 )
                 TabRow(selectedTabIndex = selectedTab) {
-                    listOf("Keşfet", "Gruplarım", "Davetlerim", "Gelen İstekler").forEachIndexed { index, title ->
+                    listOf("Gruplarım", "Keşfet", "Davetler", "Gelen İstekler").forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
@@ -143,7 +155,7 @@ fun CommunityScreen(
             }
         },
         floatingActionButton = {
-            if (selectedTab == 1) {
+            if (selectedTab == 0) {
                 ExtendedFloatingActionButton(
                     onClick = { showCreateDialog = true },
                     icon = { Icon(Icons.Default.Add, null) },
@@ -159,8 +171,8 @@ fun CommunityScreen(
                 .padding(padding)
         ) {
             when (selectedTab) {
-                0 -> ExploreTab(viewModel = viewModel, onNavigateToDetail = onNavigateToGroupDetail)
-                1 -> MyGroupsTab(viewModel = viewModel, onNavigateToDetail = onNavigateToGroupDetail)
+                0 -> MyGroupsTab(viewModel = viewModel, onNavigateToDetail = onNavigateToGroupDetail)
+                1 -> ExploreTab(viewModel = viewModel, onNavigateToDetail = onNavigateToGroupDetail)
                 2 -> MyInvitesTab(viewModel = viewModel)
                 3 -> IncomingJoinRequestsTab(viewModel = viewModel)
             }
@@ -171,7 +183,10 @@ fun CommunityScreen(
         CreateGroupDialog(
             isLoading = event is CommunityEvent.Loading,
             onDismiss = { showCreateDialog = false; viewModel.resetEvent() },
-            onCreate = { name, desc, isPrivate -> viewModel.createGroup(name, desc, isPrivate) }
+            onCreate = { name, desc, isPrivate ->
+                waitingCreateSuccess = true
+                viewModel.createGroup(name, desc, isPrivate)
+            }
         )
     }
 }
@@ -265,7 +280,7 @@ private fun ExploreGroupCard(
                     )
                 }
                 Text(
-                    text = if (group.isPrivate) "🔒 Gizli Grup" else "🌐 Herkese Açık",
+                    text = if (group.isPrivate) "Kapalı Grup" else "Herkese Açık",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (group.isPrivate)
                         MaterialTheme.colorScheme.secondary
@@ -307,7 +322,7 @@ private fun ExploreGroupCard(
                             onClick = onSendRequest,
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            Text("Katılma İsteği", style = MaterialTheme.typography.labelSmall)
+                            Text("İstek Gönder", style = MaterialTheme.typography.labelSmall)
                         }
                     } else {
                         Button(
@@ -333,6 +348,7 @@ private fun MyGroupsTab(
     onNavigateToDetail: (FsGroup) -> Unit
 ) {
     val myGroups by viewModel.myGroups.collectAsState()
+    val unreadGroupIds by viewModel.unreadGroupIds.collectAsState()
 
     if (myGroups.isEmpty()) {
         EmptyState(message = "Henüz bir gruba dahil değilsiniz.\nYeni bir grup oluşturun veya bir gruba katılın.")
@@ -345,6 +361,7 @@ private fun MyGroupsTab(
                 MyGroupCard(
                     group = group,
                     isAdmin = viewModel.isAdmin(group),
+                    hasNotification = group.groupId in unreadGroupIds,
                     onClick = { onNavigateToDetail(group) }
                 )
             }
@@ -357,6 +374,7 @@ private fun MyGroupsTab(
 private fun MyGroupCard(
     group: FsGroup,
     isAdmin: Boolean,
+    hasNotification: Boolean,
     onClick: () -> Unit
 ) {
     Card(
@@ -368,20 +386,28 @@ private fun MyGroupCard(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        RoundedCornerShape(14.dp)
-                    ),
-                contentAlignment = Alignment.Center
+            BadgedBox(
+                badge = {
+                    if (hasNotification) {
+                        Badge()
+                    }
+                }
             ) {
-                Icon(
-                    imageVector = if (group.isPrivate) Icons.Default.Lock else Icons.Default.Group,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            RoundedCornerShape(14.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (group.isPrivate) Icons.Default.Lock else Icons.Default.Group,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -633,7 +659,7 @@ private fun CreateGroupDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { isPrivate = !isPrivate }
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Checkbox(checked = isPrivate, onCheckedChange = { isPrivate = it })
                     Spacer(modifier = Modifier.width(4.dp))

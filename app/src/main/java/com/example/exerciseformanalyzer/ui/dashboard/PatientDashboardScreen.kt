@@ -18,6 +18,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
 import com.example.exerciseformanalyzer.model.ExerciseType
@@ -63,14 +66,26 @@ fun PatientDashboardScreen(
     val incomingRequests by viewModel.incomingRequests.collectAsState()
     val isEmailVerified = viewModel.isEmailVerified
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
+    val hasCommunityNotifications by viewModel.hasCommunityNotifications.collectAsState()
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var selectedMainTab by remember { mutableIntStateOf(0) }
     val mainTabs = listOf("Genel Bakış", "İstatistikler")
 
     LaunchedEffect(currentUser?.expertUid) {
         viewModel.syncPatientData(currentUser?.expertUid)
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshCommunityNotifications()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Scaffold(
@@ -91,11 +106,19 @@ fun PatientDashboardScreen(
                         Icon(imageVector = Icons.Default.Share, contentDescription = "Sosyal Feed") 
                     }
                     TextButton(onClick = onNavigateToGroups) {
-                        Text(
-                            stringResource(R.string.groups_title),
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
+                        BadgedBox(
+                            badge = {
+                                if (hasCommunityNotifications) {
+                                    Badge()
+                                }
+                            }
+                        ) {
+                            Text(
+                                stringResource(R.string.groups_title),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
                     }
                     TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
                     TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 
@@ -478,6 +501,8 @@ private fun PatientTaskCard(
     val totalSets = exerciseListForCard.sumOf { it.optInt("sets", 0) }
     val completedSets = progressMapForCard.values.sumOf { it.optInt("completedSets", 0) }
     val percent = if (totalSets > 0) completedSets.toFloat() / totalSets else 0f
+    val isGroupTask = task.expertUid.startsWith("GROUP:")
+    val groupName = Regex("^\\[(.+)]").find(task.title)?.groupValues?.getOrNull(1) ?: "Grup"
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -495,7 +520,7 @@ private fun PatientTaskCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        text = "Uzman: ${if (task.expertUid == "SYSTEM") "Sistem" else "Danışman"}",
+                        text = if (isGroupTask) "Grup: $groupName" else "Uzman: ${if (task.expertUid == "SYSTEM") "Sistem" else "Danışman"}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
