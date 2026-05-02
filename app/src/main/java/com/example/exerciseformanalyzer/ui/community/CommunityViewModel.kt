@@ -4,13 +4,16 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
-import com.example.exerciseformanalyzer.data.remote.CommunityFirestoreService
 import com.example.exerciseformanalyzer.data.repository.CommunityRepository
 import com.example.exerciseformanalyzer.model.firestore.FsGroup
 import com.example.exerciseformanalyzer.model.firestore.FsGroupInvite
 import com.example.exerciseformanalyzer.model.firestore.FsGroupJoinRequest
 import com.example.exerciseformanalyzer.model.firestore.FsGroupMember
+import com.example.exerciseformanalyzer.model.firestore.FsGroupMessage
+import com.example.exerciseformanalyzer.model.firestore.FsGroupProgram
+import com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
+import com.example.exerciseformanalyzer.ui.dashboard.ExpertViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,9 +45,10 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val app = application as MainApplication
     private val authRepo = app.authRepository
+    private val planRepo = app.planRepository
 
     private val communityRepo = CommunityRepository(
-        service = CommunityFirestoreService()
+        service = app.communityFirestoreService
     )
 
     val currentUid: String get() = authRepo.currentUid ?: ""
@@ -62,6 +66,9 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
     private val _myGroups = MutableStateFlow<List<FsGroup>>(emptyList())
     val myGroups: StateFlow<List<FsGroup>> = _myGroups.asStateFlow()
 
+    private val _unreadGroupIds = MutableStateFlow<Set<String>>(emptySet())
+    val unreadGroupIds: StateFlow<Set<String>> = _unreadGroupIds.asStateFlow()
+
     // ── Davetlerim sekmesi (admin'den gelen davetler) ─────────────────────────
     private val _myInvites = MutableStateFlow<List<FsGroupInvite>>(emptyList())
     val myInvites: StateFlow<List<FsGroupInvite>> = _myInvites.asStateFlow()
@@ -77,11 +84,23 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
     private val _groupMembers = MutableStateFlow<List<FsGroupMember>>(emptyList())
     val groupMembers: StateFlow<List<FsGroupMember>> = _groupMembers.asStateFlow()
 
+    private val _groupMessages = MutableStateFlow<List<FsGroupMessage>>(emptyList())
+    val groupMessages: StateFlow<List<FsGroupMessage>> = _groupMessages.asStateFlow()
+
+    private val _groupPrograms = MutableStateFlow<List<FsGroupProgram>>(emptyList())
+    val groupPrograms: StateFlow<List<FsGroupProgram>> = _groupPrograms.asStateFlow()
+
+    private val _appliedProgramIds = MutableStateFlow<Set<String>>(emptySet())
+    val appliedProgramIds: StateFlow<Set<String>> = _appliedProgramIds.asStateFlow()
+
     // ── Admin davet — kullanıcı arama ─────────────────────────────────────────
     private val _searchResults = MutableStateFlow<List<FirestoreUser>>(emptyList())
     val searchResults: StateFlow<List<FirestoreUser>> = _searchResults.asStateFlow()
 
     private var searchJob: Job? = null
+    private var messagesJob: Job? = null
+    private var programsJob: Job? = null
+    private var appliedProgramsJob: Job? = null
 
     // ─────────────────────────────────────────────────────────────────────────
     // Tüm sekme verilerini yükle
@@ -92,6 +111,7 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         loadMyGroups()
         loadMyInvites()
         loadIncomingJoinRequests()
+        loadUnreadGroupIds()
     }
 
     fun loadExplore() {
@@ -105,11 +125,10 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                     val status = communityRepo.getUserGroupStatus(group.groupId, uid)
                     GroupWithStatus(group = group, userStatus = status)
                 }
-                // Keşfet: Public gruplar + üye olduğumuz private gruplar
-                val filtered = withStatus.filter { (group, status) ->
-                    !group.isPrivate || status == "member"
-                }
-                _exploreGroups.value = filtered
+                _exploreGroups.value = withStatus.sortedWith(
+                    compareBy<GroupWithStatus> { it.group.isPrivate }
+                        .thenBy { it.group.name.lowercase() }
+                )
             } catch (e: Exception) {
                 _event.value = CommunityEvent.Error("Gruplar yüklenemedi: ${e.message}")
             }
@@ -122,9 +141,20 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             try {
                 _myGroups.value = communityRepo.getMyGroups(uid)
+                loadUnreadGroupIds()
             } catch (e: Exception) {
                 _event.value = CommunityEvent.Error("Gruplarım yüklenemedi.")
             }
+        }
+    }
+
+    fun loadUnreadGroupIds() {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            _unreadGroupIds.value = runCatching {
+                communityRepo.getUnreadGroupIds(uid)
+            }.getOrDefault(emptySet())
         }
     }
 
@@ -202,7 +232,7 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 val profile = app.firestoreService.getUserProfile(uid)
                 communityRepo.joinPublicGroup(
-                    groupId = group.groupId,
+                    group = group,
                     userId = uid,
                     userName = profile?.fullName ?: "Kullanıcı",
                     userEmail = profile?.email ?: currentEmail()
@@ -359,6 +389,55 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
     fun selectGroup(group: FsGroup) {
         _selectedGroup.value = group
         loadGroupMembers(group.groupId)
+        observeChat(group.groupId)
+        markGroupNotificationsSeen(group.groupId)
+    }
+
+    fun markGroupNotificationsSeen(groupId: String) {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { communityRepo.markGroupNotificationsSeen(uid, groupId) }
+            loadUnreadGroupIds()
+        }
+    }
+
+    fun markInvitesSeen() {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { communityRepo.markInvitesSeen(uid) }
+        }
+    }
+
+    fun markIncomingJoinRequestsSeen() {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            runCatching { communityRepo.markJoinRequestsSeen(uid) }
+        }
+    }
+
+    private fun observeChat(groupId: String) {
+        messagesJob?.cancel()
+        programsJob?.cancel()
+        appliedProgramsJob?.cancel()
+
+        messagesJob = viewModelScope.launch {
+            communityRepo.observeGroupMessages(groupId).collect {
+                _groupMessages.value = it
+                markGroupNotificationsSeen(groupId)
+            }
+        }
+        programsJob = viewModelScope.launch {
+            communityRepo.observeGroupPrograms(groupId).collect { _groupPrograms.value = it }
+        }
+        val uid = currentUid
+        if (uid.isNotEmpty()) {
+            appliedProgramsJob = viewModelScope.launch {
+                communityRepo.observeAppliedProgramIds(uid).collect { _appliedProgramIds.value = it }
+            }
+        }
     }
 
     fun loadGroupMembers(groupId: String) {
@@ -383,8 +462,151 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun closeGroup(groupId: String) {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            communityRepo.closeGroup(groupId, uid)
+                .onSuccess {
+                    messagesJob?.cancel()
+                    programsJob?.cancel()
+                    appliedProgramsJob?.cancel()
+                    _selectedGroup.value = null
+                    _groupMembers.value = emptyList()
+                    _groupMessages.value = emptyList()
+                    _groupPrograms.value = emptyList()
+                    loadAll()
+                    _event.value = CommunityEvent.Success("Grup kapatıldı.")
+                }
+                .onFailure {
+                    _event.value = CommunityEvent.Error(it.message ?: "Grup kapatılamadı.")
+                }
+        }
+    }
+
     fun isAdmin(group: FsGroup?): Boolean =
         group != null && group.creatorId == currentUid
+
+    fun currentMemberRole(): String =
+        _groupMembers.value.firstOrNull { it.userId == currentUid }?.role?.lowercase() ?: "none"
+
+    fun isCurrentMember(): Boolean =
+        _groupMembers.value.any { it.userId == currentUid }
+
+    fun canInvite(): Boolean = currentMemberRole() in listOf("admin", "moderator")
+
+    fun canManageRoles(): Boolean = currentMemberRole() == "admin"
+
+    fun canShareProgram(): Boolean = currentMemberRole() in listOf("admin", "moderator")
+
+    fun canDeleteChatContent(): Boolean = currentMemberRole() == "admin"
+
+    fun updateMemberRole(groupId: String, targetUserId: String, newRole: String) {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            communityRepo.updateMemberRole(groupId, uid, targetUserId, newRole)
+                .onSuccess {
+                    _event.value = CommunityEvent.Success("Rol güncellendi.")
+                    loadGroupMembers(groupId)
+                }
+                .onFailure {
+                    _event.value = CommunityEvent.Error(it.message ?: "Rol güncellenemedi.")
+                }
+        }
+    }
+
+    fun sendTextMessage(text: String) {
+        val group = _selectedGroup.value ?: return
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            val profile = app.firestoreService.getUserProfile(uid)
+            communityRepo.sendTextMessage(
+                groupId = group.groupId,
+                senderId = uid,
+                senderName = profile?.fullName ?: "Kullanıcı",
+                text = text
+            ).onFailure {
+                _event.value = CommunityEvent.Error(it.message ?: "Mesaj gönderilemedi.")
+            }
+        }
+    }
+
+    fun shareProgram(
+        title: String,
+        note: String,
+        exercises: List<ExpertViewModel.TaskExerciseInput>,
+        scheduleType: String,
+        daysOfWeek: List<Int>,
+        autoRepeat: Boolean,
+        repeatWeeks: Int?
+    ) {
+        val group = _selectedGroup.value ?: return
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            val profile = app.firestoreService.getUserProfile(uid)
+            val fsExercises = exercises.map { input ->
+                val value = input.targetValue.toIntOrNull() ?: 1
+                val sets = input.sets.toIntOrNull() ?: 1
+                val rest = input.restTimeSeconds.toIntOrNull() ?: 30
+                FirestoreExerciseItem(
+                    exerciseType = input.exerciseType.name,
+                    targetType = if (input.isDurationBased) "DURATION" else "REPS",
+                    targetReps = if (!input.isDurationBased) value else null,
+                    targetDurationSeconds = if (input.isDurationBased) value else null,
+                    sets = sets,
+                    restTimeSeconds = rest,
+                    difficulty = input.difficulty,
+                    category = input.category,
+                    videoUrl = input.videoUrl,
+                    status = "PENDING"
+                )
+            }
+            communityRepo.shareProgram(
+                group = group,
+                createdById = uid,
+                createdByName = profile?.fullName ?: "Kullanıcı",
+                title = title,
+                note = note,
+                exercises = fsExercises,
+                scheduleType = scheduleType,
+                daysOfWeek = daysOfWeek,
+                autoRepeat = autoRepeat,
+                repeatDurationWeeks = repeatWeeks
+            ).onSuccess {
+                _event.value = CommunityEvent.Success("Program sohbette paylaşıldı.")
+            }.onFailure {
+                _event.value = CommunityEvent.Error(it.message ?: "Program paylaşılamadı.")
+            }
+        }
+    }
+
+    fun deleteMessage(message: FsGroupMessage) {
+        val group = _selectedGroup.value ?: return
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            communityRepo.deleteMessage(group.groupId, uid, message)
+                .onFailure { _event.value = CommunityEvent.Error(it.message ?: "Mesaj silinemedi.") }
+        }
+    }
+
+    fun applyProgram(program: FsGroupProgram) {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            communityRepo.applyProgramToUser(program, uid)
+                .onSuccess {
+                    planRepo.syncTasksForPatient(uid)
+                    _event.value = CommunityEvent.Success("Program genel bakışınıza eklendi.")
+                }
+                .onFailure {
+                    _event.value = CommunityEvent.Error(it.message ?: "Program uygulanamadı.")
+                }
+        }
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Yardımcı

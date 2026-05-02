@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,10 +26,16 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -57,8 +65,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.exerciseformanalyzer.model.firestore.FsGroup
+import com.example.exerciseformanalyzer.model.firestore.FsGroupMessage
 import com.example.exerciseformanalyzer.model.firestore.FsGroupMember
+import com.example.exerciseformanalyzer.model.firestore.FsGroupProgram
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
+import com.example.exerciseformanalyzer.ui.dashboard.components.AssignTaskDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,23 +81,46 @@ fun GroupDetailScreen(
     val members by viewModel.groupMembers.collectAsState()
     val event by viewModel.event.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+    val messages by viewModel.groupMessages.collectAsState()
+    val programs by viewModel.groupPrograms.collectAsState()
+    val appliedProgramIds by viewModel.appliedProgramIds.collectAsState()
 
     val snackbarHost = remember { SnackbarHostState() }
     val currentUid = viewModel.currentUid
-    val isAdmin = viewModel.isAdmin(group)
+    val canInvite = viewModel.canInvite()
+    val canManageRoles = viewModel.canManageRoles()
+    val canShareProgram = viewModel.canShareProgram()
+    val canDeleteChatContent = viewModel.canDeleteChatContent()
+    val isCurrentMember = viewModel.isCurrentMember()
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = if (isAdmin) listOf("Bilgiler", "Üyeler", "Davet Gönder") else listOf("Bilgiler", "Üyeler")
+    val tabs = when {
+        canInvite -> listOf("Sohbet", "Bilgiler", "Üyeler", "Davet")
+        isCurrentMember -> listOf("Sohbet", "Bilgiler", "Üyeler")
+        else -> listOf("Bilgiler", "Üyeler")
+    }
 
     var inviteQuery by remember { mutableStateOf("") }
+    var showProgramDialog by remember { mutableStateOf(false) }
+    var memberPendingRemoval by remember { mutableStateOf<FsGroupMember?>(null) }
+    var showCloseGroupDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(group?.groupId) {
         group?.groupId?.let { viewModel.loadGroupMembers(it) }
     }
 
+    LaunchedEffect(tabs.size) {
+        if (selectedTab >= tabs.size) selectedTab = 0
+    }
+
     LaunchedEffect(event) {
         when (val e = event) {
             is CommunityEvent.Success -> {
+                if (e.message == "Grup kapatıldı.") {
+                    viewModel.resetEvent()
+                    onNavigateBack()
+                    return@LaunchedEffect
+                }
                 snackbarHost.showSnackbar(e.message)
                 viewModel.resetEvent()
             }
@@ -125,21 +159,39 @@ fun GroupDetailScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHost) }
     ) { padding ->
+        if (tabs[selectedTab] == "Sohbet") {
+            ChatSectionFixed(
+                messages = messages,
+                programs = programs,
+                appliedProgramIds = appliedProgramIds,
+                canShareProgram = canShareProgram,
+                canDelete = canDeleteChatContent,
+                onSendMessage = { viewModel.sendTextMessage(it) },
+                onShareProgram = { showProgramDialog = true },
+                onApplyProgram = { viewModel.applyProgram(it) },
+                onDeleteMessage = { viewModel.deleteMessage(it) },
+                modifier = Modifier.fillMaxSize().padding(padding)
+            )
+        } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            when (selectedTab) {
+            when (tabs[selectedTab]) {
                 // ── Bilgiler sekmesi ────────────────────────────────────────
-                0 -> {
+                "Bilgiler" -> {
                     item {
-                        GroupInfoCard(group = group)
+                        GroupInfoCard(
+                            group = group,
+                            canCloseGroup = canManageRoles,
+                            onCloseGroup = { showCloseGroupDialog = true }
+                        )
                     }
                 }
 
                 // ── Üyeler sekmesi ──────────────────────────────────────────
-                1 -> {
+                "Üyeler" -> {
                     if (members.isEmpty()) {
                         item {
                             Box(
@@ -157,9 +209,13 @@ fun GroupDetailScreen(
                         items(members) { member ->
                             MemberCard(
                                 member = member,
-                                canRemove = isAdmin && member.userId != currentUid,
+                                canRemove = canManageRoles && member.userId != currentUid && member.role != "admin",
+                                canManageRole = canManageRoles && member.userId != currentUid && member.role != "admin",
+                                onRoleChange = { newRole ->
+                                    group?.let { viewModel.updateMemberRole(it.groupId, member.userId, newRole) }
+                                },
                                 onRemove = {
-                                    group?.let { viewModel.removeMember(it.groupId, member.userId) }
+                                    memberPendingRemoval = member
                                 }
                             )
                         }
@@ -167,7 +223,23 @@ fun GroupDetailScreen(
                 }
 
                 // ── Davet Gönder sekmesi (sadece admin) ─────────────────────
-                2 -> {
+                "Sohbet" -> {
+                    item {
+                        ChatSection(
+                            messages = messages,
+                            programs = programs,
+                            appliedProgramIds = appliedProgramIds,
+                            canShareProgram = canShareProgram,
+                            canDelete = canDeleteChatContent,
+                            onSendMessage = { viewModel.sendTextMessage(it) },
+                            onShareProgram = { showProgramDialog = true },
+                            onApplyProgram = { viewModel.applyProgram(it) },
+                            onDeleteMessage = { viewModel.deleteMessage(it) }
+                        )
+                    }
+                }
+
+                "Davet" -> {
                     item {
                         InviteSection(
                             query = inviteQuery,
@@ -192,6 +264,72 @@ fun GroupDetailScreen(
             }
         }
     }
+
+    memberPendingRemoval?.let { member ->
+        AlertDialog(
+            onDismissRequest = { memberPendingRemoval = null },
+            title = { Text("Üyeyi Çıkar") },
+            text = {
+                Text("\"${member.userName}\" adlı kullanıcıyı çıkarmak istediğinize emin misiniz?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        group?.let { viewModel.removeMember(it.groupId, member.userId) }
+                        memberPendingRemoval = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Çıkar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { memberPendingRemoval = null }) {
+                    Text("İptal")
+                }
+            }
+        )
+    }
+
+    if (showCloseGroupDialog) {
+        AlertDialog(
+            onDismissRequest = { showCloseGroupDialog = false },
+            title = { Text("Grubu Kapat") },
+            text = {
+                Text("Grubu kapatmak istediğinize emin misiniz? Bu işlem gruba ait üyeleri, davetleri, istekleri, mesajları ve programları kalıcı olarak siler.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        group?.let { viewModel.closeGroup(it.groupId) }
+                        showCloseGroupDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Kapat")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCloseGroupDialog = false }) {
+                    Text("İptal")
+                }
+            }
+        )
+    }
+
+    if (showProgramDialog) {
+        AssignTaskDialog(
+            onDismissRequest = { showProgramDialog = false },
+            dialogTitle = "Grup Programı Paylaş",
+            defaultTitle = "Grup Programı",
+            submitText = "Programı Paylaş",
+            onAssignTask = { title, note, _, exercises, sched, days, auto, weeks ->
+                viewModel.shareProgram(title, note, exercises, sched, days, auto, weeks)
+                showProgramDialog = false
+            }
+        )
+    }
+}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -199,7 +337,11 @@ fun GroupDetailScreen(
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun GroupInfoCard(group: FsGroup?) {
+private fun GroupInfoCard(
+    group: FsGroup?,
+    canCloseGroup: Boolean,
+    onCloseGroup: () -> Unit
+) {
     if (group == null) return
 
     Card(
@@ -263,6 +405,19 @@ private fun GroupInfoCard(group: FsGroup?) {
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
             }
+
+            if (canCloseGroup) {
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = onCloseGroup,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Grubu Kapat")
+                }
+            }
         }
     }
 }
@@ -275,6 +430,8 @@ private fun GroupInfoCard(group: FsGroup?) {
 private fun MemberCard(
     member: FsGroupMember,
     canRemove: Boolean,
+    canManageRole: Boolean,
+    onRoleChange: (String) -> Unit,
     onRemove: () -> Unit
 ) {
     Card(
@@ -327,24 +484,32 @@ private fun MemberCard(
                 }
             }
 
-            // Rol badge
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = if (member.role == "admin")
-                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)
-                else
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-            ) {
-                Text(
-                    text = if (member.role == "admin") "Yönetici" else "Üye",
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (member.role == "admin")
-                        MaterialTheme.colorScheme.tertiary
-                    else
-                        MaterialTheme.colorScheme.primary
-                )
+            Column(horizontalAlignment = Alignment.End) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = roleColor(member.role).copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = roleLabel(member.role),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = roleColor(member.role)
+                    )
+                }
+
+                if (canManageRole) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    TextButton(
+                        onClick = { onRoleChange(if (member.role == "moderator") "member" else "moderator") },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                    ) {
+                        Text(
+                            if (member.role == "moderator") "Üye yap" else "Yetkili yap",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
             }
 
             if (canRemove) {
@@ -365,6 +530,293 @@ private fun MemberCard(
 // ─────────────────────────────────────────────────────────────────────────────
 // Davet Bölümü — Admin tarafı, e-posta ile kullanıcı ara + davet gönder
 // ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun ChatSection(
+    messages: List<FsGroupMessage>,
+    programs: List<FsGroupProgram>,
+    appliedProgramIds: Set<String>,
+    canShareProgram: Boolean,
+    canDelete: Boolean,
+    onSendMessage: (String) -> Unit,
+    onShareProgram: () -> Unit,
+    onApplyProgram: (FsGroupProgram) -> Unit,
+    onDeleteMessage: (FsGroupMessage) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var messageText by remember { mutableStateOf("") }
+    val programMap = remember(programs) { programs.associateBy { it.programId } }
+
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Sohbet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (canShareProgram) {
+                OutlinedButton(onClick = onShareProgram) {
+                    Icon(Icons.Default.FitnessCenter, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Program Paylaş")
+                }
+            }
+        }
+
+        if (messages.isEmpty()) {
+            Text(
+                text = "Henüz mesaj yok.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+            )
+        } else {
+            messages.forEach { message ->
+                val program = programMap[message.programId]
+                if (message.type == "program" && program != null) {
+                    ProgramMessageCard(
+                        message = message,
+                        program = program,
+                        applied = appliedProgramIds.contains(program.programId),
+                        canDelete = canDelete,
+                        onApply = { onApplyProgram(program) },
+                        onDelete = { onDeleteMessage(message) }
+                    )
+                } else {
+                    TextMessageCard(
+                        message = message,
+                        canDelete = canDelete,
+                        onDelete = { onDeleteMessage(message) }
+                    )
+                }
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = messageText,
+                onValueChange = { messageText = it },
+                label = { Text("Mesaj yaz") },
+                modifier = Modifier.weight(1f),
+                minLines = 1,
+                maxLines = 4
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    onSendMessage(messageText)
+                    messageText = ""
+                },
+                enabled = messageText.isNotBlank()
+            ) {
+                Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatSectionFixed(
+    messages: List<FsGroupMessage>,
+    programs: List<FsGroupProgram>,
+    appliedProgramIds: Set<String>,
+    canShareProgram: Boolean,
+    canDelete: Boolean,
+    onSendMessage: (String) -> Unit,
+    onShareProgram: () -> Unit,
+    onApplyProgram: (FsGroupProgram) -> Unit,
+    onDeleteMessage: (FsGroupMessage) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var messageText by remember { mutableStateOf("") }
+    val programMap = remember(programs) { programs.associateBy { it.programId } }
+
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Sohbet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (canShareProgram) {
+                OutlinedButton(onClick = onShareProgram) {
+                    Icon(Icons.Default.FitnessCenter, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Program Paylaş")
+                }
+            }
+        }
+
+        if (messages.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Henüz mesaj yok.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(messages) { message ->
+                    val program = programMap[message.programId]
+                    if (message.type == "program" && program != null) {
+                        ProgramMessageCard(
+                            message = message,
+                            program = program,
+                            applied = appliedProgramIds.contains(program.programId),
+                            canDelete = canDelete,
+                            onApply = { onApplyProgram(program) },
+                            onDelete = { onDeleteMessage(message) }
+                        )
+                    } else {
+                        TextMessageCard(
+                            message = message,
+                            canDelete = canDelete,
+                            onDelete = { onDeleteMessage(message) }
+                        )
+                    }
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            tonalElevation = 3.dp,
+            shadowElevation = 8.dp,
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                OutlinedTextField(
+                    value = messageText,
+                    onValueChange = { messageText = it },
+                    placeholder = { Text("Mesaj yaz") },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(24.dp),
+                    minLines = 1,
+                    maxLines = 4
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        onSendMessage(messageText)
+                        messageText = ""
+                    },
+                    enabled = messageText.isNotBlank(),
+                    shape = RoundedCornerShape(24.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TextMessageCard(
+    message: FsGroupMessage,
+    canDelete: Boolean,
+    onDelete: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(message.senderName, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(roleLabel(message.senderRole), style = MaterialTheme.typography.labelSmall, color = roleColor(message.senderRole))
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(message.text, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (canDelete) {
+                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProgramMessageCard(
+    message: FsGroupMessage,
+    program: FsGroupProgram,
+    applied: Boolean,
+    canDelete: Boolean,
+    onApply: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f))
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.FitnessCenter, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(program.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(
+                        "${message.senderName} paylaştı",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                    )
+                }
+                if (canDelete) {
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            if (program.note.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(program.note, style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "${program.exercises.size} egzersiz • ${program.scheduleType}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Button(
+                onClick = onApply,
+                enabled = !applied,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (applied) "Program Uygulandı" else "Programı Uygula")
+            }
+        }
+    }
+}
+
+@Composable
+private fun roleColor(role: String) = when (role) {
+    "admin" -> MaterialTheme.colorScheme.tertiary
+    "moderator" -> MaterialTheme.colorScheme.secondary
+    else -> MaterialTheme.colorScheme.primary
+}
+
+private fun roleLabel(role: String): String = when (role) {
+    "admin" -> "Yönetici"
+    "moderator" -> "Yetkili"
+    else -> "Üye"
+}
 
 @Composable
 private fun InviteSection(

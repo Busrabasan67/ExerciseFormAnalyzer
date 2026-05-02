@@ -24,9 +24,48 @@ data class FsGroupMember(
     val userId: String = "",
     val userName: String = "",
     val userEmail: String = "",
-    val role: String = "member",  // "admin" | "member"
+    val role: String = "member",  // "admin" | "moderator" | "member"
     val joinedAt: Long = 0L,
     val status: String = "active" // "active" | "removed"
+)
+
+data class FsGroupMessage(
+    val messageId: String = "",
+    val groupId: String = "",
+    val senderId: String = "",
+    val senderName: String = "",
+    val senderRole: String = "member",
+    val type: String = "text", // "text" | "program"
+    val text: String = "",
+    val programId: String = "",
+    val createdAt: Long = 0L,
+    val deleted: Boolean = false
+)
+
+data class FsGroupProgram(
+    val programId: String = "",
+    val groupId: String = "",
+    val groupName: String = "",
+    val title: String = "",
+    val note: String = "",
+    val createdById: String = "",
+    val createdByName: String = "",
+    val exercises: List<FirestoreExerciseItem> = emptyList(),
+    val scheduleType: String = "DAILY",
+    val daysOfWeek: List<Int> = emptyList(),
+    val autoRepeat: Boolean = false,
+    val repeatDurationWeeks: Int? = null,
+    val createdAt: Long = 0L,
+    val deleted: Boolean = false
+)
+
+data class FsGroupProgramApplication(
+    val applicationId: String = "",
+    val programId: String = "",
+    val groupId: String = "",
+    val userId: String = "",
+    val taskId: String = "",
+    val createdAt: Long = 0L
 )
 
 // =========================================================

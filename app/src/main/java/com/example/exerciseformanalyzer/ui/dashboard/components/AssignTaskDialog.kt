@@ -31,9 +31,12 @@ import java.util.Calendar
 @Composable
 fun AssignTaskDialog(
     onDismissRequest: () -> Unit,
+    dialogTitle: String = "Gelişmiş Görev Planla",
+    defaultTitle: String = "Haftalık Antrenman",
+    submitText: String = "Görevi Yayınla",
     onAssignTask: (title: String, note: String, dueDate: Long, exercises: List<TaskExerciseInput>, sched: String, days: List<Int>, auto: Boolean, weeks: Int?) -> Unit
 ) {
-    var title by remember { mutableStateOf("Haftalık Antrenman") }
+    var title by remember { mutableStateOf(defaultTitle) }
     var note by remember { mutableStateOf("") }
     
     var sched by remember { mutableStateOf("DAILY") }
@@ -64,7 +67,7 @@ fun AssignTaskDialog(
                         .padding(16.dp)
                 ) {
                     Text(
-                        "Gelişmiş Görev Planla",
+                        dialogTitle,
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -213,7 +216,7 @@ fun AssignTaskDialog(
                             }
                         }
                     }) {
-                        Text("Görevi Yayınla")
+                        Text(submitText)
                     }
                 }
             }

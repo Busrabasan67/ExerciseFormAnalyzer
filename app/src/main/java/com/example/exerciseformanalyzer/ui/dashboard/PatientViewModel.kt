@@ -8,6 +8,7 @@ import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
 import com.example.exerciseformanalyzer.data.local.entity.TaskProgressEntity
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.data.local.entity.WorkoutReportEntity
+import com.example.exerciseformanalyzer.data.repository.CommunityRepository
 import com.example.exerciseformanalyzer.model.WorkoutStats
 import com.example.exerciseformanalyzer.model.firestore.FirestoreActivity
 import com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest
@@ -49,6 +50,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     private val planRepo = (application as MainApplication).planRepository
     private val workoutRepo = (application as MainApplication).workoutRepository
     private val leaderboardRepo = (application as MainApplication).leaderboardRepository
+    private val communityRepo = CommunityRepository((application as MainApplication).communityFirestoreService)
 
     val currentUid: String get() = authRepo.currentUid ?: ""
 
@@ -69,6 +71,9 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
 
     private val _showLogoutDialog = MutableStateFlow(false)
     val showLogoutDialog: StateFlow<Boolean> = _showLogoutDialog.asStateFlow()
+
+    private val _hasCommunityNotifications = MutableStateFlow(false)
+    val hasCommunityNotifications: StateFlow<Boolean> = _hasCommunityNotifications.asStateFlow()
 
     val isEmailVerified = authRepo.isEmailVerified
 
@@ -205,6 +210,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
             if (uid.isNotEmpty()) {
                 planRepo.syncTasksForPatient(uid)
                 loadDynamicSocialData()
+                loadCommunityNotifications(uid)
 
                 try {
                     val user = userRepo.observeCurrentUser(uid).first()
@@ -214,6 +220,20 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                 } catch (e: Exception) { }
             }
         }
+    }
+
+    fun refreshCommunityNotifications() {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            loadCommunityNotifications(uid)
+        }
+    }
+
+    private suspend fun loadCommunityNotifications(uid: String) {
+        _hasCommunityNotifications.value = runCatching {
+            communityRepo.hasCommunityNotifications(uid)
+        }.getOrDefault(false)
     }
 
     fun loadDynamicSocialData() {

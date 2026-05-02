@@ -5,7 +5,11 @@ import com.example.exerciseformanalyzer.model.firestore.FsGroup
 import com.example.exerciseformanalyzer.model.firestore.FsGroupInvite
 import com.example.exerciseformanalyzer.model.firestore.FsGroupJoinRequest
 import com.example.exerciseformanalyzer.model.firestore.FsGroupMember
+import com.example.exerciseformanalyzer.model.firestore.FsGroupMessage
+import com.example.exerciseformanalyzer.model.firestore.FsGroupProgram
+import com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
+import kotlinx.coroutines.flow.Flow
 
 /**
  * CommunityRepository
@@ -61,13 +65,13 @@ class CommunityRepository(
     // ── Public grup — direkt katıl ────────────────────────────────────────────
 
     suspend fun joinPublicGroup(
-        groupId: String,
+        group: FsGroup,
         userId: String,
         userName: String,
         userEmail: String
     ): Result<Unit> = runCatching {
         val member = FsGroupMember(
-            groupId = groupId,
+            groupId = group.groupId,
             userId = userId,
             userName = userName,
             userEmail = userEmail,
@@ -153,6 +157,93 @@ class CommunityRepository(
         service.removeMember(groupId, userId)
 
     // ── Gruplarım ────────────────────────────────────────────────────────────
+
+    suspend fun updateMemberRole(
+        groupId: String,
+        actorUserId: String,
+        targetUserId: String,
+        newRole: String
+    ): Result<Unit> =
+        service.updateMemberRole(groupId, actorUserId, targetUserId, newRole)
+
+    fun observeGroupMessages(groupId: String): Flow<List<FsGroupMessage>> =
+        service.observeGroupMessages(groupId)
+
+    fun observeGroupPrograms(groupId: String): Flow<List<FsGroupProgram>> =
+        service.observeGroupPrograms(groupId)
+
+    fun observeAppliedProgramIds(userId: String): Flow<Set<String>> =
+        service.observeAppliedProgramIds(userId)
+
+    suspend fun sendTextMessage(
+        groupId: String,
+        senderId: String,
+        senderName: String,
+        text: String
+    ): Result<Unit> {
+        if (text.isBlank()) return Result.failure(IllegalArgumentException("Mesaj boş olamaz."))
+        val message = FsGroupMessage(
+            groupId = groupId,
+            senderId = senderId,
+            senderName = senderName,
+            text = text.trim()
+        )
+        return service.sendTextMessage(message)
+    }
+
+    suspend fun shareProgram(
+        group: FsGroup,
+        createdById: String,
+        createdByName: String,
+        title: String,
+        note: String,
+        exercises: List<FirestoreExerciseItem>,
+        scheduleType: String,
+        daysOfWeek: List<Int>,
+        autoRepeat: Boolean,
+        repeatDurationWeeks: Int?
+    ): Result<Unit> {
+        if (title.isBlank()) return Result.failure(IllegalArgumentException("Program adı boş olamaz."))
+        if (exercises.isEmpty()) return Result.failure(IllegalArgumentException("En az bir egzersiz ekleyin."))
+        val program = FsGroupProgram(
+            groupId = group.groupId,
+            groupName = group.name,
+            title = title.trim(),
+            note = note.trim(),
+            createdById = createdById,
+            createdByName = createdByName,
+            exercises = exercises,
+            scheduleType = scheduleType,
+            daysOfWeek = daysOfWeek,
+            autoRepeat = autoRepeat,
+            repeatDurationWeeks = repeatDurationWeeks
+        )
+        return service.shareProgram(program)
+    }
+
+    suspend fun deleteMessage(groupId: String, actorUserId: String, message: FsGroupMessage): Result<Unit> =
+        service.deleteMessage(groupId, actorUserId, message)
+
+    suspend fun applyProgramToUser(program: FsGroupProgram, userId: String): Result<Unit> =
+        service.applyProgramToUser(program, userId)
+
+    suspend fun hasCommunityNotifications(userId: String): Boolean =
+        service.hasCommunityNotifications(userId)
+
+    suspend fun getUnreadGroupIds(userId: String): Set<String> =
+        service.getUnreadGroupIds(userId)
+
+    suspend fun markGroupNotificationsSeen(userId: String, groupId: String) =
+        service.markGroupNotificationsSeen(userId, groupId)
+
+    suspend fun markInvitesSeen(userId: String) =
+        service.markInvitesSeen(userId)
+
+    suspend fun markJoinRequestsSeen(userId: String) =
+        service.markJoinRequestsSeen(userId)
+
+    suspend fun closeGroup(groupId: String, actorUserId: String): Result<Unit> =
+        service.closeGroup(groupId, actorUserId)
 
     suspend fun getMyGroups(userId: String): List<FsGroup> =
         service.getMyGroups(userId)

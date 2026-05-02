@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
 import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
+import com.example.exerciseformanalyzer.data.repository.CommunityRepository
 import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.model.WorkoutStats
 import com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem
@@ -46,6 +47,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
     private val userRepo = (application as MainApplication).userRepository
     private val planRepo = (application as MainApplication).planRepository
     private val leaderboardRepo = (application as MainApplication).leaderboardRepository
+    private val communityRepo = CommunityRepository((application as MainApplication).communityFirestoreService)
 
     val currentUid: String get() = authRepo.currentUid ?: ""
 
@@ -65,6 +67,9 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _showLogoutDialog = MutableStateFlow(false)
     val showLogoutDialog: StateFlow<Boolean> = _showLogoutDialog.asStateFlow()
+
+    private val _hasCommunityNotifications = MutableStateFlow(false)
+    val hasCommunityNotifications: StateFlow<Boolean> = _hasCommunityNotifications.asStateFlow()
 
     // ── Uzman Takip Filtresi — PatientViewModel'den TAMAMEN BAĞIMSIZ ──
     private val _selectedFilter = MutableStateFlow(TaskFilter.ALL)
@@ -140,8 +145,23 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
                 userRepo.syncPatientsForExpert(uid)
                 planRepo.syncTasksForExpert(uid)
                 loadSentRequests()
+                loadCommunityNotifications(uid)
             }
         }
+    }
+
+    fun refreshCommunityNotifications() {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            loadCommunityNotifications(uid)
+        }
+    }
+
+    private suspend fun loadCommunityNotifications(uid: String) {
+        _hasCommunityNotifications.value = runCatching {
+            communityRepo.hasCommunityNotifications(uid)
+        }.getOrDefault(false)
     }
 
     private fun loadSentRequests() {
