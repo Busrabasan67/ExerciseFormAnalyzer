@@ -232,8 +232,8 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         var exerciseType: ExerciseType = ExerciseType.SQUAT,
         var isDurationBased: Boolean = false,
         var targetValue: String = "10",
-        var sets: Int = 1,
-        var restTimeSeconds: Int = 30,
+        var sets: String = "1",
+        var restTimeSeconds: String = "30",
         var difficulty: String = "MEDIUM",
         var category: String = "STRENGTH",
         var videoUrl: String? = null
@@ -254,14 +254,17 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
             val uid = currentUid
             if (uid.isNotEmpty()) {
                 val fsExercises = exercises.map { input ->
-                    val value = input.targetValue.toIntOrNull() ?: 10
+                    val value = input.targetValue.toIntOrNull() ?: 1
+                    val s = input.sets.toIntOrNull() ?: 1
+                    val rt = input.restTimeSeconds.toIntOrNull() ?: 30
+                    
                     FirestoreExerciseItem(
                         exerciseType = input.exerciseType.name,
                         targetType = if (input.isDurationBased) "DURATION" else "REPS",
                         targetReps = if (!input.isDurationBased) value else null,
                         targetDurationSeconds = if (input.isDurationBased) value else null,
-                        sets = input.sets,
-                        restTimeSeconds = input.restTimeSeconds,
+                        sets = s,
+                        restTimeSeconds = rt,
                         difficulty = input.difficulty,
                         category = input.category,
                         videoUrl = input.videoUrl,

@@ -15,8 +15,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -126,11 +129,10 @@ fun AssignTaskDialog(
                         }
 
                         if (auto) {
-                            OutlinedTextField(
+                            NumericTextField(
                                 value = weeksStr,
                                 onValueChange = { weeksStr = it },
-                                label = { Text("Süre (Hafta)") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                label = "Süre (Hafta)",
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                             )
                         }
@@ -181,17 +183,33 @@ fun AssignTaskDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(onClick = {
                         val c = Calendar.getInstance()
-                        c.add(Calendar.DAY_OF_YEAR, 1) // Yarına kadar (Basitlik için)
-                        val w = weeksStr.toIntOrNull()
+                        c.add(Calendar.DAY_OF_YEAR, 1) 
+                        
+                        // Parse weeks with default 4 if empty and auto is on
+                        val finalWeeks = if (auto) {
+                            weeksStr.toIntOrNull() ?: 4
+                        } else {
+                            null
+                        }
+                        
+                        // Validate exercises and handle empty strings
+                        val validatedExercises = exercises.map { ex ->
+                            ex.copy(
+                                targetValue = ex.targetValue.ifEmpty { "1" },
+                                sets = ex.sets.ifEmpty { "1" },
+                                restTimeSeconds = ex.restTimeSeconds.ifEmpty { "30" }
+                            )
+                        }
                         
                         when {
                             exercises.isEmpty() -> showError = "En az 1 egzersiz eklemelisiniz."
-                            exercises.any { it.targetValue.toIntOrNull() == null || (it.targetValue.toIntOrNull() ?: 0) <= 0 } -> 
-                                showError = "Tüm hedefler 0'dan büyük bir sayı olmalıdır."
+                            validatedExercises.any { it.targetValue.toIntOrNull() == null || (it.targetValue.toIntOrNull() ?: 0) <= 0 } -> 
+                                showError = "Tüm hedefler (Tekrar/Süre) 0'dan büyük olmalıdır."
+                            validatedExercises.any { it.sets.toIntOrNull() == null || (it.sets.toIntOrNull() ?: 0) <= 0 } -> 
+                                showError = "Set sayısı 0'dan büyük olmalıdır."
                             sched == "CUSTOM" && days.isEmpty() -> showError = "Özel günler için en az bir gün seçmelisiniz."
-                            auto && (w == null || w <= 0) -> showError = "Geçerli bir hafta süresi girmelisiniz."
                             else -> {
-                                onAssignTask(title, note, c.timeInMillis, exercises.toList(), sched, days.toList(), auto, w)
+                                onAssignTask(title, note, c.timeInMillis, validatedExercises, sched, days.toList(), auto, finalWeeks)
                             }
                         }
                     }) {
@@ -256,35 +274,26 @@ fun ExerciseAdvancedCard(
             
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+                NumericTextField(
                     value = item.targetValue,
                     onValueChange = { onUpdate(item.copy(targetValue = it)) },
-                    label = { Text(if (item.isDurationBased) "Süre (Sn)" else "Tekrar") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    label = if (item.isDurationBased) "Süre (Sn)" else "Tekrar",
                     modifier = Modifier.weight(1f)
                 )
-                OutlinedTextField(
-                    value = item.sets.toString(),
-                    onValueChange = {
-                        val s = it.toIntOrNull() ?: 1
-                        onUpdate(item.copy(sets = s))
-                    },
-                    label = { Text("Set") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                NumericTextField(
+                    value = item.sets,
+                    onValueChange = { onUpdate(item.copy(sets = it)) },
+                    label = "Set",
                     modifier = Modifier.weight(1f)
                 )
             }
             
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = item.restTimeSeconds.toString(),
-                    onValueChange = {
-                        val rt = it.toIntOrNull() ?: 0
-                        onUpdate(item.copy(restTimeSeconds = rt))
-                    },
-                    label = { Text("Dinlenme (Sn)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                NumericTextField(
+                    value = item.restTimeSeconds,
+                    onValueChange = { onUpdate(item.copy(restTimeSeconds = it)) },
+                    label = "Dinlenme (Sn)",
                     modifier = Modifier.weight(1f)
                 )
                 
@@ -357,4 +366,36 @@ fun ExerciseAdvancedCard(
             }
         }
     }
+}
+
+@Composable
+fun NumericTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    var textFieldValue by remember(value) {
+        mutableStateOf(TextFieldValue(text = value, selection = TextRange(value.length)))
+    }
+
+    OutlinedTextField(
+        value = textFieldValue,
+        onValueChange = { newTV ->
+            if (newTV.text.all { it.isDigit() }) {
+                textFieldValue = newTV
+                if (newTV.text != value) {
+                    onValueChange(newTV.text)
+                }
+            }
+        },
+        label = { Text(label) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = modifier.onFocusChanged { 
+            if (it.isFocused) {
+                textFieldValue = textFieldValue.copy(selection = TextRange(0, textFieldValue.text.length))
+            }
+        },
+        singleLine = true
+    )
 }
