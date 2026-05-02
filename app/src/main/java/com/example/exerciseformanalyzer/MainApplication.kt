@@ -49,6 +49,7 @@ class MainApplication : Application() {
     // Firebase servisleri
     val firebaseAuthService by lazy { FirebaseAuthService() }
     val firestoreService by lazy { FirestoreService() }
+    val communityFirestoreService by lazy { com.example.exerciseformanalyzer.data.remote.CommunityFirestoreService() }
 
     // DataStore — Tema, dil ve oturum cache'i
     val userPreferencesRepository by lazy { UserPreferencesRepository(this) }

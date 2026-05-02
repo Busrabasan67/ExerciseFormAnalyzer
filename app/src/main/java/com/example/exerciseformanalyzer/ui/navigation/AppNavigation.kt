@@ -27,6 +27,9 @@ import com.example.exerciseformanalyzer.ui.dashboard.PatientDashboardScreen
 import com.example.exerciseformanalyzer.ui.dashboard.TaskExerciseStartParams
 import com.example.exerciseformanalyzer.ui.group.GroupListScreen
 import com.example.exerciseformanalyzer.ui.group.GroupViewModel
+import com.example.exerciseformanalyzer.ui.community.CommunityScreen
+import com.example.exerciseformanalyzer.ui.community.GroupDetailScreen as CommunityGroupDetailScreen
+import com.example.exerciseformanalyzer.ui.community.CommunityViewModel
 import com.example.exerciseformanalyzer.ui.history.HistoryScreen
 import com.example.exerciseformanalyzer.ui.profile.ProfileScreen
 import com.example.exerciseformanalyzer.ui.SplashScreen
@@ -42,6 +45,9 @@ sealed class Route(val route: String) {
     object History : Route("history")
     object Groups : Route("groups")
     object GroupDetail : Route("group_detail")
+    // Yeni topluluk ekranları
+    object Community : Route("community")
+    object CommunityGroupDetail : Route("community_group_detail")
     object ExerciseSelect : Route("exercise_select")
     object Camera : Route("camera")
     object PatientDetail : Route("patient_detail/{patientUid}") {
@@ -63,6 +69,7 @@ fun AppNavigation(
     val adminViewModel: AdminViewModel = viewModel()
     val profileViewModel: ProfileViewModel = viewModel()
     val groupViewModel: GroupViewModel = viewModel()
+    val communityViewModel: CommunityViewModel = viewModel()
     val workoutViewModel: WorkoutViewModel = viewModel()
 
     // Dil senkronizasyonu
@@ -178,7 +185,7 @@ fun AppNavigation(
                     navController.navigate(Route.Camera.route)
                 },
                 onNavigateToProfile = { navController.navigate(Route.Profile.route) },
-                onNavigateToGroups = { navController.navigate(Route.Groups.route) },
+                onNavigateToGroups = { navController.navigate(Route.Community.route) },
                 onNavigateToSocial = { navController.navigate(Route.SocialFeed.route) },
                 onNavigateToLeaderboard = { navController.navigate(Route.Leaderboard.route) },
                 onLogout = {
@@ -245,7 +252,7 @@ fun AppNavigation(
                     navController.navigate(Route.Camera.route)
                 },
                 onNavigateToProfile = { navController.navigate(Route.Profile.route) },
-                onNavigateToGroups = { navController.navigate(Route.Groups.route) },
+                onNavigateToGroups = { navController.navigate(Route.Community.route) },
                 onNavigateToSocial = { navController.navigate(Route.SocialFeed.route) },
                 onNavigateToLeaderboard = { navController.navigate(Route.Leaderboard.route) },
                 onNavigateToPatientDetail = { uid -> navController.navigate(Route.PatientDetail.createRoute(uid)) },
@@ -286,6 +293,7 @@ fun AppNavigation(
             )
         }
 
+        // Eski grup ekranı (geriye dönük uyumluluk)
         composable(Route.Groups.route) {
             GroupListScreen(
                 viewModel = groupViewModel,
@@ -299,6 +307,25 @@ fun AppNavigation(
 
         composable(Route.GroupDetail.route) {
             com.example.exerciseformanalyzer.ui.group.GroupDetailScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Yeni Topluluklar ekranı
+        composable(Route.Community.route) {
+            CommunityScreen(
+                viewModel = communityViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToGroupDetail = { group ->
+                    communityViewModel.selectGroup(group)
+                    navController.navigate(Route.CommunityGroupDetail.route)
+                }
+            )
+        }
+
+        composable(Route.CommunityGroupDetail.route) {
+            CommunityGroupDetailScreen(
+                viewModel = communityViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
