@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -70,6 +70,10 @@ import com.example.exerciseformanalyzer.model.firestore.FsGroupMember
 import com.example.exerciseformanalyzer.model.firestore.FsGroupProgram
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 import com.example.exerciseformanalyzer.ui.dashboard.components.AssignTaskDialog
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,6 +96,7 @@ fun GroupDetailScreen(
     val canShareProgram = viewModel.canShareProgram()
     val canDeleteChatContent = viewModel.canDeleteChatContent()
     val isCurrentMember = viewModel.isCurrentMember()
+    val canLeaveGroup = isCurrentMember && viewModel.currentMemberRole() != "admin"
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = when {
@@ -104,6 +109,7 @@ fun GroupDetailScreen(
     var showProgramDialog by remember { mutableStateOf(false) }
     var memberPendingRemoval by remember { mutableStateOf<FsGroupMember?>(null) }
     var showCloseGroupDialog by remember { mutableStateOf(false) }
+    var showLeaveGroupDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(group?.groupId) {
         group?.groupId?.let { viewModel.loadGroupMembers(it) }
@@ -116,7 +122,7 @@ fun GroupDetailScreen(
     LaunchedEffect(event) {
         when (val e = event) {
             is CommunityEvent.Success -> {
-                if (e.message == "Grup kapatıldı.") {
+                if (e.message == "Grup kapatıldı." || e.message == "Gruptan çıkıldı.") {
                     viewModel.resetEvent()
                     onNavigateBack()
                     return@LaunchedEffect
@@ -185,6 +191,12 @@ fun GroupDetailScreen(
                         GroupInfoCard(
                             group = group,
                             canCloseGroup = canManageRoles,
+                            canLeaveGroup = canLeaveGroup,
+                            canUpdatePrivacy = canManageRoles,
+                            onPrivacyChange = { isPrivate ->
+                                group?.let { viewModel.updateGroupPrivacy(it.groupId, isPrivate) }
+                            },
+                            onLeaveGroup = { showLeaveGroupDialog = true },
                             onCloseGroup = { showCloseGroupDialog = true }
                         )
                     }
@@ -213,6 +225,9 @@ fun GroupDetailScreen(
                                 canManageRole = canManageRoles && member.userId != currentUid && member.role != "admin",
                                 onRoleChange = { newRole ->
                                     group?.let { viewModel.updateMemberRole(it.groupId, member.userId, newRole) }
+                                },
+                                onPromoteToAdmin = {
+                                    group?.let { viewModel.updateMemberRole(it.groupId, member.userId, "admin") }
                                 },
                                 onRemove = {
                                     memberPendingRemoval = member
@@ -317,6 +332,30 @@ fun GroupDetailScreen(
         )
     }
 
+    if (showLeaveGroupDialog) {
+        AlertDialog(
+            onDismissRequest = { showLeaveGroupDialog = false },
+            title = { Text("Gruptan Çık") },
+            text = { Text("Bu gruptan çıkmak istediğinize emin misiniz?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        group?.let { viewModel.leaveGroup(it.groupId) }
+                        showLeaveGroupDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Çık")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLeaveGroupDialog = false }) {
+                    Text("İptal")
+                }
+            }
+        )
+    }
+
     if (showProgramDialog) {
         AssignTaskDialog(
             onDismissRequest = { showProgramDialog = false },
@@ -340,6 +379,10 @@ fun GroupDetailScreen(
 private fun GroupInfoCard(
     group: FsGroup?,
     canCloseGroup: Boolean,
+    canLeaveGroup: Boolean,
+    canUpdatePrivacy: Boolean,
+    onPrivacyChange: (Boolean) -> Unit,
+    onLeaveGroup: () -> Unit,
     onCloseGroup: () -> Unit
 ) {
     if (group == null) return
@@ -377,7 +420,7 @@ private fun GroupInfoCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = if (group.isPrivate) "🔒 Gizli Grup" else "🌐 Herkese Açık",
+                        text = if (group.isPrivate) "Kapalı Grup" else "Herkese Açık",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (group.isPrivate)
                             MaterialTheme.colorScheme.secondary
@@ -406,6 +449,38 @@ private fun GroupInfoCard(
                 )
             }
 
+            if (canUpdatePrivacy) {
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Kapalı Grup",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = if (group.isPrivate) {
+                                "Katılmak için yönetici onayı gerekir."
+                            } else {
+                                "Herkes direkt katılabilir."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
+                    Switch(
+                        checked = group.isPrivate,
+                        onCheckedChange = onPrivacyChange
+                    )
+                }
+            }
+
             if (canCloseGroup) {
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton(
@@ -416,6 +491,19 @@ private fun GroupInfoCard(
                     )
                 ) {
                     Text("Grubu Kapat")
+                }
+            }
+
+            if (canLeaveGroup) {
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onLeaveGroup,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Gruptan Çık")
                 }
             }
         }
@@ -432,6 +520,7 @@ private fun MemberCard(
     canRemove: Boolean,
     canManageRole: Boolean,
     onRoleChange: (String) -> Unit,
+    onPromoteToAdmin: () -> Unit,
     onRemove: () -> Unit
 ) {
     Card(
@@ -509,6 +598,15 @@ private fun MemberCard(
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
+                    TextButton(
+                        onClick = onPromoteToAdmin,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                    ) {
+                        Text(
+                            "Yönetici yap",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
             }
 
@@ -570,24 +668,18 @@ private fun ChatSection(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
         } else {
-            messages.forEach { message ->
-                val program = programMap[message.programId]
-                if (message.type == "program" && program != null) {
-                    ProgramMessageCard(
-                        message = message,
-                        program = program,
-                        applied = appliedProgramIds.contains(program.programId),
-                        canDelete = canDelete,
-                        onApply = { onApplyProgram(program) },
-                        onDelete = { onDeleteMessage(message) }
-                    )
-                } else {
-                    TextMessageCard(
-                        message = message,
-                        canDelete = canDelete,
-                        onDelete = { onDeleteMessage(message) }
-                    )
-                }
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ChatMessageTimeline(
+                    messages = messages,
+                    programMap = programMap,
+                    appliedProgramIds = appliedProgramIds,
+                    canDelete = canDelete,
+                    onApplyProgram = onApplyProgram,
+                    onDeleteMessage = onDeleteMessage
+                )
             }
         }
 
@@ -629,6 +721,7 @@ private fun ChatSectionFixed(
 ) {
     var messageText by remember { mutableStateOf("") }
     val programMap = remember(programs) { programs.associateBy { it.programId } }
+    val timelineItems = remember(messages) { buildChatTimeline(messages) }
 
     Column(modifier = modifier) {
         Row(
@@ -663,67 +756,190 @@ private fun ChatSectionFixed(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(messages) { message ->
-                    val program = programMap[message.programId]
-                    if (message.type == "program" && program != null) {
-                        ProgramMessageCard(
-                            message = message,
-                            program = program,
-                            applied = appliedProgramIds.contains(program.programId),
-                            canDelete = canDelete,
-                            onApply = { onApplyProgram(program) },
-                            onDelete = { onDeleteMessage(message) }
-                        )
-                    } else {
-                        TextMessageCard(
-                            message = message,
-                            canDelete = canDelete,
-                            onDelete = { onDeleteMessage(message) }
-                        )
+                items(timelineItems, key = { item ->
+                    when (item) {
+                        is ChatTimelineItem.DateHeader -> "date_${item.dateKey}"
+                        is ChatTimelineItem.Message -> item.message.messageId.ifBlank { "message_${item.message.createdAt}" }
+                    }
+                }) { item ->
+                    when (item) {
+                        is ChatTimelineItem.DateHeader -> ChatDateHeader(item.label)
+                        is ChatTimelineItem.Message -> {
+                            val message = item.message
+                            val program = programMap[message.programId]
+                            if (message.type == "program" && program != null) {
+                                ProgramMessageCard(
+                                    message = message,
+                                    program = program,
+                                    applied = appliedProgramIds.contains(program.programId),
+                                    canDelete = canDelete,
+                                    onApply = { onApplyProgram(program) },
+                                    onDelete = { onDeleteMessage(message) }
+                                )
+                            } else {
+                                TextMessageCard(
+                                    message = message,
+                                    canDelete = canDelete,
+                                    onDelete = { onDeleteMessage(message) }
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            tonalElevation = 3.dp,
-            shadowElevation = 8.dp,
-            color = MaterialTheme.colorScheme.surface
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding(),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .imePadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.Bottom
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                tonalElevation = 3.dp,
+                shadowElevation = 8.dp,
+                color = MaterialTheme.colorScheme.surface
             ) {
-                OutlinedTextField(
-                    value = messageText,
-                    onValueChange = { messageText = it },
-                    placeholder = { Text("Mesaj yaz") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(24.dp),
-                    minLines = 1,
-                    maxLines = 4
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        onSendMessage(messageText)
-                        messageText = ""
-                    },
-                    enabled = messageText.isNotBlank(),
-                    shape = RoundedCornerShape(24.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                    OutlinedTextField(
+                        value = messageText,
+                        onValueChange = { messageText = it },
+                        placeholder = { Text("Mesaj yaz") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(24.dp),
+                        minLines = 1,
+                        maxLines = 4
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            onSendMessage(messageText)
+                            messageText = ""
+                        },
+                        enabled = messageText.isNotBlank(),
+                        shape = RoundedCornerShape(24.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                    ) {
+                        Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
                 }
             }
         }
     }
 }
+
+private sealed class ChatTimelineItem {
+    data class DateHeader(val dateKey: String, val label: String) : ChatTimelineItem()
+    data class Message(val message: FsGroupMessage) : ChatTimelineItem()
+}
+
+@Composable
+private fun ChatMessageTimeline(
+    messages: List<FsGroupMessage>,
+    programMap: Map<String, FsGroupProgram>,
+    appliedProgramIds: Set<String>,
+    canDelete: Boolean,
+    onApplyProgram: (FsGroupProgram) -> Unit,
+    onDeleteMessage: (FsGroupMessage) -> Unit
+) {
+    val timelineItems = remember(messages) { buildChatTimeline(messages) }
+    timelineItems.forEach { item ->
+        when (item) {
+            is ChatTimelineItem.DateHeader -> ChatDateHeader(item.label)
+            is ChatTimelineItem.Message -> {
+                val message = item.message
+                val program = programMap[message.programId]
+                if (message.type == "program" && program != null) {
+                    ProgramMessageCard(
+                        message = message,
+                        program = program,
+                        applied = appliedProgramIds.contains(program.programId),
+                        canDelete = canDelete,
+                        onApply = { onApplyProgram(program) },
+                        onDelete = { onDeleteMessage(message) }
+                    )
+                } else {
+                    TextMessageCard(
+                        message = message,
+                        canDelete = canDelete,
+                        onDelete = { onDeleteMessage(message) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatDateHeader(label: String) {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f)
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+private fun buildChatTimeline(messages: List<FsGroupMessage>): List<ChatTimelineItem> {
+    val items = mutableListOf<ChatTimelineItem>()
+    var lastDateKey: String? = null
+    messages.sortedBy { it.createdAt }.forEach { message ->
+        val dateKey = chatDateKey(message.createdAt)
+        if (dateKey != lastDateKey) {
+            items += ChatTimelineItem.DateHeader(dateKey, chatDateLabel(message.createdAt))
+            lastDateKey = dateKey
+        }
+        items += ChatTimelineItem.Message(message)
+    }
+    return items
+}
+
+private fun chatDateKey(timestamp: Long): String {
+    val calendar = Calendar.getInstance().apply { timeInMillis = timestamp.coerceAtLeast(0L) }
+    return "${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.DAY_OF_YEAR)}"
+}
+
+private fun chatDateLabel(timestamp: Long): String {
+    val locale = Locale("tr", "TR")
+    val messageDate = Calendar.getInstance(locale).apply { timeInMillis = timestamp.coerceAtLeast(0L) }
+    val today = Calendar.getInstance(locale)
+    val yesterday = Calendar.getInstance(locale).apply { add(Calendar.DAY_OF_YEAR, -1) }
+
+    return when {
+        isSameDay(messageDate, today) -> "Bugün"
+        isSameDay(messageDate, yesterday) -> "Dün"
+        messageDate.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+            messageDate.get(Calendar.MONTH) == today.get(Calendar.MONTH) -> {
+            capitalizeTurkish(SimpleDateFormat("EEEE", locale).format(messageDate.time))
+        }
+        else -> {
+            capitalizeTurkish(SimpleDateFormat("d MMMM EEEE", locale).format(messageDate.time))
+        }
+    }
+}
+
+private fun isSameDay(first: Calendar, second: Calendar): Boolean =
+    first.get(Calendar.YEAR) == second.get(Calendar.YEAR) &&
+        first.get(Calendar.DAY_OF_YEAR) == second.get(Calendar.DAY_OF_YEAR)
+
+private fun capitalizeTurkish(value: String): String =
+    value.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("tr", "TR")) else it.toString() }
+
+private fun chatTimeLabel(timestamp: Long): String =
+    SimpleDateFormat("HH:mm", Locale("tr", "TR")).format(Date(timestamp.coerceAtLeast(0L)))
 
 @Composable
 private fun TextMessageCard(
@@ -738,6 +954,12 @@ private fun TextMessageCard(
                     Text(message.senderName, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(roleLabel(message.senderRole), style = MaterialTheme.typography.labelSmall, color = roleColor(message.senderRole))
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        chatTimeLabel(message.createdAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                    )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(message.text, style = MaterialTheme.typography.bodyMedium)
@@ -777,7 +999,13 @@ private fun ProgramMessageCard(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                     )
                 }
+                Text(
+                    chatTimeLabel(message.createdAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                )
                 if (canDelete) {
+                    Spacer(modifier = Modifier.width(4.dp))
                     IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Default.Close, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
                     }

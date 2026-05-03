@@ -29,6 +29,7 @@ sealed class CommunityEvent {
     object Idle : CommunityEvent()
     object Loading : CommunityEvent()
     data class Success(val message: String) : CommunityEvent()
+    data class GroupCreated(val group: FsGroup) : CommunityEvent()
     data class Error(val message: String) : CommunityEvent()
 }
 
@@ -208,8 +209,8 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                     name = name,
                     description = description,
                     isPrivate = isPrivate
-                ).onSuccess {
-                    _event.value = CommunityEvent.Success("Grup oluşturuldu.")
+                ).onSuccess { createdGroup ->
+                    _event.value = CommunityEvent.GroupCreated(createdGroup)
                     loadAll()
                 }.onFailure {
                     _event.value = CommunityEvent.Error("Grup oluşturulamadı: ${it.message}")
@@ -462,6 +463,28 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun leaveGroup(groupId: String) {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            communityRepo.leaveGroup(groupId, uid)
+                .onSuccess {
+                    messagesJob?.cancel()
+                    programsJob?.cancel()
+                    appliedProgramsJob?.cancel()
+                    _selectedGroup.value = null
+                    _groupMembers.value = emptyList()
+                    _groupMessages.value = emptyList()
+                    _groupPrograms.value = emptyList()
+                    loadAll()
+                    _event.value = CommunityEvent.Success("Gruptan çıkıldı.")
+                }
+                .onFailure {
+                    _event.value = CommunityEvent.Error(it.message ?: "Gruptan çıkılamadı.")
+                }
+        }
+    }
+
     fun closeGroup(groupId: String) {
         val uid = currentUid
         if (uid.isEmpty()) return
@@ -507,11 +530,50 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             communityRepo.updateMemberRole(groupId, uid, targetUserId, newRole)
                 .onSuccess {
+                    if (newRole == "admin") {
+                        val newAdmin = _groupMembers.value.firstOrNull { it.userId == targetUserId }
+                        _selectedGroup.value = _selectedGroup.value?.copy(
+                            creatorId = targetUserId,
+                            creatorName = newAdmin?.userName.orEmpty()
+                        )
+                    }
                     _event.value = CommunityEvent.Success("Rol güncellendi.")
                     loadGroupMembers(groupId)
+                    loadMyGroups()
                 }
                 .onFailure {
                     _event.value = CommunityEvent.Error(it.message ?: "Rol güncellenemedi.")
+                }
+        }
+    }
+
+    fun updateGroupPrivacy(groupId: String, isPrivate: Boolean) {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            communityRepo.updateGroupPrivacy(groupId, uid, isPrivate)
+                .onSuccess { updatedGroup ->
+                    _selectedGroup.value = updatedGroup
+                    _myGroups.value = _myGroups.value.map {
+                        if (it.groupId == updatedGroup.groupId) updatedGroup else it
+                    }
+                    _exploreGroups.value = _exploreGroups.value.map {
+                        if (it.group.groupId == updatedGroup.groupId) {
+                            it.copy(group = updatedGroup)
+                        } else {
+                            it
+                        }
+                    }
+                    if (!updatedGroup.isPrivate) {
+                        loadGroupMembers(updatedGroup.groupId)
+                        loadIncomingJoinRequests()
+                    }
+                    loadMyGroups()
+                    loadExplore()
+                    _event.value = CommunityEvent.Success("Grup gizliliği güncellendi.")
+                }
+                .onFailure {
+                    _event.value = CommunityEvent.Error(it.message ?: "Grup gizliliği güncellenemedi.")
                 }
         }
     }

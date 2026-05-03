@@ -31,7 +31,7 @@ class CommunityRepository(
         name: String,
         description: String,
         isPrivate: Boolean
-    ): Result<String> = runCatching {
+    ): Result<FsGroup> = runCatching {
         require(name.isNotBlank()) { "Grup adı boş olamaz." }
         val group = FsGroup(
             name = name,
@@ -48,7 +48,8 @@ class CommunityRepository(
             joinedAt = System.currentTimeMillis(),
             status = "active"
         )
-        service.createGroupWithAdmin(group, member)
+        val groupId = service.createGroupWithAdmin(group, member)
+        group.copy(groupId = groupId)
     }
 
     // ── Keşfet ───────────────────────────────────────────────────────────────
@@ -156,6 +157,9 @@ class CommunityRepository(
     suspend fun removeMember(groupId: String, userId: String) =
         service.removeMember(groupId, userId)
 
+    suspend fun leaveGroup(groupId: String, userId: String): Result<Unit> =
+        service.leaveGroup(groupId, userId)
+
     // ── Gruplarım ────────────────────────────────────────────────────────────
 
     suspend fun updateMemberRole(
@@ -165,6 +169,13 @@ class CommunityRepository(
         newRole: String
     ): Result<Unit> =
         service.updateMemberRole(groupId, actorUserId, targetUserId, newRole)
+
+    suspend fun updateGroupPrivacy(
+        groupId: String,
+        actorUserId: String,
+        isPrivate: Boolean
+    ): Result<FsGroup> =
+        service.updateGroupPrivacy(groupId, actorUserId, isPrivate)
 
     fun observeGroupMessages(groupId: String): Flow<List<FsGroupMessage>> =
         service.observeGroupMessages(groupId)
@@ -226,6 +237,9 @@ class CommunityRepository(
 
     suspend fun applyProgramToUser(program: FsGroupProgram, userId: String): Result<Unit> =
         service.applyProgramToUser(program, userId)
+
+    suspend fun removeAppliedProgramForUser(taskDocId: String, userId: String): Result<Unit> =
+        service.removeAppliedProgramForUser(taskDocId, userId)
 
     suspend fun hasCommunityNotifications(userId: String): Boolean =
         service.hasCommunityNotifications(userId)

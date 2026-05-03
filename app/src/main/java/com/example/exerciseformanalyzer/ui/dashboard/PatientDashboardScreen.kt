@@ -225,7 +225,12 @@ fun PatientDashboardScreen(
                                 PatientTaskCard(
                                     task = task,
                                     viewModel = viewModel,
-                                    onNavigateToExercise = onNavigateToTaskExercise
+                                    onNavigateToExercise = onNavigateToTaskExercise,
+                                    onRemoveGroupTask = { groupTask ->
+                                        viewModel.removeGroupProgramTask(groupTask) { _, message ->
+                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -241,7 +246,12 @@ fun PatientDashboardScreen(
                                 PatientTaskCard(
                                     task = task,
                                     viewModel = viewModel,
-                                    onNavigateToExercise = onNavigateToTaskExercise
+                                    onNavigateToExercise = onNavigateToTaskExercise,
+                                    onRemoveGroupTask = { groupTask ->
+                                        viewModel.removeGroupProgramTask(groupTask) { _, message ->
+                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -255,7 +265,12 @@ fun PatientDashboardScreen(
                                     PatientTaskCard(
                                         task = task,
                                         viewModel = viewModel,
-                                        onNavigateToExercise = onNavigateToTaskExercise
+                                        onNavigateToExercise = onNavigateToTaskExercise,
+                                        onRemoveGroupTask = { groupTask ->
+                                            viewModel.removeGroupProgramTask(groupTask) { _, message ->
+                                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
                                     )
                             }
                         } else {
@@ -273,7 +288,12 @@ fun PatientDashboardScreen(
                                     PatientTaskCard(
                                         task = task,
                                         viewModel = viewModel,
-                                        onNavigateToExercise = onNavigateToTaskExercise
+                                        onNavigateToExercise = onNavigateToTaskExercise,
+                                        onRemoveGroupTask = { groupTask ->
+                                            viewModel.removeGroupProgramTask(groupTask) { _, message ->
+                                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
                                     )
                             }
                         }
@@ -473,9 +493,11 @@ private fun RecommendationCard(
 private fun PatientTaskCard(
     task: com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity,
     viewModel: PatientViewModel,
-    onNavigateToExercise: (TaskExerciseStartParams) -> Unit
+    onNavigateToExercise: (TaskExerciseStartParams) -> Unit,
+    onRemoveGroupTask: (TaskAssignmentEntity) -> Unit
 ) {
     var expanded by remember { mutableStateOf(true) }
+    var showRemoveGroupTaskDialog by remember { mutableStateOf(false) }
     val progress by viewModel.observeTaskProgress(task.firebaseDocId ?: "", task.scheduleType).collectAsState(initial = null)
     val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
 
@@ -530,6 +552,21 @@ private fun PatientTaskCard(
 
             Spacer(modifier = Modifier.height(8.dp))
             PatientFrequencyInfoRow(task)
+
+            if (isGroupTask) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { showRemoveGroupTaskDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Programı Sil")
+                }
+            }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
@@ -632,6 +669,30 @@ private fun PatientTaskCard(
                 }
             }
         }
+    }
+
+    if (showRemoveGroupTaskDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemoveGroupTaskDialog = false },
+            title = { Text("Programı Sil") },
+            text = { Text("Bu grup programını ana sayfanızdan silmek istediğinize emin misiniz?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onRemoveGroupTask(task)
+                        showRemoveGroupTaskDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Sil")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveGroupTaskDialog = false }) {
+                    Text("İptal")
+                }
+            }
+        )
     }
 }
 

@@ -276,6 +276,34 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun removeGroupProgramTask(task: TaskAssignmentEntity, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        if (!task.expertUid.startsWith("GROUP:")) {
+            onResult(false, "Sadece grup programları silinebilir.")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val uid = currentUid
+            val taskDocId = task.firebaseDocId.orEmpty()
+            val result = if (uid.isNotBlank() && taskDocId.isNotBlank()) {
+                communityRepo.removeAppliedProgramForUser(taskDocId, uid)
+            } else {
+                Result.success(Unit)
+            }
+
+            if (result.isSuccess) {
+                planRepo.removeTaskFromHome(task.id, task.firebaseDocId)
+                syncPatientData(null)
+                withContext(Dispatchers.Main) {
+                    onResult(true, "Program silindi.")
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    onResult(false, result.exceptionOrNull()?.message ?: "Program silinemedi.")
+                }
+            }
+        }
+    }
+
     fun getPeriodKey(scheduleType: String): String {
         return planRepo.getPeriodKey(scheduleType)
     }

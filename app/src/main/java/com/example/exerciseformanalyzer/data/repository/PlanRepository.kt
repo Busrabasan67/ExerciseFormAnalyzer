@@ -175,6 +175,20 @@ class PlanRepository(
         }
     }
 
+    override suspend fun removeTaskFromHome(taskId: Int, firebaseDocId: String?): Result<Unit> {
+        return try {
+            taskDao.markTaskAsRemoved(taskId)
+            if (!firebaseDocId.isNullOrBlank()) {
+                runCatching {
+                    firestoreService.updateTaskStatus(firebaseDocId, "removed")
+                }
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Firestore'dan hastaya atanmış görevleri çeker ve Room'a eşler.
      */
