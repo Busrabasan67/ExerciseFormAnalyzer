@@ -8,6 +8,8 @@ import com.example.exerciseformanalyzer.model.firestore.FirestoreActivity
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUserBadgeProgress
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 
+import java.util.Date
+
 /**
  * Liderlik tablosu ve istatistik işlemleri için domain-layer sözleşmesi.
  */
@@ -34,7 +36,7 @@ interface ILeaderboardRepository {
      * Belirli bir hastanın antrenman istatistiklerini Firestore'dan toplar.
      * Uzman → hasta detay ekranında kullanılır.
      */
-    suspend fun getPatientStats(uid: String): WorkoutStats
+    suspend fun getPatientStats(uid: String, startDate: Date? = null, endDate: Date? = null): WorkoutStats
 
     suspend fun getRecentActivities(limit: Long = 20): List<FirestoreActivity>
     

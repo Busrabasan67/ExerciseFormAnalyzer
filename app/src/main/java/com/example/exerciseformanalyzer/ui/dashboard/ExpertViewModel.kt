@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest
+import java.util.Date
 
 enum class TaskFilter { ALL, PENDING, IN_PROGRESS, COMPLETED, INACTIVE }
 
@@ -238,10 +239,12 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         _showLogoutDialog.value = show
     }
 
-    fun observePatientStats(uid: String): Flow<WorkoutStats> {
+
+
+    fun observePatientStats(uid: String, startDate: Date? = null, endDate: Date? = null): Flow<WorkoutStats> {
         return flow {
             try {
-                emit(leaderboardRepo.getPatientStats(uid))
+                emit(leaderboardRepo.getPatientStats(uid, startDate, endDate))
             } catch (e: Exception) {
                 emit(WorkoutStats())
             }

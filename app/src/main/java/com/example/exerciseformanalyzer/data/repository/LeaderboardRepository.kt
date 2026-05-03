@@ -181,35 +181,60 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) : IL
     /**
      * Kullanıcının dashboard istatistiklerini canlı olarak Firestore'dan toplar.
      */
-    override suspend fun getPatientStats(uid: String): WorkoutStats {
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_YEAR, -30)
-        val last30Days = calendar.time
+    override suspend fun getPatientStats(uid: String, startDate: Date?, endDate: Date?): WorkoutStats {
+        val cal = Calendar.getInstance()
         
-        // 1. Raporları çek (Son 30 gün)
+        val finalEndDate = (endDate ?: Date()).let {
+            cal.time = it
+            cal.set(Calendar.HOUR_OF_DAY, 23)
+            cal.set(Calendar.MINUTE, 59)
+            cal.set(Calendar.SECOND, 59)
+            cal.set(Calendar.MILLISECOND, 999)
+            cal.time
+        }
+        
+        val finalStartDate = (startDate ?: Calendar.getInstance().apply {
+            time = finalEndDate
+            add(Calendar.DAY_OF_YEAR, -30)
+        }.time).let {
+            cal.time = it
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            cal.time
+        }
+        
+        // 1. Raporları çek (İndeks hatasını önlemek için sadece userId ile çekip bellekte filtreliyoruz)
         val reportsSnapshot = db.collection("workout_reports")
             .whereEqualTo("userId", uid)
-            .whereGreaterThanOrEqualTo("timestamp", last30Days)
             .get().await()
         
-        val reports = reportsSnapshot.documents.mapNotNull { it.toObject(FirestoreWorkoutReport::class.java) }
-            .sortedBy { it.timestamp }
+        val allReports = reportsSnapshot.documents.mapNotNull { it.toObject(FirestoreWorkoutReport::class.java) }
+        
+        val reports = allReports.filter { report ->
+            val ts = report.timestamp ?: return@filter false
+            (ts.after(finalStartDate) || isSameDay(ts, finalStartDate)) && 
+            (ts.before(finalEndDate) || isSameDay(ts, finalEndDate))
+        }.sortedBy { it.timestamp }
 
-        // 2. Görevleri çek
+        // 2. Görevleri çek (Tüm zamanlar veya bu aralıkta bitenler?)
+        // Şimdilik genel durum için hepsini çekiyoruz, ama isterseniz bu da tarihe göre filtrelenebilir.
         val tasksSnapshot = db.collection("task_assignments")
             .whereEqualTo("patientId", uid)
             .get().await()
         
         val tasks = tasksSnapshot.documents.mapNotNull { it.toObject(FirestoreTaskAssignment::class.java) }
 
-        // 3. Günlük Kalori Agregasyonu (Son 7 gün, boş günleri 0 ile doldur)
+        // 3. Günlük Kalori Agregasyonu
         val sdf = SimpleDateFormat("dd MMM", Locale.getDefault())
-        val dailyMap = mutableMapOf<String, Float>()
+        val dailyMap = LinkedHashMap<String, Float>()
         
-        // Son 7 günü 0 ile ilklendir
-        for (i in 6 downTo 0) {
-            val date = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -i) }.time
-            dailyMap[sdf.format(date)] = 0f
+        // Aralıktaki her günü 0 ile ilklendir
+        cal.time = finalStartDate
+        while (cal.time.before(finalEndDate) || isSameDay(cal.time, finalEndDate)) {
+            dailyMap[sdf.format(cal.time)] = 0f
+            cal.add(Calendar.DAY_OF_YEAR, 1)
         }
         
         // Raporları ekle
@@ -224,19 +249,45 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) : IL
         
         val dailyCalories = dailyMap.toList()
 
-        // 4. Skor Trendi (Son 20 egzersiz)
-        val scoreTrend = reports.takeLast(20).mapIndexed { index, report ->
+        // 4. Skor Trendi (Seçili aralıktaki son 50 egzersiz)
+        val scoreTrend = reports.takeLast(50).mapIndexed { index, report ->
             index.toFloat() to report.score.toFloat()
         }
 
-        // 5. Görev Tamamlama Durumu
-        val completionStats = tasks.groupBy { it.status }.mapValues { it.value.size }
+        // 5. Görev Tamamlama Durumu (Normalize edilmiş anahtarlar)
+        val completionStats = mutableMapOf(
+            "PENDING" to 0,
+            "IN_PROGRESS" to 0,
+            "COMPLETED" to 0
+        )
+        
+        tasks.forEach { task ->
+            val s = task.status.orEmpty().lowercase()
+            when {
+                s in listOf("completed", "done", "finished") -> {
+                    completionStats["COMPLETED"] = (completionStats["COMPLETED"] ?: 0) + 1
+                }
+                s in listOf("in_progress", "started") -> {
+                    completionStats["IN_PROGRESS"] = (completionStats["IN_PROGRESS"] ?: 0) + 1
+                }
+                s in listOf("pending", "active", "assigned", "waiting") -> {
+                    completionStats["PENDING"] = (completionStats["PENDING"] ?: 0) + 1
+                }
+            }
+        }
 
         return WorkoutStats(
             dailyCalories = dailyCalories,
             scoreTrend = scoreTrend,
             completionStats = completionStats
         )
+    }
+
+    private fun isSameDay(d1: Date, d2: Date): Boolean {
+        val c1 = Calendar.getInstance().apply { time = d1 }
+        val c2 = Calendar.getInstance().apply { time = d2 }
+        return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
+               c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
     }
 
     override suspend fun getRecentActivities(limit: Long): List<FirestoreActivity> {
