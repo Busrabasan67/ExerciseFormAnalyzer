@@ -62,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -109,6 +110,14 @@ fun CommunityScreen(
                 }
                 viewModel.resetEvent()
             }
+            is CommunityEvent.GroupCreated -> {
+                selectedTab = 0
+                showCreateDialog = false
+                waitingCreateSuccess = false
+                viewModel.selectGroup(e.group)
+                onNavigateToGroupDetail(e.group)
+                viewModel.resetEvent()
+            }
             is CommunityEvent.Error -> {
                 snackbarHost.showSnackbar("Hata: ${e.message}")
                 waitingCreateSuccess = false
@@ -133,7 +142,7 @@ fun CommunityScreen(
                     )
                 )
                 TabRow(selectedTabIndex = selectedTab) {
-                    listOf("Gruplarım", "Keşfet", "Davetler", "Gelen İstekler").forEachIndexed { index, title ->
+                    listOf("Gruplarım", "Keşfet", "Davetler", "Gelen").forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
@@ -245,7 +254,7 @@ private fun ExploreGroupCard(
                     .size(52.dp)
                     .background(
                         color = if (group.isPrivate)
-                            MaterialTheme.colorScheme.secondaryContainer
+                            Color(0xFF00A896)
                         else
                             MaterialTheme.colorScheme.primaryContainer,
                         shape = RoundedCornerShape(14.dp)
@@ -256,7 +265,7 @@ private fun ExploreGroupCard(
                     imageVector = if (group.isPrivate) Icons.Default.Lock else Icons.Default.Group,
                     contentDescription = null,
                     tint = if (group.isPrivate)
-                        MaterialTheme.colorScheme.onSecondaryContainer
+                        Color.White
                     else
                         MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -300,7 +309,7 @@ private fun ExploreGroupCard(
                     color = MaterialTheme.colorScheme.primary
                 )
                 "pendingRequest" -> Text(
-                    text = "İstek Gönderildi",
+                    text = "İstek gönderildi",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -322,7 +331,7 @@ private fun ExploreGroupCard(
                             onClick = onSendRequest,
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            Text("İstek Gönder", style = MaterialTheme.typography.labelSmall)
+                            Text("İstek", style = MaterialTheme.typography.labelSmall)
                         }
                     } else {
                         Button(
@@ -397,16 +406,32 @@ private fun MyGroupCard(
                     modifier = Modifier
                         .size(52.dp)
                         .background(
-                            MaterialTheme.colorScheme.primaryContainer,
+                            if (group.isPrivate) Color(0xFF5E60CE) else MaterialTheme.colorScheme.primaryContainer,
                             RoundedCornerShape(14.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (group.isPrivate) Icons.Default.Lock else Icons.Default.Group,
+                        imageVector = Icons.Default.People,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        tint = if (group.isPrivate) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
                     )
+                    if (group.isPrivate) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(18.dp)
+                                .background(MaterialTheme.colorScheme.surface, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = Color(0xFF5E60CE),
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -528,7 +553,7 @@ private fun IncomingJoinRequestsTab(viewModel: CommunityViewModel) {
 
     if (requests.isEmpty()) {
         EmptyState(
-            message = "Bekleyen katılma isteği yok.",
+            message = "Yönettiğiniz gizli gruplar için bekleyen katılma isteği yok.",
             icon = Icons.Default.People
         )
     } else {

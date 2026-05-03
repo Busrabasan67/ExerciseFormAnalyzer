@@ -62,6 +62,8 @@ interface IPlanRepository {
     /** Bir uzmanın belirli bir hastaya atadığı tüm aktif görevleri pasife çeker. */
     suspend fun deactivateDoctorTasks(doctorId: String, patientId: String): Result<Unit>
 
+    suspend fun removeTaskFromHome(taskId: Int, firebaseDocId: String?): Result<Unit>
+
     // Görev İlerleme Metotları
     fun getPeriodKey(scheduleType: String): String
     suspend fun getTaskProgress(taskId: String, periodKey: String, patientUid: String): TaskProgressEntity

@@ -8,6 +8,7 @@ import com.example.exerciseformanalyzer.model.firestore.FsGroupMessage
 import com.example.exerciseformanalyzer.model.firestore.FsGroupProgram
 import com.example.exerciseformanalyzer.model.firestore.FirestoreTaskAssignment
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
@@ -17,6 +18,16 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+
+internal fun resolveFirestoreGroup(
+    group: FsGroup,
+    documentId: String,
+    isPrivateField: Boolean?,
+    legacyPrivateField: Boolean?
+): FsGroup = group.copy(
+    groupId = group.groupId.ifBlank { documentId },
+    isPrivate = isPrivateField ?: legacyPrivateField ?: group.isPrivate
+)
 
 /**
  * CommunityFirestoreService
@@ -59,6 +70,16 @@ class CommunityFirestoreService {
     private fun canShareProgram(role: String): Boolean =
         normalizeRole(role) in listOf("admin", "moderator")
 
+    private fun groupFromDocument(document: DocumentSnapshot): FsGroup? =
+        document.toObject<FsGroup>()?.let { group ->
+            resolveFirestoreGroup(
+                group = group,
+                documentId = document.id,
+                isPrivateField = document.getBoolean("isPrivate"),
+                legacyPrivateField = document.getBoolean("private")
+            )
+        }
+
     // =====================================================================
     // GRUP OLUŞTUR — batch: group + creator member kaydı aynı anda
     // =====================================================================
@@ -90,7 +111,7 @@ class CommunityFirestoreService {
         return db.collection(GROUPS)
             .limit(100)
             .get().await()
-            .documents.mapNotNull { it.toObject<FsGroup>() }
+            .documents.mapNotNull { groupFromDocument(it) }
     }
 
     // =====================================================================
@@ -152,7 +173,7 @@ class CommunityFirestoreService {
             val groupRef = db.collection(GROUPS).document(member.groupId)
             val memberRef = db.collection(GROUP_MEMBERS).document(docId)
 
-            val group = transaction.get(groupRef).toObject(FsGroup::class.java)
+            val group = groupFromDocument(transaction.get(groupRef))
                 ?: throw IllegalStateException("Grup bulunamadı.")
             if (group.isPrivate) {
                 throw IllegalStateException("Gizli gruplara katılma isteği göndermeniz gerekiyor.")
@@ -186,7 +207,7 @@ class CommunityFirestoreService {
                 val inviteRef = db.collection(GROUP_INVITES)
                     .document("${request.groupId}_${request.fromUserId}")
 
-                val group = transaction.get(groupRef).toObject(FsGroup::class.java)
+                val group = groupFromDocument(transaction.get(groupRef))
                     ?: throw IllegalStateException("Grup bulunamadı.")
                 if (!group.isPrivate) {
                     throw IllegalStateException("Herkese açık gruplara direkt katılabilirsiniz.")
@@ -312,7 +333,7 @@ class CommunityFirestoreService {
                 val requestRef = db.collection(GROUP_JOIN_REQUESTS)
                     .document("${invite.groupId}_${invite.toUserId}")
 
-                val group = transaction.get(groupRef).toObject(FsGroup::class.java)
+                val group = groupFromDocument(transaction.get(groupRef))
                     ?: throw IllegalStateException("Grup bulunamadı.")
                 val senderSnapshot = transaction.get(senderRef)
                 val senderStatus = senderSnapshot.getString("status") ?: ""
@@ -441,6 +462,31 @@ class CommunityFirestoreService {
             .update("status", "removed").await()
     }
 
+    suspend fun leaveGroup(groupId: String, userId: String): Result<Unit> {
+        return try {
+            db.runTransaction { transaction ->
+                val groupRef = db.collection(GROUPS).document(groupId)
+                val memberRef = db.collection(GROUP_MEMBERS).document("${groupId}_${userId}")
+
+                val group = groupFromDocument(transaction.get(groupRef))
+                    ?: throw IllegalStateException("Grup bulunamadı.")
+                val member = transaction.get(memberRef)
+                val role = normalizeRole(member.getString("role") ?: "")
+                if (!member.exists() || member.getString("status") != "active") {
+                    throw IllegalStateException("Aktif grup üyeliği bulunamadı.")
+                }
+                if (role == "admin" || group.creatorId == userId) {
+                    throw IllegalStateException("Grup yöneticisi gruptan ayrılamaz. Önce başka bir üyeyi yönetici yapın.")
+                }
+
+                transaction.update(memberRef, "status", "removed")
+            }.await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun updateMemberRole(
         groupId: String,
         actorUserId: String,
@@ -449,6 +495,7 @@ class CommunityFirestoreService {
     ): Result<Unit> {
         return try {
             db.runTransaction { transaction ->
+                val groupRef = db.collection(GROUPS).document(groupId)
                 val actorRef = db.collection(GROUP_MEMBERS).document("${groupId}_${actorUserId}")
                 val targetRef = db.collection(GROUP_MEMBERS).document("${groupId}_${targetUserId}")
 
@@ -469,11 +516,23 @@ class CommunityFirestoreService {
                 }
 
                 val normalizedNewRole = normalizeRole(newRole)
-                if (normalizedNewRole !in listOf("moderator", "member")) {
+                if (normalizedNewRole !in listOf("admin", "moderator", "member")) {
                     throw IllegalStateException("Geçersiz rol.")
                 }
 
-                transaction.update(targetRef, "role", normalizedNewRole)
+                if (normalizedNewRole == "admin") {
+                    transaction.update(actorRef, "role", "moderator")
+                    transaction.update(targetRef, "role", "admin")
+                    transaction.update(
+                        groupRef,
+                        mapOf(
+                            "creatorId" to targetUserId,
+                            "creatorName" to (target.getString("userName") ?: "")
+                        )
+                    )
+                } else {
+                    transaction.update(targetRef, "role", normalizedNewRole)
+                }
             }.await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -484,6 +543,74 @@ class CommunityFirestoreService {
     // =====================================================================
     // GRUPLARIMI — Kullanıcının üye olduğu gruplar
     // =====================================================================
+
+    suspend fun updateGroupPrivacy(
+        groupId: String,
+        actorUserId: String,
+        isPrivate: Boolean
+    ): Result<FsGroup> {
+        return try {
+            if (groupId.isBlank() || actorUserId.isBlank()) {
+                throw IllegalArgumentException("Grup veya kullanıcı bilgisi eksik.")
+            }
+
+            val (updatedGroup, shouldAcceptPendingRequests) = db.runTransaction { transaction ->
+                val groupRef = db.collection(GROUPS).document(groupId)
+                val actorRef = db.collection(GROUP_MEMBERS).document("${groupId}_${actorUserId}")
+
+                val group = groupFromDocument(transaction.get(groupRef))
+                    ?: throw IllegalStateException("Grup bulunamadı.")
+                val actor = transaction.get(actorRef)
+                val actorRole = normalizeRole(actor.getString("role") ?: "")
+                val isActiveAdmin = actor.exists() &&
+                    actor.getString("status") == "active" &&
+                    actorRole == "admin"
+                if (!isActiveAdmin) {
+                    throw IllegalStateException("Grup gizliliğini sadece yönetici değiştirebilir.")
+                }
+
+                transaction.update(groupRef, "isPrivate", isPrivate)
+                group.copy(isPrivate = isPrivate) to (group.isPrivate && !isPrivate)
+            }.await()
+
+            if (shouldAcceptPendingRequests) {
+                acceptPendingJoinRequestsForPublicGroup(updatedGroup.groupId)
+            }
+
+            Result.success(updatedGroup)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun acceptPendingJoinRequestsForPublicGroup(groupId: String) {
+        val pendingRequests = db.collection(GROUP_JOIN_REQUESTS)
+            .whereEqualTo("groupId", groupId)
+            .whereEqualTo("status", "pending")
+            .get().await()
+            .documents
+
+        pendingRequests.chunked(450).forEach { chunk ->
+            val batch = db.batch()
+            chunk.forEach { requestDoc ->
+                val request = requestDoc.toObject<FsGroupJoinRequest>() ?: return@forEach
+                val memberRef = db.collection(GROUP_MEMBERS)
+                    .document("${request.groupId}_${request.fromUserId}")
+                val member = FsGroupMember(
+                    groupId = request.groupId,
+                    userId = request.fromUserId,
+                    userName = request.fromUserName,
+                    userEmail = request.fromUserEmail,
+                    role = "member",
+                    joinedAt = System.currentTimeMillis(),
+                    status = "active"
+                )
+                batch.update(requestDoc.reference, "status", "accepted")
+                batch.set(memberRef, member)
+            }
+            batch.commit().await()
+        }
+    }
 
     fun observeGroupMessages(groupId: String): Flow<List<FsGroupMessage>> = callbackFlow {
         val registration = db.collection(GROUP_MESSAGES)
@@ -686,6 +813,28 @@ class CommunityFirestoreService {
         }
     }
 
+    suspend fun removeAppliedProgramForUser(taskDocId: String, userId: String): Result<Unit> {
+        return try {
+            if (taskDocId.isBlank() || userId.isBlank()) {
+                throw IllegalArgumentException("Program veya kullanıcı bilgisi eksik.")
+            }
+
+            val applications = db.collection(GROUP_PROGRAM_APPLICATIONS)
+                .whereEqualTo("taskId", taskDocId)
+                .whereEqualTo("userId", userId)
+                .get().await()
+                .documents
+
+            val batch = db.batch()
+            applications.forEach { batch.delete(it.reference) }
+            batch.update(db.collection(TASK_ASSIGNMENTS).document(taskDocId), "status", "removed")
+            batch.commit().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun hasCommunityNotifications(userId: String): Boolean {
         if (userId.isBlank()) return false
 
@@ -790,7 +939,7 @@ class CommunityFirestoreService {
             }
 
             val groupRef = db.collection(GROUPS).document(groupId)
-            val group = groupRef.get().await().toObject<FsGroup>()
+            val group = groupFromDocument(groupRef.get().await())
                 ?: throw IllegalStateException("Grup bulunamadı.")
 
             val actorMember = db.collection(GROUP_MEMBERS)
@@ -850,7 +999,7 @@ class CommunityFirestoreService {
             val result = db.collection(GROUPS)
                 .whereIn("groupId", chunk)
                 .get().await()
-                .documents.mapNotNull { it.toObject<FsGroup>() }
+                .documents.mapNotNull { groupFromDocument(it) }
             groups.addAll(result)
         }
         return groups
