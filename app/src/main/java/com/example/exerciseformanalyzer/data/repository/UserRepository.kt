@@ -16,7 +16,10 @@ import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
 import com.example.exerciseformanalyzer.domain.repository.IUserRepository
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
+import com.google.firebase.storage.ktx.storage
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.tasks.await
 
 class UserRepository(
     private val userDao: UserDao,
@@ -63,7 +66,10 @@ class UserRepository(
                 isSmoker = updatedUser.isSmoker,
                 isDrinker = updatedUser.isDrinker,
                 expertId = updatedUser.expertUid ?: "",
-                status = updatedUser.status
+                status = updatedUser.status,
+                profileImageUrl = updatedUser.profileImageUrl,
+                gender = updatedUser.gender,
+                defaultRestSeconds = updatedUser.defaultRestSeconds
             )
             firestoreService.saveUserProfile(uid, firestoreProfile)
 
@@ -251,7 +257,10 @@ class UserRepository(
             isDrinker = profile.isDrinker,
             expertUid = profile.expertId,
             isSynced = true,
-            status = profile.status
+            status = profile.status,
+            profileImageUrl = profile.profileImageUrl,
+            gender = profile.gender,
+            defaultRestSeconds = profile.defaultRestSeconds
         )
         userDao.insertUser(entity)
     }
@@ -288,7 +297,10 @@ class UserRepository(
                     isDrinker = profile.isDrinker,
                     expertUid = profile.expertId, // = expertUid
                     isSynced = true,
-                    status = profile.status
+                    status = profile.status,
+                    profileImageUrl = profile.profileImageUrl,
+                    gender = profile.gender,
+                    defaultRestSeconds = profile.defaultRestSeconds
                 )
                 userDao.insertUser(entity)
             }
@@ -303,6 +315,27 @@ class UserRepository(
     override suspend fun syncExpertProfileLocally(expertUid: String) {
         if (expertUid.isNotEmpty()) {
             refreshUserFromFirestore(expertUid)
+        }
+    }
+
+    override suspend fun uploadProfileImage(uid: String, imageBytes: ByteArray): Result<String> {
+        return try {
+            val storageRef = Firebase.storage.reference.child("profile_images/$uid.jpg")
+            storageRef.putBytes(imageBytes).await()
+            val downloadUrl = storageRef.downloadUrl.await().toString()
+            
+            // 1. Firestore'u güncelle
+            firestoreService.updateProfileImageUrl(uid, downloadUrl)
+            
+            // 2. Room cache'i güncelle
+            val existing = userDao.getUserByUid(uid)
+            if (existing != null) {
+                userDao.updateUser(existing.copy(profileImageUrl = downloadUrl))
+            }
+            
+            Result.success(downloadUrl)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

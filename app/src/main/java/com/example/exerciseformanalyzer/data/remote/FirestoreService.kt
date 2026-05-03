@@ -61,6 +61,10 @@ class FirestoreService {
             .update("expertId", expertUid).await()
     }
 
+    suspend fun updateProfileImageUrl(uid: String, url: String) {
+        db.collection(USERS).document(uid).update("profileImageUrl", url).await()
+    }
+
     /** İsteği kabul et ve ilişkiyi kur (Transaction). */
     suspend fun acceptConnectionRequestTransaction(
         requestId: String,

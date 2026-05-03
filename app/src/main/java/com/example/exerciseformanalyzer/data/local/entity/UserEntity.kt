@@ -69,5 +69,7 @@ data class UserEntity(
     // Kullanıcı durumu: "ACTIVE", "PASSIVE", "DELETED"
     val status: String = "ACTIVE",
 
-    val defaultRestSeconds: Int = 90
+    val defaultRestSeconds: Int = 90,
+    val profileImageUrl: String? = null,
+    val gender: String = ""
 )

@@ -58,4 +58,7 @@ interface IUserRepository {
 
     /** Uzman profilini Firestore'dan çekip lokal cache'e yazar. */
     suspend fun syncExpertProfileLocally(expertUid: String)
+
+    /** Profil resmini Firebase Storage'a yükler ve URL'i Firestore'a kaydeder. */
+    suspend fun uploadProfileImage(uid: String, imageBytes: ByteArray): Result<String>
 }

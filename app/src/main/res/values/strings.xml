@@ -42,6 +42,16 @@
     <string name="age_label">Yaş</string>
     <string name="weight_label">Kilo</string>
     <string name="height_label">Boy</string>
+    <string name="completed_tasks">Tamamlanan</string>
+    <string name="active_tasks">Aktif</string>
+    <string name="streak_label">Seri</string>
+    <string name="personal_info">Kişisel Bilgiler</string>
+    <string name="change_password">Şifre Değiştir</string>
+    <string name="edit_profile">Profili Düzenle</string>
+    <string name="save">Kaydet</string>
+    <string name="cancel">İptal</string>
+    <string name="rest_time">Dinlenme</string>
+    <string name="goal_label">Hedef</string>
 
     <!-- Groups -->
     <string name="groups_title">Topluluk</string>

@@ -153,4 +153,7 @@ dependencies {
 
     // --- BİLDİRİMLER (FCM) ---
     implementation("com.google.firebase:firebase-messaging-ktx")
+
+    // --- GÖRÜNTÜ YÜKLEME (COIL) ---
+    implementation(libs.coil.compose)
 }

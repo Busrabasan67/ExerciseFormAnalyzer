@@ -42,6 +42,16 @@
     <string name="age_label">Age</string>
     <string name="weight_label">Weight</string>
     <string name="height_label">Height</string>
+    <string name="completed_tasks">Completed</string>
+    <string name="active_tasks">Active</string>
+    <string name="streak_label">Streak</string>
+    <string name="personal_info">Personal Info</string>
+    <string name="change_password">Change Password</string>
+    <string name="edit_profile">Edit Profile</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="rest_time">Rest Time</string>
+    <string name="goal_label">Goal</string>
 
     <!-- Groups -->
     <string name="groups_title">Community</string>
