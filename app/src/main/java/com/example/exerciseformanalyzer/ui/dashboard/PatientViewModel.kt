@@ -202,9 +202,22 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
+    private val _expertNotes = MutableStateFlow<List<com.example.exerciseformanalyzer.model.firestore.FirestoreExpertNote>>(emptyList())
+    val expertNotes: StateFlow<List<com.example.exerciseformanalyzer.model.firestore.FirestoreExpertNote>> = _expertNotes.asStateFlow()
+
     fun syncPatientData(expertUid: String?) {
         viewModelScope.launch(Dispatchers.IO) {
-            expertUid?.let { userRepo.syncExpertProfileLocally(it) }
+            expertUid?.let { 
+                userRepo.syncExpertProfileLocally(it) 
+                
+                // Uzman notlarını çek
+                try {
+                    val firestoreService = com.example.exerciseformanalyzer.data.remote.FirestoreService()
+                    _expertNotes.value = firestoreService.getExpertNotes(patientId = currentUid, expertId = it)
+                } catch (e: Exception) {
+                    android.util.Log.e("PatientViewModel", "Notlar çekilirken hata: ${e.message}")
+                }
+            }
             val uid = currentUid
 
             if (uid.isNotEmpty()) {

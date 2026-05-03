@@ -205,11 +205,23 @@ data class WorkoutSummary(
     val caloriesBurned: Float = 0f
 )
 
+data class ExerciseAnalysis(
+    val exerciseName: String,
+    val totalReps: Int,
+    val avgScore: Float,
+    val commonMistakes: List<String>
+)
+
 /** Kapsamlı İstatistik Modeli (Dashboard ve Analiz için) */
 data class WorkoutStats(
     val dailyCalories: List<Pair<String, Float>> = emptyList(),
     val scoreTrend: List<Pair<Float, Float>> = emptyList(), 
-    val completionStats: Map<String, Int> = emptyMap()
+    val completionStats: Map<String, Int> = emptyMap(),
+    // Yeni eklenen profesyonel özellikler
+    val recentReports: List<com.example.exerciseformanalyzer.model.firestore.FirestoreWorkoutReport> = emptyList(),
+    val exerciseAnalysis: List<ExerciseAnalysis> = emptyList(),
+    val progressDelta: Float? = null, // Form skorunun önceki döneme göre değişimi (%)
+    val riskWarnings: List<String> = emptyList() // Düşük skor / tehlikeli hareket uyarıları
 )
 
 data class AdminSystemStats(

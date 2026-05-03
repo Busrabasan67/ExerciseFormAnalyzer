@@ -276,10 +276,48 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) : IL
             }
         }
 
+        // 6. Recent Reports (En son 10 rapor, yeniden eskiye)
+        val recentReports = reports.takeLast(10).reversed()
+
+        // 7. Exercise Analysis (Egzersiz Bazlı Form Analizi)
+        val exerciseAnalysis = reports.groupBy { it.exerciseName }
+            .map { (name, exReports) ->
+                val totalReps = exReports.sumOf { it.reps }
+                val avgScore = if (exReports.isNotEmpty()) exReports.map { it.score }.average().toFloat() else 0f
+                val mistakes = exReports.mapNotNull { it.feedback }.filter { it.isNotBlank() && it.length > 5 }.distinct().take(3)
+                com.example.exerciseformanalyzer.model.ExerciseAnalysis(
+                    exerciseName = name.ifEmpty { "Bilinmeyen" },
+                    totalReps = totalReps,
+                    avgScore = avgScore,
+                    commonMistakes = mistakes
+                )
+            }.sortedByDescending { it.totalReps }
+
+        // 8. Progress Delta (Gelişim Kıyaslaması)
+        val progressDelta = if (reports.size >= 4) {
+            val half = reports.size / 2
+            val firstHalfAvg = reports.take(half).map { it.score }.average().toFloat()
+            val secondHalfAvg = reports.drop(half).map { it.score }.average().toFloat()
+            if (firstHalfAvg > 0) ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100f else null
+        } else null
+
+        // 9. Risk Warnings (Risk Analizi ve Uyarı Sistemi)
+        val riskWarnings = mutableListOf<String>()
+        exerciseAnalysis.filter { it.avgScore < 50f && it.totalReps > 15 }.forEach {
+            riskWarnings.add("${it.exerciseName} formunda kronik hata tespit edildi (Ort. Skor: %${it.avgScore.toInt()}). Sakatlık riski yüksek.")
+        }
+        if (reports.isNotEmpty() && reports.takeLast(3).size == 3 && reports.takeLast(3).all { it.score < 40 }) {
+            riskWarnings.add("Son 3 antrenmanda genel form çok düşük. Fiziksel yorgunluk veya ağrı olabilir.")
+        }
+
         return WorkoutStats(
             dailyCalories = dailyCalories,
             scoreTrend = scoreTrend,
-            completionStats = completionStats
+            completionStats = completionStats,
+            recentReports = recentReports,
+            exerciseAnalysis = exerciseAnalysis,
+            progressDelta = progressDelta,
+            riskWarnings = riskWarnings
         )
     }
 

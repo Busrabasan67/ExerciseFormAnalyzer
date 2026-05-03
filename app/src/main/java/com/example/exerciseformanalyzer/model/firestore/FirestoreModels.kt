@@ -227,3 +227,14 @@ data class FirestoreTaskProgress(
     val status: String = "PENDING",
     val updatedAt: Long = System.currentTimeMillis()
 )
+
+// =========================================================
+// UZMAN NOTLARI — expert_notes/{docId}
+// =========================================================
+data class FirestoreExpertNote(
+    val id: String = "", // Firestore doküman ID'si
+    val expertId: String = "",
+    val patientId: String = "",
+    val note: String = "",
+    @ServerTimestamp val createdAt: Date? = null
+)

@@ -27,7 +27,8 @@ class FirestoreService {
         const val PATIENT_REQUESTS = "patient_requests"
         const val GROUP_JOIN_REQUESTS = "group_join_requests"
         const val DOCTOR_PATIENTS = "doctor_patients"
-    const val TASK_PROGRESS = "task_progress"
+        const val TASK_PROGRESS = "task_progress"
+        const val EXPERT_NOTES = "expert_notes"
     }
 
     // =====================================================================
@@ -140,6 +141,26 @@ class FirestoreService {
             .limit(20)
             .get().await()
             .documents.mapNotNull { it.toObject<FirestoreUser>() }
+    }
+
+    // =====================================================================
+    // UZMAN NOTLARI
+    // =====================================================================
+    
+    suspend fun getExpertNotes(patientId: String, expertId: String): List<FirestoreExpertNote> {
+        return db.collection(EXPERT_NOTES)
+            .whereEqualTo("patientId", patientId)
+            .whereEqualTo("expertId", expertId)
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestoreExpertNote>()?.copy(id = it.id) }
+    }
+
+    suspend fun addExpertNote(note: FirestoreExpertNote): String {
+        val ref = db.collection(EXPERT_NOTES).document()
+        val noteWithId = note.copy(id = ref.id)
+        ref.set(noteWithId).await()
+        return ref.id
     }
 
     // =====================================================================

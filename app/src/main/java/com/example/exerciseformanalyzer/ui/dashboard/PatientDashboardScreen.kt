@@ -67,6 +67,7 @@ fun PatientDashboardScreen(
     val isEmailVerified = viewModel.isEmailVerified
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
     val hasCommunityNotifications by viewModel.hasCommunityNotifications.collectAsState()
+    val expertNotes by viewModel.expertNotes.collectAsState()
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -210,6 +211,28 @@ fun PatientDashboardScreen(
                                 plan = recommendedPlan,
                                 onApply = { viewModel.applyRecommendedPlan(recommendedPlan) }
                             )
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+
+                        if (expertNotes.isNotEmpty()) {
+                            Text("Uzman Notları", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            expertNotes.forEach { note ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        val noteDate = note.createdAt?.let { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(it) } ?: ""
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Icon(Icons.Default.StickyNote2, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                            Text(noteDate, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(note.note, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
                             Spacer(modifier = Modifier.height(24.dp))
                         }
                     }

@@ -239,7 +239,37 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         _showLogoutDialog.value = show
     }
 
+    private val _expertNotes = MutableStateFlow<List<com.example.exerciseformanalyzer.model.firestore.FirestoreExpertNote>>(emptyList())
+    val expertNotes: StateFlow<List<com.example.exerciseformanalyzer.model.firestore.FirestoreExpertNote>> = _expertNotes.asStateFlow()
 
+    fun loadExpertNotes(patientId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val firestoreService = com.example.exerciseformanalyzer.data.remote.FirestoreService()
+                _expertNotes.value = firestoreService.getExpertNotes(patientId, currentUid)
+            } catch (e: Exception) {
+                android.util.Log.e("ExpertViewModel", "Notlar yüklenirken hata: ${e.message}")
+            }
+        }
+    }
+
+    fun addExpertNote(patientId: String, noteText: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val firestoreService = com.example.exerciseformanalyzer.data.remote.FirestoreService()
+                val note = com.example.exerciseformanalyzer.model.firestore.FirestoreExpertNote(
+                    expertId = currentUid,
+                    patientId = patientId,
+                    note = noteText,
+                    createdAt = java.util.Date()
+                )
+                firestoreService.addExpertNote(note)
+                loadExpertNotes(patientId) // Yeniden yükle
+            } catch (e: Exception) {
+                android.util.Log.e("ExpertViewModel", "Not eklenirken hata: ${e.message}")
+            }
+        }
+    }
 
     fun observePatientStats(uid: String, startDate: Date? = null, endDate: Date? = null): Flow<WorkoutStats> {
         return flow {
