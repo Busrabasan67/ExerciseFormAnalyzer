@@ -284,7 +284,13 @@ fun ProfileHeader(user: UserEntity, isUploading: Boolean = false, onImageClick: 
                 .shadow(8.dp, CircleShape)
                 .background(MaterialTheme.colorScheme.surface, CircleShape)
                 .padding(4.dp)
-                .clickable { if (!isUploading) onImageClick() },
+                .then(
+                    if (!isUploading && (user.role == "EXPERT" || user.role == "ADMIN")) {
+                        Modifier.clickable { onImageClick() }
+                    } else {
+                        Modifier
+                    }
+                ),
             contentAlignment = Alignment.Center
         ) {
             if (user.profileImageUrl != null) {
@@ -340,25 +346,27 @@ fun ProfileHeader(user: UserEntity, isUploading: Boolean = false, onImageClick: 
                     )
                 }
             } else {
-                // Overlay camera icon to indicate it's clickable
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.1f), CircleShape),
-                    contentAlignment = Alignment.BottomEnd
-                ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = CircleShape,
-                        modifier = Modifier.padding(4.dp).size(28.dp),
-                        shadowElevation = 2.dp
+                if (user.role == "EXPERT" || user.role == "ADMIN") {
+                    // Overlay camera icon to indicate it's clickable
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.1f), CircleShape),
+                        contentAlignment = Alignment.BottomEnd
                     ) {
-                        Icon(
-                            Icons.Default.CameraAlt,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.padding(6.dp)
-                        )
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = CircleShape,
+                            modifier = Modifier.padding(4.dp).size(28.dp),
+                            shadowElevation = 2.dp
+                        ) {
+                            Icon(
+                                Icons.Default.CameraAlt,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.padding(6.dp)
+                            )
+                        }
                     }
                 }
             }

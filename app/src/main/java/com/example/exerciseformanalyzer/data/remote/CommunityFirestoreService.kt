@@ -1004,4 +1004,32 @@ class CommunityFirestoreService {
         }
         return groups
     }
+
+    suspend fun updateGroupSettings(groupId: String, actorUserId: String, settings: Map<String, Any>): Result<Unit> = runCatching {
+        val actorRef = db.collection(GROUP_MEMBERS).document("${groupId}_${actorUserId}")
+        val actor = actorRef.get().await()
+        val role = normalizeRole(actor.getString("role") ?: "")
+        
+        val groupRef = db.collection(GROUPS).document(groupId)
+        val groupDoc = groupRef.get().await()
+        val allowMemberUpload = groupDoc.getBoolean("allowMemberPhotoUpload") ?: false
+        
+        if (role == "admin" || (allowMemberUpload && actor.getString("status") == "active")) {
+            groupRef.update(settings).await()
+        } else {
+            throw IllegalStateException("Bu ayarı değiştirme yetkiniz yok.")
+        }
+    }
+
+    suspend fun updateGroupMemberUploadPermission(groupId: String, actorUserId: String, allowed: Boolean): Result<Unit> = runCatching {
+        val actorRef = db.collection(GROUP_MEMBERS).document("${groupId}_${actorUserId}")
+        val actor = actorRef.get().await()
+        val role = normalizeRole(actor.getString("role") ?: "")
+        
+        if (role == "admin") {
+            db.collection(GROUPS).document(groupId).update("allowMemberPhotoUpload", allowed).await()
+        } else {
+            throw IllegalStateException("Bu ayarı sadece grup yöneticisi değiştirebilir.")
+        }
+    }
 }

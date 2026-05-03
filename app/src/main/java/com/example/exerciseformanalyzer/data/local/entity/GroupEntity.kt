@@ -23,5 +23,7 @@ data class GroupEntity(
     val isPrivate: Boolean = false,
 
     val createdAt: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+    val coverImageUrl: String? = null,
+    val allowMemberPhotoUpload: Boolean = false
 )

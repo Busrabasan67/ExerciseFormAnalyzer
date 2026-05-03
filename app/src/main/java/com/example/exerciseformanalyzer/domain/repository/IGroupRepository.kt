@@ -67,4 +67,10 @@ interface IGroupRepository {
 
     /** Üyeyi gruptan çıkarır. */
     suspend fun removeMember(groupId: String, userId: String)
+
+    /** Grubun kapak fotoğrafını yükler. */
+    suspend fun uploadGroupCoverPhoto(groupId: String, imageBytes: ByteArray): Result<String>
+
+    /** Grup ayarlarını günceller. */
+    suspend fun updateGroupSettings(groupId: String, coverImageUrl: String?, allowMemberUpload: Boolean)
 }

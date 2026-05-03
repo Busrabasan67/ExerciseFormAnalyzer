@@ -13,6 +13,8 @@ data class FsGroup(
     val isPrivate: Boolean = false,
     val creatorId: String = "",
     val creatorName: String = "",
+    val coverImageUrl: String? = null,
+    val allowMemberPhotoUpload: Boolean = false,
     @ServerTimestamp val createdAt: Date? = null
 )
 

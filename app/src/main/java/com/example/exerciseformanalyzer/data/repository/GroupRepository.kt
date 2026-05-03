@@ -9,6 +9,9 @@ import com.example.exerciseformanalyzer.model.firestore.FirestoreGroup
 import com.example.exerciseformanalyzer.model.firestore.FirestoreGroupInvite
 import com.example.exerciseformanalyzer.model.firestore.FirestoreGroupMember
 import kotlinx.coroutines.flow.Flow
+import com.google.firebase.storage.ktx.storage
+import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.tasks.await
 
 /**
  * GroupRepository — Sosyal grup yönetimi (IGroupRepository implementasyonu)
@@ -176,5 +179,43 @@ class GroupRepository(
     override suspend fun removeMember(groupId: String, userId: String) {
         groupDao.removeMember(groupId, userId) // Yerelden sil
         firestoreService.leaveGroup(groupId, userId) // Buluttan sil
+    }
+
+    override suspend fun uploadGroupCoverPhoto(groupId: String, imageBytes: ByteArray): Result<String> {
+        return try {
+            val storageRef = com.google.firebase.ktx.Firebase.storage.reference.child("group_covers/$groupId.jpg")
+            storageRef.putBytes(imageBytes).await()
+            val downloadUrl = storageRef.downloadUrl.await().toString()
+            
+            // Firestore güncelle
+            firestoreService.updateGroupSettings(groupId, mapOf("coverImageUrl" to downloadUrl))
+            
+            // Room güncelle
+            val existing = groupDao.getGroupByDocId(groupId)
+            if (existing != null) {
+                groupDao.insertGroup(existing.copy(coverImageUrl = downloadUrl))
+            }
+            
+            Result.success(downloadUrl)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateGroupSettings(groupId: String, coverImageUrl: String?, allowMemberUpload: Boolean) {
+        try {
+            firestoreService.updateGroupSettings(groupId, mapOf(
+                "coverImageUrl" to (coverImageUrl ?: ""),
+                "allowMemberPhotoUpload" to allowMemberUpload
+            ))
+            
+            val existing = groupDao.getGroupByDocId(groupId)
+            if (existing != null) {
+                groupDao.insertGroup(existing.copy(
+                    coverImageUrl = coverImageUrl,
+                    allowMemberPhotoUpload = allowMemberUpload
+                ))
+            }
+        } catch (e: Exception) {}
     }
 }

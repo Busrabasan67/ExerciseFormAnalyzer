@@ -74,6 +74,13 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import coil.compose.AsyncImage
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.PhotoCamera
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,6 +145,19 @@ fun GroupDetailScreen(
         }
     }
 
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            val inputStream = context.contentResolver.openInputStream(it)
+            val bytes = inputStream?.readBytes()
+            if (bytes != null) {
+                group?.groupId?.let { gid -> viewModel.uploadGroupCoverPhoto(gid, bytes) }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             Column {
@@ -193,8 +213,13 @@ fun GroupDetailScreen(
                             canCloseGroup = canManageRoles,
                             canLeaveGroup = canLeaveGroup,
                             canUpdatePrivacy = canManageRoles,
+                            canUploadPhoto = canManageRoles || (group?.allowMemberPhotoUpload == true && isCurrentMember),
                             onPrivacyChange = { isPrivate ->
                                 group?.let { viewModel.updateGroupPrivacy(it.groupId, isPrivate) }
+                            },
+                            onUploadPhoto = { launcher.launch("image/*") },
+                            onUpdateMemberUploadPermission = { allowed ->
+                                group?.let { viewModel.updateGroupMemberUploadPermission(it.groupId, allowed) }
                             },
                             onLeaveGroup = { showLeaveGroupDialog = true },
                             onCloseGroup = { showCloseGroupDialog = true }
@@ -381,7 +406,10 @@ private fun GroupInfoCard(
     canCloseGroup: Boolean,
     canLeaveGroup: Boolean,
     canUpdatePrivacy: Boolean,
+    canUploadPhoto: Boolean,
     onPrivacyChange: (Boolean) -> Unit,
+    onUploadPhoto: () -> Unit,
+    onUpdateMemberUploadPermission: (Boolean) -> Unit,
     onLeaveGroup: () -> Unit,
     onCloseGroup: () -> Unit
 ) {
@@ -394,116 +422,171 @@ private fun GroupInfoCard(
             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
         )
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(
-                            MaterialTheme.colorScheme.primaryContainer,
-                            RoundedCornerShape(18.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
+        Column {
+            // KAPAK FOTOĞRAFI
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!group.coverImageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = group.coverImageUrl,
+                        contentDescription = "Grup Kapağı",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
                     Icon(
-                        imageVector = if (group.isPrivate) Icons.Default.Lock else Icons.Default.Group,
+                        Icons.Default.Group,
                         contentDescription = null,
-                        modifier = Modifier.size(32.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                     )
                 }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(
-                        text = group.name,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = if (group.isPrivate) "Kapalı Grup" else "Herkese Açık",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (group.isPrivate)
-                            MaterialTheme.colorScheme.secondary
-                        else
-                            MaterialTheme.colorScheme.primary
-                    )
+                
+                // Kapak Değiştirme Butonu
+                if (canUploadPhoto) {
+                    IconButton(
+                        onClick = onUploadPhoto,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = "Kapağı Değiştir", tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
 
-            if (group.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = group.description,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            if (group.creatorName.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Yönetici: ${group.creatorName}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            }
-
-            if (canUpdatePrivacy) {
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Kapalı Grup",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold
+                            text = group.name,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = if (group.isPrivate) {
-                                "Katılmak için yönetici onayı gerekir."
-                            } else {
-                                "Herkes direkt katılabilir."
-                            },
+                            text = if (group.isPrivate) "Kapalı Grup" else "Herkese Açık",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            color = if (group.isPrivate)
+                                MaterialTheme.colorScheme.secondary
+                            else
+                                MaterialTheme.colorScheme.primary
                         )
                     }
-                    Switch(
-                        checked = group.isPrivate,
-                        onCheckedChange = onPrivacyChange
+                }
+
+                if (group.description.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = group.description,
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
-            }
 
-            if (canCloseGroup) {
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton(
-                    onClick = onCloseGroup,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
+                if (group.creatorName.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Yönetici: ${group.creatorName}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
-                ) {
-                    Text("Grubu Kapat")
                 }
-            }
 
-            if (canLeaveGroup) {
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedButton(
-                    onClick = onLeaveGroup,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Gruptan Çık")
+                if (canUpdatePrivacy) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Grup Gizliliği
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Kapalı Grup",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (group.isPrivate) {
+                                    "Katılmak için yönetici onayı gerekir."
+                                } else {
+                                    "Herkes direkt katılabilir."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                        Switch(
+                            checked = group.isPrivate,
+                            onCheckedChange = onPrivacyChange
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Üye Fotoğraf Yükleme İzni (Sadece Admin görebilir)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Üyeler Fotoğraf Yükleyebilir",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (group.allowMemberPhotoUpload) {
+                                    "Üyeler kapak fotoğrafını değiştirebilir."
+                                } else {
+                                    "Sadece yönetici fotoğraf değiştirebilir."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                        Switch(
+                            checked = group.allowMemberPhotoUpload,
+                            onCheckedChange = onUpdateMemberUploadPermission
+                        )
+                    }
+                }
+
+                if (canCloseGroup) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = onCloseGroup,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Grubu Kapat")
+                    }
+                }
+
+                if (canLeaveGroup) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onLeaveGroup,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Gruptan Çık")
+                    }
                 }
             }
         }

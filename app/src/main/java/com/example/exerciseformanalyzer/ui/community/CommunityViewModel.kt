@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.google.firebase.storage.ktx.storage
+import kotlinx.coroutines.tasks.await
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UI State tanımları
@@ -675,4 +677,44 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
     // ─────────────────────────────────────────────────────────────────────────
 
     fun resetEvent() { _event.value = CommunityEvent.Idle }
+
+    fun uploadGroupCoverPhoto(groupId: String, imageBytes: ByteArray) {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        _event.value = CommunityEvent.Loading
+        viewModelScope.launch {
+            try {
+                val storageRef = com.google.firebase.ktx.Firebase.storage.reference.child("group_covers/$groupId.jpg")
+                storageRef.putBytes(imageBytes).await()
+                val url = storageRef.downloadUrl.await().toString()
+                
+                communityRepo.updateGroupSettings(groupId, uid, mapOf("coverImageUrl" to url))
+                    .onSuccess {
+                        _event.value = CommunityEvent.Success("Kapak fotoğrafı güncellendi.")
+                        loadMyGroups()
+                        _selectedGroup.value = _selectedGroup.value?.copy(coverImageUrl = url)
+                    }
+                    .onFailure {
+                        _event.value = CommunityEvent.Error(it.message ?: "Hata oluştu.")
+                    }
+            } catch (e: Exception) {
+                _event.value = CommunityEvent.Error("Yükleme başarısız: ${e.message}")
+            }
+        }
+    }
+
+    fun updateGroupMemberUploadPermission(groupId: String, allowed: Boolean) {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        viewModelScope.launch {
+            communityRepo.updateGroupMemberUploadPermission(groupId, uid, allowed)
+                .onSuccess {
+                    _event.value = CommunityEvent.Success("İzinler güncellendi.")
+                    _selectedGroup.value = _selectedGroup.value?.copy(allowMemberPhotoUpload = allowed)
+                }
+                .onFailure {
+                    _event.value = CommunityEvent.Error(it.message ?: "Hata oluştu.")
+                }
+        }
+    }
 }

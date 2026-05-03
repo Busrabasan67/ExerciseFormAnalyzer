@@ -31,6 +31,9 @@ interface GroupDao {
     @Query("UPDATE groups SET isSynced = 1, firebaseDocId = :docId WHERE id = :groupId")
     suspend fun markGroupAsSynced(groupId: Int, docId: String)
 
+    @Query("SELECT * FROM groups WHERE firebaseDocId = :docId LIMIT 1")
+    suspend fun getGroupByDocId(docId: String): GroupEntity?
+
     // --- ÜYELİK CRUD ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

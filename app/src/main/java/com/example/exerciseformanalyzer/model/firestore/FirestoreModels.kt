@@ -113,6 +113,8 @@ data class FirestoreGroup(
     val description: String = "",
     val creatorId: String = "",
     val isPrivate: Boolean = false,
+    val coverImageUrl: String? = null,
+    val allowMemberPhotoUpload: Boolean = false,
     @ServerTimestamp val createdAt: Date? = null
 )
 

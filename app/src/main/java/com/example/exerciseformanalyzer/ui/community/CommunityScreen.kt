@@ -67,6 +67,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.example.exerciseformanalyzer.model.firestore.FsGroup
 import com.example.exerciseformanalyzer.model.firestore.FsGroupInvite
 import com.example.exerciseformanalyzer.model.firestore.FsGroupJoinRequest
@@ -248,27 +250,36 @@ private fun ExploreGroupCard(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Grup ikonu
+            // Grup kapağı / ikonu
             Box(
                 modifier = Modifier
                     .size(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(
                         color = if (group.isPrivate)
                             Color(0xFF00A896)
                         else
-                            MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(14.dp)
+                            MaterialTheme.colorScheme.primaryContainer
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = if (group.isPrivate) Icons.Default.Lock else Icons.Default.Group,
-                    contentDescription = null,
-                    tint = if (group.isPrivate)
-                        Color.White
-                    else
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                if (!group.coverImageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = group.coverImageUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (group.isPrivate) Icons.Default.Lock else Icons.Default.Group,
+                        contentDescription = null,
+                        tint = if (group.isPrivate)
+                            Color.White
+                        else
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -405,17 +416,27 @@ private fun MyGroupCard(
                 Box(
                     modifier = Modifier
                         .size(52.dp)
+                        .clip(RoundedCornerShape(14.dp))
                         .background(
-                            if (group.isPrivate) Color(0xFF5E60CE) else MaterialTheme.colorScheme.primaryContainer,
-                            RoundedCornerShape(14.dp)
+                            if (group.isPrivate) Color(0xFF5E60CE) else MaterialTheme.colorScheme.primaryContainer
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.People,
-                        contentDescription = null,
-                        tint = if (group.isPrivate) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    if (!group.coverImageUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = group.coverImageUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.People,
+                            contentDescription = null,
+                            tint = if (group.isPrivate) Color.White else MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                    
                     if (group.isPrivate) {
                         Box(
                             modifier = Modifier

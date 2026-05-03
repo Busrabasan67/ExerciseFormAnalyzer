@@ -261,4 +261,10 @@ class CommunityRepository(
 
     suspend fun getMyGroups(userId: String): List<FsGroup> =
         service.getMyGroups(userId)
+
+    suspend fun updateGroupSettings(groupId: String, actorUserId: String, settings: Map<String, Any>): Result<Unit> =
+        service.updateGroupSettings(groupId, actorUserId, settings)
+
+    suspend fun updateGroupMemberUploadPermission(groupId: String, actorUserId: String, allowed: Boolean): Result<Unit> =
+        service.updateGroupMemberUploadPermission(groupId, actorUserId, allowed)
 }

@@ -472,4 +472,8 @@ class FirestoreService {
             .get().await()
             .documents.mapNotNull { it.toObject<FirestoreUser>() }
     }
+
+    suspend fun updateGroupSettings(groupId: String, settings: Map<String, Any>) {
+        db.collection(GROUPS).document(groupId).update(settings).await()
+    }
 }
