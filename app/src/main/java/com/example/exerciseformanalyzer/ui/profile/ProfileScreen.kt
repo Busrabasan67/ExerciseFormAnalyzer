@@ -48,6 +48,8 @@ import kotlinx.coroutines.launch
 import com.google.accompanist.permissions.*
 import android.os.Build
 import android.Manifest
+import androidx.exifinterface.media.ExifInterface
+import android.graphics.Matrix
 
 @Composable
 fun ProfileScreen(
@@ -77,44 +79,95 @@ fun ProfileScreen(
 
     val permissionState = rememberPermissionState(permission)
 
-    val pickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri ->
-            uri?.let {
-                scope.launch {
-                    isUploading = true
-                    try {
-                        val inputStream = context.contentResolver.openInputStream(it)
-                        val originalBitmap = BitmapFactory.decodeStream(inputStream)
-                        
-                        // Square Crop & Resize
-                        val size = Math.min(originalBitmap.width, originalBitmap.height)
-                        val x = (originalBitmap.width - size) / 2
-                        val y = (originalBitmap.height - size) / 2
-                        val croppedBitmap = Bitmap.createBitmap(originalBitmap, x, y, size, size)
-                        val scaledBitmap = Bitmap.createScaledBitmap(croppedBitmap, 512, 512, true)
-                        
-                        // Compress
-                        val baos = ByteArrayOutputStream()
-                        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos)
-                        val data = baos.toByteArray()
-                        
-                        viewModel.uploadProfileImage(data) { result ->
-                            isUploading = false
-                            result.onSuccess {
-                                scope.launch { snackbarHostState.showSnackbar("Profile image updated successfully") }
-                            }.onFailure {
-                                scope.launch { snackbarHostState.showSnackbar("Upload failed: ${it.message}") }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        isUploading = false
-                        snackbarHostState.showSnackbar("Error processing image")
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
+    var tempPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    // Helper to process and upload image
+    fun processAndUpload(uri: android.net.Uri) {
+        scope.launch {
+            isUploading = true
+            try {
+                // 1. Read orientation from EXIF
+                val inputStreamForExif = context.contentResolver.openInputStream(uri)
+                val exif = inputStreamForExif?.let { ExifInterface(it) }
+                val orientation = exif?.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) ?: ExifInterface.ORIENTATION_NORMAL
+                inputStreamForExif?.close()
+
+                // 2. Decode Bitmap
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val originalBitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream?.close()
+
+                if (originalBitmap == null) {
+                    isUploading = false
+                    snackbarHostState.showSnackbar("Error: Could not decode image")
+                    return@launch
+                }
+
+                // 3. Rotate bitmap based on EXIF
+                val rotatedBitmap = when (orientation) {
+                    ExifInterface.ORIENTATION_ROTATE_90 -> rotateBitmap(originalBitmap, 90f)
+                    ExifInterface.ORIENTATION_ROTATE_180 -> rotateBitmap(originalBitmap, 180f)
+                    ExifInterface.ORIENTATION_ROTATE_270 -> rotateBitmap(originalBitmap, 270f)
+                    else -> originalBitmap
+                }
+
+                // 4. Square Crop & Resize
+                val size = Math.min(rotatedBitmap.width, rotatedBitmap.height)
+                val x = (rotatedBitmap.width - size) / 2
+                val y = (rotatedBitmap.height - size) / 2
+                val croppedBitmap = Bitmap.createBitmap(rotatedBitmap, x, y, size, size)
+                val scaledBitmap = Bitmap.createScaledBitmap(croppedBitmap, 512, 512, true)
+                
+                // Compress
+                val baos = ByteArrayOutputStream()
+                scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos)
+                val data = baos.toByteArray()
+                
+                viewModel.uploadProfileImage(data) { result: Result<String> ->
+                    isUploading = false
+                    if (result.isSuccess) {
+                        scope.launch { snackbarHostState.showSnackbar("Profile image updated successfully") }
+                    } else {
+                        val error = result.exceptionOrNull()?.message ?: "Unknown error"
+                        scope.launch { snackbarHostState.showSnackbar("Upload failed: $error") }
                     }
                 }
+            } catch (e: Exception) {
+                isUploading = false
+                snackbarHostState.showSnackbar("Error processing image")
+            }
+        }
+    }
+
+
+
+    val pickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri -> uri?.let { processAndUpload(it) } }
+    )
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+        onResult = { success ->
+            if (success) {
+                tempPhotoUri?.let { processAndUpload(it) }
             }
         }
     )
+
+    fun createTempUri(): android.net.Uri {
+        val tempFile = java.io.File.createTempFile("profile_tmp", ".jpg", context.cacheDir).apply {
+            createNewFile()
+            deleteOnExit()
+        }
+        return androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            tempFile
+        )
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -193,11 +246,7 @@ fun ProfileScreen(
                                 isDarkMode = isDarkMode,
                                 isUploading = isUploading,
                                 onImageClick = {
-                                    if (permissionState.status.isGranted) {
-                                        pickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                    } else {
-                                        permissionState.launchPermissionRequest()
-                                    }
+                                    showImageSourceDialog = true
                                 },
                                 onDarkModeToggle = { mainViewModel.setDarkMode(it) },
                                 onLogoutClick = { showLogoutDialog = true },
@@ -235,6 +284,158 @@ fun ProfileScreen(
                 }
             }
         )
+    }
+
+    if (showImageSourceDialog) {
+        ModalBottomSheet(
+            onDismissRequest = { showImageSourceDialog = false },
+            sheetState = sheetState,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            scrimColor = Color.Black.copy(alpha = 0.45f),
+            dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.outlineVariant) }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp, top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = stringResource(R.string.profile_photo_title),
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    textAlign = TextAlign.Center
+                )
+                
+                Text(
+                    text = stringResource(R.string.profile_photo_source_msg),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
+                    textAlign = TextAlign.Center
+                )
+
+                // Option: Camera
+                Surface(
+                    onClick = {
+                        showImageSourceDialog = false
+                        val uri = createTempUri()
+                        tempPhotoUri = uri
+                        cameraLauncher.launch(uri)
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.CameraAlt,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = stringResource(R.string.camera),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+
+                // Option: Gallery
+                Surface(
+                    onClick = {
+                        showImageSourceDialog = false
+                        if (permissionState.status.isGranted) {
+                            pickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        } else {
+                            permissionState.launchPermissionRequest()
+                        }
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.PhotoLibrary,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = stringResource(R.string.gallery),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                TextButton(
+                    onClick = { showImageSourceDialog = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(R.string.cancel),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -285,7 +486,7 @@ fun ProfileHeader(user: UserEntity, isUploading: Boolean = false, onImageClick: 
                 .background(MaterialTheme.colorScheme.surface, CircleShape)
                 .padding(4.dp)
                 .then(
-                    if (!isUploading && (user.role == "EXPERT" || user.role == "ADMIN")) {
+                    if (!isUploading) {
                         Modifier.clickable { onImageClick() }
                     } else {
                         Modifier
@@ -346,27 +547,25 @@ fun ProfileHeader(user: UserEntity, isUploading: Boolean = false, onImageClick: 
                     )
                 }
             } else {
-                if (user.role == "EXPERT" || user.role == "ADMIN") {
-                    // Overlay camera icon to indicate it's clickable
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.1f), CircleShape),
-                        contentAlignment = Alignment.BottomEnd
+                // Overlay camera icon to indicate it's clickable
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.1f), CircleShape),
+                    contentAlignment = Alignment.BottomEnd
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = CircleShape,
+                        modifier = Modifier.padding(4.dp).size(28.dp),
+                        shadowElevation = 2.dp
                     ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = CircleShape,
-                            modifier = Modifier.padding(4.dp).size(28.dp),
-                            shadowElevation = 2.dp
-                        ) {
-                            Icon(
-                                Icons.Default.CameraAlt,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.padding(6.dp)
-                            )
-                        }
+                        Icon(
+                            Icons.Default.CameraAlt,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.padding(6.dp)
+                        )
                     }
                 }
             }
@@ -927,4 +1126,10 @@ fun ActivitySelector(
             }
         }
     }
+}
+
+private fun rotateBitmap(source: Bitmap, degrees: Float): Bitmap {
+    val matrix = Matrix()
+    matrix.postRotate(degrees)
+    return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
 }

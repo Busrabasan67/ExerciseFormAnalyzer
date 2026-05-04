@@ -160,4 +160,5 @@ dependencies {
 
     // --- GÖRÜNTÜ YÜKLEME (COIL) ---
     implementation(libs.coil.compose)
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }

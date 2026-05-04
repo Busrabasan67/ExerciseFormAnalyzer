@@ -100,4 +100,9 @@
     <string name="logout_confirm_message">Çıkış yapmak istediğinizden emin misiniz?</string>
     <string name="yes">Evet</string>
     <string name="no">Hayır</string>
+
+    <string name="profile_photo_title">Profil Fotoğrafı</string>
+    <string name="profile_photo_source_msg">Fotoğrafınızı nasıl eklemek istersiniz?</string>
+    <string name="gallery">Galeri</string>
+    <string name="camera">Kamera</string>
 </resources>
