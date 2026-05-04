@@ -191,7 +191,7 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
     // Grup oluştur
     // ─────────────────────────────────────────────────────────────────────────
 
-    fun createGroup(name: String, description: String, isPrivate: Boolean) {
+    fun createGroup(name: String, description: String, isPrivate: Boolean, imageBytes: ByteArray? = null) {
         val uid = currentUid
         if (uid.isEmpty()) { _event.value = CommunityEvent.Error("Giriş yapmanız gerekiyor."); return }
         if (name.isBlank()) { _event.value = CommunityEvent.Error("Grup adı boş olamaz."); return }
@@ -212,7 +212,22 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                     description = description,
                     isPrivate = isPrivate
                 ).onSuccess { createdGroup ->
-                    _event.value = CommunityEvent.GroupCreated(createdGroup)
+                    // Eğer resim varsa yükle
+                    if (imageBytes != null) {
+                        try {
+                            val storageRef = com.google.firebase.ktx.Firebase.storage.reference.child("group_covers/${createdGroup.groupId}.jpg")
+                            storageRef.putBytes(imageBytes).await()
+                            val url = storageRef.downloadUrl.await().toString()
+                            communityRepo.updateGroupSettings(createdGroup.groupId, uid, mapOf("coverImageUrl" to url))
+                            val updatedGroup = createdGroup.copy(coverImageUrl = url)
+                            _event.value = CommunityEvent.GroupCreated(updatedGroup)
+                        } catch (e: Exception) {
+                            // Resim yükleme başarısız olsa da grup oluşturuldu sayılır
+                            _event.value = CommunityEvent.GroupCreated(createdGroup)
+                        }
+                    } else {
+                        _event.value = CommunityEvent.GroupCreated(createdGroup)
+                    }
                     loadAll()
                 }.onFailure {
                     _event.value = CommunityEvent.Error("Grup oluşturulamadı: ${it.message}")
@@ -593,6 +608,39 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                 text = text
             ).onFailure {
                 _event.value = CommunityEvent.Error(it.message ?: "Mesaj gönderilemedi.")
+            }
+        }
+    }
+
+    fun sendImageMessage(imageBytes: ByteArray) {
+        val group = _selectedGroup.value ?: return
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        
+        _event.value = CommunityEvent.Loading
+        viewModelScope.launch {
+            try {
+                val profile = app.firestoreService.getUserProfile(uid)
+                val msgId = java.util.UUID.randomUUID().toString()
+                val storageRef = com.google.firebase.ktx.Firebase.storage.reference.child("group_messages/${group.groupId}/$msgId.jpg")
+                
+                storageRef.putBytes(imageBytes).await()
+                val url = storageRef.downloadUrl.await().toString()
+                
+                val message = FsGroupMessage(
+                    messageId = msgId,
+                    groupId = group.groupId,
+                    senderId = uid,
+                    senderName = profile?.fullName ?: "Kullanıcı",
+                    type = "image",
+                    imageUrl = url,
+                    createdAt = System.currentTimeMillis()
+                )
+                
+                app.communityFirestoreService.sendTextMessage(message) // Reuse service method as it takes FsGroupMessage
+                _event.value = CommunityEvent.Idle
+            } catch (e: Exception) {
+                _event.value = CommunityEvent.Error("Resim gönderilemedi: ${e.message}")
             }
         }
     }

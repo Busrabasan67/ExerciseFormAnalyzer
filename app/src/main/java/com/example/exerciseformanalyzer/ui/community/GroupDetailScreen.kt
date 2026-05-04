@@ -82,6 +82,19 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.filled.PhotoCamera
 
+import com.example.exerciseformanalyzer.util.ImageUtils
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.ui.graphics.Color
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
@@ -145,18 +158,34 @@ fun GroupDetailScreen(
         }
     }
 
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let {
-            val inputStream = context.contentResolver.openInputStream(it)
-            val bytes = inputStream?.readBytes()
+    val sheetState = rememberModalBottomSheetState()
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+    var tempPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    fun handleImageUpload(uri: android.net.Uri) {
+        scope.launch {
+            val bytes = ImageUtils.processImage(context, uri)
             if (bytes != null) {
                 group?.groupId?.let { gid -> viewModel.uploadGroupCoverPhoto(gid, bytes) }
             }
         }
     }
+
+    val pickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri -> uri?.let { handleImageUpload(it) } }
+    )
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+        onResult = { success ->
+            if (success) {
+                tempPhotoUri?.let { handleImageUpload(it) }
+            }
+        }
+    )
 
     Scaffold(
         topBar = {
@@ -199,112 +228,92 @@ fun GroupDetailScreen(
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
         } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            when (tabs[selectedTab]) {
-                // ── Bilgiler sekmesi ────────────────────────────────────────
-                "Bilgiler" -> {
-                    item {
-                        GroupInfoCard(
-                            group = group,
-                            canCloseGroup = canManageRoles,
-                            canLeaveGroup = canLeaveGroup,
-                            canUpdatePrivacy = canManageRoles,
-                            canUploadPhoto = canManageRoles || (group?.allowMemberPhotoUpload == true && isCurrentMember),
-                            onPrivacyChange = { isPrivate ->
-                                group?.let { viewModel.updateGroupPrivacy(it.groupId, isPrivate) }
-                            },
-                            onUploadPhoto = { launcher.launch("image/*") },
-                            onUpdateMemberUploadPermission = { allowed ->
-                                group?.let { viewModel.updateGroupMemberUploadPermission(it.groupId, allowed) }
-                            },
-                            onLeaveGroup = { showLeaveGroupDialog = true },
-                            onCloseGroup = { showCloseGroupDialog = true }
-                        )
-                    }
-                }
-
-                // ── Üyeler sekmesi ──────────────────────────────────────────
-                "Üyeler" -> {
-                    if (members.isEmpty()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                when (tabs[selectedTab]) {
+                    "Bilgiler" -> {
                         item {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().height(200.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "Üye bulunamadı.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                            GroupInfoCard(
+                                group = group,
+                                canCloseGroup = canManageRoles,
+                                canLeaveGroup = canLeaveGroup,
+                                canUpdatePrivacy = canManageRoles,
+                                canUploadPhoto = canManageRoles || (group?.allowMemberPhotoUpload == true && isCurrentMember),
+                                onPrivacyChange = { isPrivate ->
+                                    group?.let { viewModel.updateGroupPrivacy(it.groupId, isPrivate) }
+                                },
+                                onUploadPhoto = { showImageSourceDialog = true },
+                                onUpdateMemberUploadPermission = { allowed ->
+                                    group?.let { viewModel.updateGroupMemberUploadPermission(it.groupId, allowed) }
+                                },
+                                onLeaveGroup = { showLeaveGroupDialog = true },
+                                onCloseGroup = { showCloseGroupDialog = true }
+                            )
+                        }
+                    }
+                    "Üyeler" -> {
+                        if (members.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Üye bulunamadı.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                    )
+                                }
+                            }
+                        } else {
+                            items(members) { member ->
+                                MemberCard(
+                                    member = member,
+                                    canRemove = canManageRoles && member.userId != currentUid && member.role != "admin",
+                                    canManageRole = canManageRoles && member.userId != currentUid && member.role != "admin",
+                                    onRoleChange = { newRole ->
+                                        group?.let { viewModel.updateMemberRole(it.groupId, member.userId, newRole) }
+                                    },
+                                    onPromoteToAdmin = {
+                                        group?.let { viewModel.updateMemberRole(it.groupId, member.userId, "admin") }
+                                    },
+                                    onRemove = {
+                                        memberPendingRemoval = member
+                                    }
                                 )
                             }
                         }
-                    } else {
-                        items(members) { member ->
-                            MemberCard(
-                                member = member,
-                                canRemove = canManageRoles && member.userId != currentUid && member.role != "admin",
-                                canManageRole = canManageRoles && member.userId != currentUid && member.role != "admin",
-                                onRoleChange = { newRole ->
-                                    group?.let { viewModel.updateMemberRole(it.groupId, member.userId, newRole) }
+                    }
+                    "Davet" -> {
+                        item {
+                            InviteSection(
+                                query = inviteQuery,
+                                onQueryChange = { q ->
+                                    inviteQuery = q
+                                    viewModel.searchUsers(q)
                                 },
-                                onPromoteToAdmin = {
-                                    group?.let { viewModel.updateMemberRole(it.groupId, member.userId, "admin") }
+                                searchResults = searchResults,
+                                isLoading = event is CommunityEvent.Loading,
+                                onInvite = { targetUser ->
+                                    group?.let { viewModel.sendGroupInvite(it, targetUser) }
+                                    inviteQuery = ""
+                                    viewModel.clearSearch()
                                 },
-                                onRemove = {
-                                    memberPendingRemoval = member
+                                onClearSearch = {
+                                    inviteQuery = ""
+                                    viewModel.clearSearch()
                                 }
                             )
                         }
                     }
                 }
-
-                // ── Davet Gönder sekmesi (sadece admin) ─────────────────────
-                "Sohbet" -> {
-                    item {
-                        ChatSection(
-                            messages = messages,
-                            programs = programs,
-                            appliedProgramIds = appliedProgramIds,
-                            canShareProgram = canShareProgram,
-                            canDelete = canDeleteChatContent,
-                            onSendMessage = { viewModel.sendTextMessage(it) },
-                            onShareProgram = { showProgramDialog = true },
-                            onApplyProgram = { viewModel.applyProgram(it) },
-                            onDeleteMessage = { viewModel.deleteMessage(it) }
-                        )
-                    }
-                }
-
-                "Davet" -> {
-                    item {
-                        InviteSection(
-                            query = inviteQuery,
-                            onQueryChange = { q ->
-                                inviteQuery = q
-                                viewModel.searchUsers(q)
-                            },
-                            searchResults = searchResults,
-                            isLoading = event is CommunityEvent.Loading,
-                            onInvite = { targetUser ->
-                                group?.let { viewModel.sendGroupInvite(it, targetUser) }
-                                inviteQuery = ""
-                                viewModel.clearSearch()
-                            },
-                            onClearSearch = {
-                                inviteQuery = ""
-                                viewModel.clearSearch()
-                            }
-                        )
-                    }
-                }
             }
         }
     }
-
+    // Dialogs remain unchanged
     memberPendingRemoval?.let { member ->
         AlertDialog(
             onDismissRequest = { memberPendingRemoval = null },
@@ -330,7 +339,6 @@ fun GroupDetailScreen(
             }
         )
     }
-
     if (showCloseGroupDialog) {
         AlertDialog(
             onDismissRequest = { showCloseGroupDialog = false },
@@ -356,7 +364,6 @@ fun GroupDetailScreen(
             }
         )
     }
-
     if (showLeaveGroupDialog) {
         AlertDialog(
             onDismissRequest = { showLeaveGroupDialog = false },
@@ -380,20 +387,145 @@ fun GroupDetailScreen(
             }
         )
     }
-
-    if (showProgramDialog) {
-        AssignTaskDialog(
-            onDismissRequest = { showProgramDialog = false },
-            dialogTitle = "Grup Programı Paylaş",
-            defaultTitle = "Grup Programı",
-            submitText = "Programı Paylaş",
-            onAssignTask = { title, note, _, exercises, sched, days, auto, weeks ->
-                viewModel.shareProgram(title, note, exercises, sched, days, auto, weeks)
-                showProgramDialog = false
+    if (showImageSourceDialog) {
+        ModalBottomSheet(
+            onDismissRequest = { showImageSourceDialog = false },
+            sheetState = sheetState,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            scrimColor = android.graphics.Color.BLACK.let { androidx.compose.ui.graphics.Color(it).copy(alpha = 0.45f) },
+            dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.outlineVariant) }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp, top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Grup Fotoğrafı",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Grubunuzun kapak fotoğrafını nasıl güncellemek istersiniz?",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
+                    textAlign = TextAlign.Center
+                )
+                Surface(
+                    onClick = {
+                        showImageSourceDialog = false
+                        val uri = ImageUtils.createTempUri(context, "group_update_")
+                        tempPhotoUri = uri
+                        cameraLauncher.launch(uri)
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = androidx.compose.ui.graphics.Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.PhotoCamera,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Kamera",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+                Surface(
+                    onClick = {
+                        showImageSourceDialog = false
+                        pickerLauncher.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = androidx.compose.ui.graphics.Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.PhotoLibrary,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Galeri",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+                TextButton(
+                    onClick = { showImageSourceDialog = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "İptal",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                }
             }
-        )
+        }
     }
-}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -423,7 +555,6 @@ private fun GroupInfoCard(
         )
     ) {
         Column {
-            // KAPAK FOTOĞRAFI
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -447,7 +578,6 @@ private fun GroupInfoCard(
                     )
                 }
                 
-                // Kapak Değiştirme Butonu
                 if (canUploadPhoto) {
                     IconButton(
                         onClick = onUploadPhoto,
@@ -504,7 +634,6 @@ private fun GroupInfoCard(
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(12.dp))
                     
-                    // Grup Gizliliği
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -534,7 +663,6 @@ private fun GroupInfoCard(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Üye Fotoğraf Yükleme İzni (Sadece Admin görebilir)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -615,7 +743,6 @@ private fun MemberCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -709,9 +836,10 @@ private fun MemberCard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Davet Bölümü — Admin tarafı, e-posta ile kullanıcı ara + davet gönder
+// Chat Section
 // ─────────────────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatSection(
     messages: List<FsGroupMessage>,
@@ -789,6 +917,7 @@ private fun ChatSection(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatSectionFixed(
     messages: List<FsGroupMessage>,
@@ -884,10 +1013,8 @@ private fun ChatSectionFixed(
                 color = MaterialTheme.colorScheme.surface
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.Bottom
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
                         value = messageText,
@@ -957,6 +1084,7 @@ private fun ChatMessageTimeline(
         }
     }
 }
+
 
 @Composable
 private fun ChatDateHeader(label: String) {

@@ -37,8 +37,9 @@ data class FsGroupMessage(
     val senderId: String = "",
     val senderName: String = "",
     val senderRole: String = "member",
-    val type: String = "text", // "text" | "program"
+    val type: String = "text", // "text" | "program" | "image"
     val text: String = "",
+    val imageUrl: String? = null,
     val programId: String = "",
     val createdAt: Long = 0L,
     val deleted: Boolean = false

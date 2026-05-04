@@ -74,6 +74,26 @@ import com.example.exerciseformanalyzer.model.firestore.FsGroupInvite
 import com.example.exerciseformanalyzer.model.firestore.FsGroupJoinRequest
 import com.example.exerciseformanalyzer.model.firestore.FsGroupMember
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import androidx.exifinterface.media.ExifInterface
+import java.io.ByteArrayOutputStream
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.example.exerciseformanalyzer.util.ImageUtils
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material3.HorizontalDivider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -194,9 +214,9 @@ fun CommunityScreen(
         CreateGroupDialog(
             isLoading = event is CommunityEvent.Loading,
             onDismiss = { showCreateDialog = false; viewModel.resetEvent() },
-            onCreate = { name, desc, isPrivate ->
+            onCreate = { name, desc, isPrivate, imageBytes ->
                 waitingCreateSuccess = true
-                viewModel.createGroup(name, desc, isPrivate)
+                viewModel.createGroup(name, desc, isPrivate, imageBytes)
             }
         )
     }
@@ -664,15 +684,44 @@ private fun JoinRequestCard(
 // Grup oluşturma dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CreateGroupDialog(
     isLoading: Boolean,
     onDismiss: () -> Unit,
-    onCreate: (name: String, desc: String, isPrivate: Boolean) -> Unit
+    onCreate: (name: String, desc: String, isPrivate: Boolean, imageBytes: ByteArray?) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var isPrivate by remember { mutableStateOf(false) }
+    
+    var selectedImageBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+    var tempPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    fun handleImageSelection(uri: android.net.Uri) {
+        scope.launch {
+            val bytes = ImageUtils.processImage(context, uri)
+            if (bytes != null) selectedImageBytes = bytes
+        }
+    }
+
+    val pickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri -> uri?.let { handleImageSelection(it) } }
+    )
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+        onResult = { success ->
+            if (success) {
+                tempPhotoUri?.let { handleImageSelection(it) }
+            }
+        }
+    )
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -685,6 +734,33 @@ private fun CreateGroupDialog(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Cover Image Picker
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                        .clickable { showImageSourceDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (selectedImageBytes != null) {
+                        AsyncImage(
+                            model = selectedImageBytes,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text("Kapak Fotoğrafı Ekle", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = name,
@@ -726,7 +802,7 @@ private fun CreateGroupDialog(
                     TextButton(onClick = onDismiss) { Text("İptal") }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = { onCreate(name, description, isPrivate) },
+                        onClick = { onCreate(name, description, isPrivate, selectedImageBytes) },
                         enabled = !isLoading && name.isNotBlank()
                     ) {
                         if (isLoading) {
@@ -739,6 +815,160 @@ private fun CreateGroupDialog(
             }
         }
     }
+
+    if (showImageSourceDialog) {
+        ModalBottomSheet(
+            onDismissRequest = { showImageSourceDialog = false },
+            sheetState = sheetState,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            scrimColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f),
+            dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.outlineVariant) }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp, top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Kapak Fotoğrafı",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    textAlign = TextAlign.Center
+                )
+                
+                Text(
+                    text = "Grubunuz için bir kapak fotoğrafı seçin",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
+                    textAlign = TextAlign.Center
+                )
+
+                // Option: Camera
+                Surface(
+                    onClick = {
+                        showImageSourceDialog = false
+                        val uri = ImageUtils.createTempUri(context, "group_cover_")
+                        tempPhotoUri = uri
+                        cameraLauncher.launch(uri)
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.PhotoCamera,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Kamera",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+
+                // Option: Gallery
+                Surface(
+                    onClick = {
+                        showImageSourceDialog = false
+                        pickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.PhotoLibrary,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Galeri",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                TextButton(
+                    onClick = { showImageSourceDialog = false },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "İptal",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun rotateBitmap(source: Bitmap, degrees: Float): Bitmap {
+    val matrix = Matrix()
+    matrix.postRotate(degrees)
+    return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
