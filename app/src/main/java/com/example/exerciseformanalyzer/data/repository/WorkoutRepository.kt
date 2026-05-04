@@ -128,8 +128,11 @@ class WorkoutRepository(
                             val newCompletedSets = taskContext.completedSets
                             val isCompleted = newCompletedSets >= targetSets
 
-                            val newActualReps = prevActualReps + reps
-                            val newActualDur = prevActualDur + durationSeconds.toInt()
+                            val sessionReps = maxOf(0, reps - taskContext.repsDoneInCurrentSet)
+                            val sessionDur = maxOf(0, durationSeconds.toInt() - taskContext.durDoneInCurrentSet)
+
+                            val newActualReps = prevActualReps + sessionReps
+                            val newActualDur = prevActualDur + sessionDur
 
                             exObj.put("actualReps", newActualReps)
                             exObj.put("actualDurationSeconds", newActualDur)
@@ -170,7 +173,7 @@ class WorkoutRepository(
                                 patientUid = userUid,
                                 exerciseType = taskContext.exerciseType,
                                 periodKey = pKey,
-                                completedSets = taskContext.completedSets + 1, // Mevcut tamamlanan + bu seans
+                                completedSets = taskContext.completedSets, // Doğru değer WorkoutViewModel'dan geliyor
                                 totalSets = exObj.optInt("sets", 1)
                             )
                         }

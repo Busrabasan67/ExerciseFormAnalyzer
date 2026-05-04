@@ -182,7 +182,9 @@ fun AppNavigation(
                         targetSets = params.targetSets,
                         completedSets = params.completedSets,
                         restTimeSeconds = params.restTimeSeconds,
-                        scheduleType = params.scheduleType
+                        scheduleType = params.scheduleType,
+                        repsDoneInCurrentSet = params.repsDoneInCurrentSet,
+                        durDoneInCurrentSet = params.durDoneInCurrentSet
                     )
                     workoutViewModel.setTargetExercise(params.exerciseType, taskContext = ctx)
                     navController.navigate(Route.Camera.route)

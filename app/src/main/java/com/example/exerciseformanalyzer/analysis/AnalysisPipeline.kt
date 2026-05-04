@@ -28,7 +28,12 @@ class AnalysisPipeline {
         ExerciseType.BICEPS_CURL to BicepsCurlEvaluator(),
         ExerciseType.PLANK to PlankEvaluator(),
         ExerciseType.SHOULDER_PRESS to ShoulderPressEvaluator(),
-        ExerciseType.LATERAL_RAISE to LateralRaiseEvaluator()
+        ExerciseType.LATERAL_RAISE to LateralRaiseEvaluator(),
+        ExerciseType.HAMMER_CURL to HammerCurlEvaluator(),
+        ExerciseType.TRICEPS_EXTENSION to TricepsExtensionEvaluator(),
+        ExerciseType.TRICEPS_KICKBACK to TricepsKickbackEvaluator(),
+        ExerciseType.BENT_OVER_ROW to BentOverRowEvaluator(),
+        ExerciseType.BENT_OVER_RAISE to BentOverRaiseEvaluator()
     )
 
     private var currentExerciseType: ExerciseType = ExerciseType.UNKNOWN
@@ -172,7 +177,10 @@ class AnalysisPipeline {
 
         ExerciseType.BICEPS_CURL,
         ExerciseType.HAMMER_CURL,
-        ExerciseType.TRICEPS_EXTENSION -> PoseLandmarkIndex.BICEPS_CURL_CRITICAL
+        ExerciseType.TRICEPS_EXTENSION,
+        ExerciseType.TRICEPS_KICKBACK -> PoseLandmarkIndex.BICEPS_CURL_CRITICAL
+
+        ExerciseType.BENT_OVER_RAISE -> PoseLandmarkIndex.DUMBBELL_ROW_CRITICAL
 
         ExerciseType.UNKNOWN -> PoseLandmarkIndex.SQUAT_CRITICAL
     }

@@ -65,7 +65,7 @@ class ShoulderPressEvaluator : ExerciseEvaluator {
         if (profile != BodyProfile.FRONTAL && hip != null && hip.visibility > 0.5f) {
             val shoulderHipDx = abs(shoulder.x - hip.x)
             if (shoulderHipDx > 0.12f) { // Omuz, kalçaya göre x ekseninde çok sapmışsa (yaylanma)
-                errors.add("Belini geriye bükme, karın ve kalça kaslarını sık")
+                errors.add("Belini sabit tut")
                 score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
             }
         }
@@ -84,7 +84,7 @@ class ShoulderPressEvaluator : ExerciseEvaluator {
                 
                 // Hareketin en dip noktasındayken (dirsekler büklüyken) skapular hizayı denetle
                 if (!elbowInFront && elbowAngle < 130f) {
-                    errors.add("Dirseklerini tam yanlara açma, vücudunun hafif önünde tut")
+                    errors.add("Dirsek açını daralt")
                     score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
                 }
             }
@@ -92,8 +92,8 @@ class ShoulderPressEvaluator : ExerciseEvaluator {
 
         // 3. Hareket Aralığı (ROM - Tepe Noktası ve Derinlik)
         if (repState.phase == RepetitionPhase.TOP || repState.phase == RepetitionPhase.GOING_DOWN) {
-            if (elbowAngle > 170f) {
-                errors.add("Yukarıda dirseklerini tam kilitleme, hafif bükülü bırak")
+            if (elbowAngle < 160f) {
+                errors.add("Kollarını tam uzat")
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             }
         }

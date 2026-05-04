@@ -79,6 +79,12 @@
     <string name="ex_biceps_curl">Biceps Curl</string>
     <string name="ex_shoulder_press">Omuz Press</string>
     <string name="ex_plank">Plank</string>
+    <string name="ex_hammer_curl">Hammer Curl</string>
+    <string name="ex_lateral_raise">Lateral Raise</string>
+    <string name="ex_triceps_extension">Triceps Extension</string>
+    <string name="ex_triceps_kickback">Triceps Kickback</string>
+    <string name="ex_bent_over_row">Bent Over Row</string>
+    <string name="ex_bent_over_raise">Bent Over Raise</string>
 
     <!-- Workout Feedback -->
     <string name="perfect_form">Mükemmel Form</string>

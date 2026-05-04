@@ -82,6 +82,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     private var currentLanguage = "tr"
     
     private var defaultRestSeconds = 90
+    private var initialRepsDone = 0
 
     init {
         initPoseLandmarker()
@@ -156,12 +157,13 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                     val result = analysisPipeline.process(poseFrame)
 
                     val rawCount = result.repetitionState.count
-                    val safeCount = maxOf(maxRepCount, rawCount)
+                    val currentTotalReps = initialRepsDone + rawCount
+                    val safeCount = maxOf(maxRepCount, currentTotalReps)
                     if (safeCount > maxRepCount) {
                         maxRepCount = safeCount
                         checkSetCompletion()
                     }
-                    val safeResult = if (safeCount != rawCount) {
+                    val safeResult = if (result.repetitionState.count != safeCount) {
                         result.copy(
                             repetitionState = result.repetitionState.copy(count = safeCount)
                         )
@@ -209,7 +211,8 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         analysisPipeline.targetExercise = type
         if (type != null) {
             analysisPipeline.reset()
-            maxRepCount = 0
+            initialRepsDone = taskContext?.repsDoneInCurrentSet ?: 0
+            maxRepCount = initialRepsDone
             lastProcessedTimestamp = -1L
             lastChannelTimestamp = -1L
             _uiState.value = ExerciseUiState.Ready
@@ -218,7 +221,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
             _isPaused.value = false
             _isResting.value = false
             _restTimeLeft.value = 0
-            _sessionDurationSec.value = 0L
+            _sessionDurationSec.value = (taskContext?.durDoneInCurrentSet ?: 0).toLong()
             _workoutSummary.value = null
             totalAnalysisSamples = 0
             correctAnalysisSamples = 0
@@ -267,7 +270,11 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
 
         if (setCompleted) {
             val newCompletedSets = ctx.completedSets + 1
-            val updatedCtx = ctx.copy(completedSets = newCompletedSets)
+            val updatedCtx = ctx.copy(
+                completedSets = newCompletedSets,
+                repsDoneInCurrentSet = 0,
+                durDoneInCurrentSet = 0
+            )
             _activeTaskContext.value = updatedCtx
 
             if (newCompletedSets >= ctx.targetSets) {
@@ -294,6 +301,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     fun endRest() {
         _isResting.value = false
         _sessionDurationSec.value = 0
+        initialRepsDone = 0
         maxRepCount = 0
         analysisPipeline.reset()
         speak(if (currentLanguage == "tr") "Yeni sete başlayın." else "Start the next set.")
@@ -373,6 +381,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         _restTimeLeft.value = 0
         _uiState.value = ExerciseUiState.Ready
         _activeTaskContext.value = null
+        initialRepsDone = 0
         maxRepCount = 0
         lastProcessedTimestamp = -1L
         lastChannelTimestamp = -1L

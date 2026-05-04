@@ -21,5 +21,7 @@ data class TaskContext(
     val targetSets: Int,
     val completedSets: Int,
     val restTimeSeconds: Int,
-    val scheduleType: String = "DAILY"  // Periyot anahtarı için
+    val scheduleType: String = "DAILY",  // Periyot anahtarı için
+    val repsDoneInCurrentSet: Int = 0,
+    val durDoneInCurrentSet: Int = 0
 )

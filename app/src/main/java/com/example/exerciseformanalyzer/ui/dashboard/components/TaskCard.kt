@@ -50,7 +50,10 @@ fun TaskCard(
                 val actualDur: Int,
                 val status: String,
                 val progressStr: String,
-                val restTimeSeconds: Int
+                val restTimeSeconds: Int,
+                val repsDoneInCurrentSet: Int,
+                val durDoneInCurrentSet: Int,
+                val isPartiallyDone: Boolean
             )
 
             val parsedExercises = remember(task.exercisesJson) {
@@ -69,6 +72,10 @@ fun TaskCard(
                         val cSets = ex.optInt("completedSets", 0)
                         val exStatus = ex.optString("status", "PENDING")
                         val restTime = ex.optInt("restTimeSeconds", 90)
+
+                        val rDone = maxOf(0, aReps - (cSets * tReps))
+                        val dDone = maxOf(0, aDur - (cSets * tDur))
+                        val isPartiallyDone = (rDone > 0 || dDone > 0) && exStatus != "COMPLETED"
 
                         val progressStr = if (tType == "DURATION") {
                             "Set: $cSets/$sets • $aDur/$tDur Sn"
@@ -89,7 +96,10 @@ fun TaskCard(
                                 actualDur = aDur,
                                 status = exStatus,
                                 progressStr = progressStr,
-                                restTimeSeconds = restTime
+                                restTimeSeconds = restTime,
+                                repsDoneInCurrentSet = rDone,
+                                durDoneInCurrentSet = dDone,
+                                isPartiallyDone = isPartiallyDone
                             )
                         )
                     }
@@ -160,7 +170,9 @@ fun TaskCard(
                                                 targetDurationSeconds = exData.targetDur,
                                                 targetSets = exData.sets,
                                                 completedSets = exData.completedSets,
-                                                restTimeSeconds = exData.restTimeSeconds
+                                                restTimeSeconds = exData.restTimeSeconds,
+                                                repsDoneInCurrentSet = exData.repsDoneInCurrentSet,
+                                                durDoneInCurrentSet = exData.durDoneInCurrentSet
                                             )
                                         )
                                     } else {
@@ -171,7 +183,7 @@ fun TaskCard(
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                 modifier = Modifier.height(28.dp)
                             ) {
-                                Text("Başla", style = MaterialTheme.typography.labelSmall)
+                                Text(if (exData.isPartiallyDone) "Devam Et" else "Başla", style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }

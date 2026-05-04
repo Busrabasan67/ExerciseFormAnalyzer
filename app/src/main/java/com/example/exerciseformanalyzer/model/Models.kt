@@ -87,7 +87,9 @@ enum class ExerciseType(val displayName: String) {
     SIT_UP("Sit-up"),
     CRUNCH("Crunch"),
     RUSSIAN_TWIST("Russian Twist"),
-    BURPEE("Burpee");
+    BURPEE("Burpee"),
+    TRICEPS_KICKBACK("Triceps Kickback"),
+    BENT_OVER_RAISE("Bent-over Raise");
 
     fun getMetadata(): ExerciseMetadata {
         return when (this) {
@@ -132,6 +134,48 @@ enum class ExerciseType(val displayName: String) {
                 preferredAngle = CameraAngle.SIDE,
                 correctFormRules = listOf("Dirsekler omuz hizasında", "Vücut düz bir çizgi halinde", "Karın sıkı"),
                 commonMistakes = listOf("Kalçayı düşürmek", "Kalçayı yukarı dikmek", "Boynu aşağı sarkıtmak")
+            )
+            HAMMER_CURL -> ExerciseMetadata(
+                description = "Biceps ve ön kol kaslarını geliştirir.",
+                preferredAngle = CameraAngle.FRONT,
+                correctFormRules = listOf("Dirsekler vücuda sabit", "Avuç içleri birbirine bakmalı", "Sadece ön kol hareket etmeli"),
+                commonMistakes = listOf("Dirseklerin öne gitmesi", "Vücut sallanması (Momentum)", "Bileklerin bükülmesi")
+            )
+            SHOULDER_PRESS -> ExerciseMetadata(
+                description = "Omuz ve arka kol kaslarını hedefler.",
+                preferredAngle = CameraAngle.FRONT,
+                correctFormRules = listOf("Sırt dik", "Dirsekler 90° civarında", "Kollar tam uzatılmalı"),
+                commonMistakes = listOf("Bel çukurunun artması", "Dirseklerin çok dışa açılması", "Yarım tekrar yapmak")
+            )
+            LATERAL_RAISE -> ExerciseMetadata(
+                description = "Omuzun yan başlarını izole eder.",
+                preferredAngle = CameraAngle.FRONT,
+                correctFormRules = listOf("Dik durun", "Kollar omuz hizasına kadar açılmalı", "Hafif dirsek bükümü korunmalı"),
+                commonMistakes = listOf("Ağırlığı çok yukarı kaldırmak", "Gövdeden ivme almak", "Omuz yerine trapez kullanmak")
+            )
+            TRICEPS_EXTENSION -> ExerciseMetadata(
+                description = "Arka kol (triceps) kaslarını geliştirir.",
+                preferredAngle = CameraAngle.SIDE,
+                correctFormRules = listOf("Üst kol sabit", "Sadece dirsek açılmalı", "Tam hareket aralığı"),
+                commonMistakes = listOf("Dirseklerin yanlara açılması", "Boynun öne gitmesi", "Kolu tam uzatmamak")
+            )
+            TRICEPS_KICKBACK -> ExerciseMetadata(
+                description = "Arka kolu izole eden bir egzersiz.",
+                preferredAngle = CameraAngle.SIDE,
+                correctFormRules = listOf("Gövde öne eğik ve sabit", "Üst kol yere paralel", "Kol tam arkaya açılmalı"),
+                commonMistakes = listOf("Kolun sallanması", "Gövdenin dikleşmesi", "Eksik açılma")
+            )
+            BENT_OVER_ROW -> ExerciseMetadata(
+                description = "Sırt kaslarını kalınlaştıran temel çekiş.",
+                preferredAngle = CameraAngle.SIDE,
+                correctFormRules = listOf("Dizler hafif bükülü", "Sırt düz ve yere yakın", "Dirsekler geriye çekilmeli"),
+                commonMistakes = listOf("Sırtın yuvarlanması", "Ağırlığı göğse çekmek", "Boynun aşağı düşmesi")
+            )
+            BENT_OVER_RAISE -> ExerciseMetadata(
+                description = "Arka omuz ve üst sırtı hedefler.",
+                preferredAngle = CameraAngle.SIDE,
+                correctFormRules = listOf("Gövde öne eğik", "Kollar yana genişçe açılmalı", "Kürek kemikleri sıkıştırılmalı"),
+                commonMistakes = listOf("Momentum kullanmak", "Dirsekleri aşırı bükmek", "Sırt pozisyonunu bozmak")
             )
             // Diğerleri için örnek default yapı (Kısaltmak için default verildi, her hareket özel ayarlarına göre genişletilebilir)
             else -> ExerciseMetadata(

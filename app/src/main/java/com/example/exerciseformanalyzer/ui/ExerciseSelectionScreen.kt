@@ -32,7 +32,13 @@ fun ExerciseSelectionScreen(
         Pair(ExerciseType.LUNGE, R.string.ex_lunge),
         Pair(ExerciseType.BICEPS_CURL, R.string.ex_biceps_curl),
         Pair(ExerciseType.SHOULDER_PRESS, R.string.ex_shoulder_press),
-        Pair(ExerciseType.PLANK, R.string.ex_plank)
+        Pair(ExerciseType.PLANK, R.string.ex_plank),
+        Pair(ExerciseType.HAMMER_CURL, R.string.ex_hammer_curl),
+        Pair(ExerciseType.LATERAL_RAISE, R.string.ex_lateral_raise),
+        Pair(ExerciseType.TRICEPS_EXTENSION, R.string.ex_triceps_extension),
+        Pair(ExerciseType.TRICEPS_KICKBACK, R.string.ex_triceps_kickback),
+        Pair(ExerciseType.BENT_OVER_ROW, R.string.ex_bent_over_row),
+        Pair(ExerciseType.BENT_OVER_RAISE, R.string.ex_bent_over_raise)
     )
 
     Scaffold(

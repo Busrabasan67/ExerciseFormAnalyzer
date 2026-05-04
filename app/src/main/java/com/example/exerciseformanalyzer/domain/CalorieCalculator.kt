@@ -70,6 +70,8 @@ object CalorieCalculator {
             ExerciseType.CRUNCH           -> 2.8f
             ExerciseType.RUSSIAN_TWIST    -> 4.0f
             ExerciseType.BURPEE           -> 8.0f
+            ExerciseType.TRICEPS_KICKBACK -> 3.0f
+            ExerciseType.BENT_OVER_RAISE  -> 4.0f
 
             ExerciseType.UNKNOWN          -> 3.0f // Varsayılan orta yoğunluk
         }

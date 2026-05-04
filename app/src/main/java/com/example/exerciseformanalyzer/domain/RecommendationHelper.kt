@@ -50,14 +50,28 @@ object RecommendationHelper {
 
         // 2. Upper Body
         exercises.add(createExercise(ExerciseType.PUSH_UP, targetSets, targetReps, 0, restTime, if (exerciseLevel == "beginner") "EASY" else "MEDIUM"))
-        exercises.add(createExercise(ExerciseType.BICEPS_CURL, targetSets, targetReps, 0, restTime, "MEDIUM"))
+        
+        // Add new exercises based on level
+        if (exerciseLevel != "beginner") {
+            exercises.add(createExercise(ExerciseType.SHOULDER_PRESS, targetSets, targetReps, 0, restTime, "MEDIUM"))
+            exercises.add(createExercise(ExerciseType.HAMMER_CURL, targetSets, targetReps, 0, restTime, "MEDIUM"))
+            exercises.add(createExercise(ExerciseType.LATERAL_RAISE, targetSets, targetReps, 0, restTime, "MEDIUM"))
+        } else {
+            exercises.add(createExercise(ExerciseType.BICEPS_CURL, targetSets, targetReps, 0, restTime, "EASY"))
+        }
 
-        // 3. Core
+        // 3. Back / Triceps
+        if (exerciseLevel == "advanced") {
+            exercises.add(createExercise(ExerciseType.BENT_OVER_ROW, targetSets, targetReps, 0, restTime, "HARD"))
+            exercises.add(createExercise(ExerciseType.TRICEPS_EXTENSION, targetSets, targetReps, 0, restTime, "MEDIUM"))
+        }
+
+        // 4. Core
         exercises.add(createExercise(ExerciseType.SIT_UP, targetSets, targetReps, 0, restTime, "MEDIUM"))
+        exercises.add(createExercise(ExerciseType.PLANK, 3, 0, targetSeconds, restTime, "MEDIUM"))
 
         // Adjust based on exerciseLevel
         if (exerciseLevel == "beginner") {
-            // Simplify: reduce sets if beginner
             return RecommendedPlan(
                 title = "Başlangıç Seviye Program",
                 note = "Sağlık durumunuza göre optimize edilmiş temel egzersiz programı.",

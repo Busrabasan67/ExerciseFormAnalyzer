@@ -45,7 +45,9 @@ data class TaskExerciseStartParams(
     val targetSets: Int,
     val completedSets: Int,
     val restTimeSeconds: Int,
-    val scheduleType: String = "DAILY"
+    val scheduleType: String = "DAILY",
+    val repsDoneInCurrentSet: Int = 0,
+    val durDoneInCurrentSet: Int = 0
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -648,8 +650,14 @@ private fun PatientTaskCard(
                         val exerciseItem: org.json.JSONObject = exerciseListForCard[itemIdx]
                         val exerciseTypeKey: String = exerciseItem.getString("exerciseType")
                         val progressItem: org.json.JSONObject? = progressMapForCard[exerciseTypeKey]
-                        val isExCompleted = progressItem?.optString("status") == "completed"
+                        val isExCompleted = progressItem?.optString("status").equals("completed", ignoreCase = true)
                         val exCompletedSets = progressItem?.optInt("completedSets", 0) ?: 0
+
+                        val actualReps = exerciseItem.optInt("actualReps", 0)
+                        val actualDur = exerciseItem.optInt("actualDurationSeconds", 0)
+                        val repsDoneInCurrentSet = maxOf(0, actualReps - (exCompletedSets * exerciseItem.optInt("targetReps", 0)))
+                        val durDoneInCurrentSet = maxOf(0, actualDur - (exCompletedSets * exerciseItem.optInt("targetDurationSeconds", 0)))
+                        val isPartiallyDone = (repsDoneInCurrentSet > 0 || durDoneInCurrentSet > 0) && !isExCompleted
 
                         ExerciseStartRow(
                             exerciseJson = exerciseItem,
@@ -659,6 +667,7 @@ private fun PatientTaskCard(
                             canStart = viewModel.isTaskActiveToday(task) &&
                                     task.status != "inactive" && task.status != "removed" &&
                                     !isExCompleted,
+                            isPartiallyDone = isPartiallyDone,
                             onStart = {
                                 val exerciseEnum = ExerciseType.values()
                                     .find { it.name.equals(exerciseTypeKey, ignoreCase = true) }
@@ -682,7 +691,9 @@ private fun PatientTaskCard(
                                                 targetSets = exerciseItem.optInt("sets", 1),
                                                 completedSets = exCompletedSets,
                                                 restTimeSeconds = exerciseItem.optInt("restTimeSeconds", 60),
-                                                scheduleType = task.scheduleType
+                                                scheduleType = task.scheduleType,
+                                                repsDoneInCurrentSet = repsDoneInCurrentSet,
+                                                durDoneInCurrentSet = durDoneInCurrentSet
                                             )
                                         )
                                     }
@@ -734,9 +745,11 @@ private fun ExerciseStartRow(
     isCompleted: Boolean,
     completedSets: Int,
     canStart: Boolean,
+    isPartiallyDone: Boolean = false,
     onStart: () -> Unit
 ) {
-    val name = exerciseJson.optString("exerciseType", "Egzersiz")
+    val exerciseTypeEnum = try { com.example.exerciseformanalyzer.model.ExerciseType.valueOf(exerciseJson.optString("exerciseType")) } catch(e: Exception) { com.example.exerciseformanalyzer.model.ExerciseType.UNKNOWN }
+    val name = if (exerciseTypeEnum != com.example.exerciseformanalyzer.model.ExerciseType.UNKNOWN) exerciseTypeEnum.displayName else exerciseJson.optString("exerciseType", "Egzersiz")
     val totalSets = exerciseJson.optInt("sets", 1)
     val targetReps = exerciseJson.optInt("targetReps", 0)
     val targetDur = exerciseJson.optInt("targetDurationSeconds", 0)
@@ -774,8 +787,9 @@ private fun ExerciseStartRow(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(targetStr, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 Text("•", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                val displayCompletedSets = minOf(completedSets, totalSets)
                 Text(
-                    "$completedSets / $totalSets Set",
+                    "$displayCompletedSets / $totalSets Set",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -813,7 +827,7 @@ private fun ExerciseStartRow(
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Başla", style = MaterialTheme.typography.labelMedium)
+                Text(if (isPartiallyDone) "Devam Et" else "Başla", style = MaterialTheme.typography.labelMedium)
             }
         }
     }

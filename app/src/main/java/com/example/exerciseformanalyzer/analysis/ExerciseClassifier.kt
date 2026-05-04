@@ -63,6 +63,21 @@ class ExerciseClassifier {
             // Lateral Raise: dik gövde, omuz açısı artmış, dirsekler düz/hafif bükülü
             isLateralRaisePosition(frame, angles, torso) -> ExerciseType.LATERAL_RAISE
 
+            // Hammer Curl: dik gövde, dirsekler vücuda yapışık (Biceps curl ile aynı duruş, farklı tutuş - biz şimdilik duruşu yakalıyoruz)
+            isBicepsCurlPosition(frame, angles, torso) -> ExerciseType.BICEPS_CURL
+
+            // Triceps Extension: dik gövde, kollar başın üstünde
+            isTricepsExtensionPosition(frame, angles, torso) -> ExerciseType.TRICEPS_EXTENSION
+
+            // Triceps Kickback / Bent Over Row / Raise: gövde eğik
+            isBentOverPosition(frame, angles, torso) -> {
+                when {
+                    isTricepsKickbackMovement(frame, angles) -> ExerciseType.TRICEPS_KICKBACK
+                    isBentOverRaiseMovement(frame, angles) -> ExerciseType.BENT_OVER_RAISE
+                    else -> ExerciseType.BENT_OVER_ROW
+                }
+            }
+
             // Squat: dik gövde + aktif diz fleksiyonu
             isSquatPosition(frame, angles, torso) -> ExerciseType.SQUAT
 
@@ -311,6 +326,26 @@ class ExerciseClassifier {
         return if (ratio >= AnalysisConstants.CLASSIFIER_CONFIDENCE_THRESHOLD)
             maxEntry.key
         else ExerciseType.UNKNOWN
+    }
+
+    private fun isTricepsExtensionPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        if (torso > 45f) return false
+        val shoulderAngle = angles.leftShoulderAngle ?: angles.rightShoulderAngle ?: return false
+        return shoulderAngle > 140f // Kollar havada
+    }
+
+    private fun isBentOverPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        return torso in 30f..70f
+    }
+
+    private fun isTricepsKickbackMovement(frame: PoseFrame, angles: JointAngles): Boolean {
+        val shoulderAngle = angles.leftShoulderAngle ?: angles.rightShoulderAngle ?: return false
+        return shoulderAngle < 35f // Kol vücuda yakın
+    }
+
+    private fun isBentOverRaiseMovement(frame: PoseFrame, angles: JointAngles): Boolean {
+        val shoulderAngle = angles.leftShoulderAngle ?: angles.rightShoulderAngle ?: return false
+        return shoulderAngle > 40f // Kollar açılıyor
     }
 
     fun reset() {

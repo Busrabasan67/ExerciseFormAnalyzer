@@ -168,6 +168,9 @@ object AngleUtils {
     /**
      * Dominant dirsek açısını seçer — daha yüksek görünürlüğe sahip tarafı tercih eder.
      */
+    /**
+     * Dominant dirsek açısını seçer — daha yüksek görünürlüğe sahip tarafı tercih eder.
+     */
     fun dominantElbowAngle(angles: JointAngles, frame: PoseFrame): Float? {
         val lVis = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_ELBOW)?.visibility ?: 0f
         val rVis = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_ELBOW)?.visibility ?: 0f
@@ -176,6 +179,30 @@ object AngleUtils {
             angles.rightElbowAngle != null -> angles.rightElbowAngle
             else -> angles.leftElbowAngle
         }
+    }
+
+    /**
+     * Dominant omuz açısını seçer.
+     */
+    fun dominantShoulderAngle(angles: JointAngles, frame: PoseFrame): Float? {
+        val lVis = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_SHOULDER)?.visibility ?: 0f
+        val rVis = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_SHOULDER)?.visibility ?: 0f
+        return when {
+            lVis >= rVis && angles.leftShoulderAngle != null -> angles.leftShoulderAngle
+            angles.rightShoulderAngle != null -> angles.rightShoulderAngle
+            else -> angles.leftShoulderAngle
+        }
+    }
+
+    /**
+     * Görünürlüğü daha yüksek olan landmark'ı döndürür.
+     */
+    fun dominantLandmark(frame: PoseFrame, leftIdx: Int, rightIdx: Int): Landmark? {
+        val lMark = frame.landmarkOrNull(leftIdx)
+        val rMark = frame.landmarkOrNull(rightIdx)
+        if (lMark == null) return rMark
+        if (rMark == null) return lMark
+        return if (lMark.visibility >= rMark.visibility) lMark else rMark
     }
 
     /**

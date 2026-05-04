@@ -76,7 +76,7 @@ class LateralRaiseEvaluator : ExerciseEvaluator {
             } else if (repState.phase == RepetitionPhase.GOING_UP || repState.phase == RepetitionPhase.TOP) {
                 val leanDiff = abs(currentLeanX - initialTorsoLeanX!!)
                 if (leanDiff > 0.08f) { // Gövde ileri geri sallanıyor
-                    errors.add("Vücudunu sallama, ivme/momentum kullanmadan kaslarınla kaldır")
+                    errors.add("Yavaş ve kontrollü yap")
                     score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
                 }
             }
@@ -97,10 +97,15 @@ class LateralRaiseEvaluator : ExerciseEvaluator {
             
             // 2. Dirsekler Önden Gitsin (Bilek dirsekten yüksekte olmamalı)
             // Y koordinatında küçük olan daha yukarıdadır.
-            if (wrist.y < elbow.y - 0.02f) { // Bilek dirsekten fiziksel olarak belirgin bir şekilde yukarıdaysa
-                errors.add("Ellerin dirseklerinden daha yukarıda olmasın. Hareketi dirseklerinle yönet")
-                score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
-            }
+                if (shoulderAngle > 105f) {
+                    errors.add("Omuz hizasını geçme")
+                    score -= AnalysisConstants.SCORE_PENALTY_MINOR
+                }
+                
+                if (wrist.y < elbow.y - 0.02f) { 
+                    errors.add("Omuzdan kaldır")
+                    score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
+                }
 
             // 3. Serçe Parmak Kuralı
             if (pinky != null && index != null && pinky.visibility > 0.4f && index.visibility > 0.4f) {

@@ -313,7 +313,20 @@ fun GroupDetailScreen(
             }
         }
     }
-    // Dialogs remain unchanged
+
+    // Dialogs
+    if (showProgramDialog) {
+        AssignTaskDialog(
+            onDismissRequest = { showProgramDialog = false },
+            dialogTitle = "Grup Programı Paylaş",
+            submitText = "Sohbette Paylaş",
+            onAssignTask = { title, note, _, exercises, sched, days, auto, weeks ->
+                viewModel.shareProgram(title, note, exercises, sched, days, auto, weeks)
+                showProgramDialog = false
+            }
+        )
+    }
+
     memberPendingRemoval?.let { member ->
         AlertDialog(
             onDismissRequest = { memberPendingRemoval = null },
