@@ -238,3 +238,13 @@ data class FirestoreExpertNote(
     val note: String = "",
     @ServerTimestamp val createdAt: Date? = null
 )
+// =========================================================
+// SOHBET MESAJLARI — chats/{chatId}/messages/{msgId}
+// =========================================================
+data class FirestoreChatMessage(
+    val id: String = "",
+    val senderId: String = "",
+    val receiverId: String = "",
+    val message: String = "",
+    val createdAt: Long = 0L
+)

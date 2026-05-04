@@ -58,7 +58,8 @@ fun PatientDashboardScreen(
     onNavigateToGroups: () -> Unit = {},
     onNavigateToSocial: () -> Unit,
     onNavigateToLeaderboard: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateToChat: (expertUid: String, expertName: String) -> Unit
 ) {
     val currentUser by viewModel.observeCurrentUser().collectAsState(initial = null)
     val categorizedTasks by viewModel.categorizedTasks.collectAsState()
@@ -100,6 +101,12 @@ fun PatientDashboardScreen(
                     )
                 },
                 actions = {
+                    val expertUid = currentUser?.expertUid
+                    if (!expertUid.isNullOrEmpty()) {
+                        IconButton(onClick = { onNavigateToChat(expertUid, "Uzmanınız") }) {
+                            Icon(imageVector = Icons.Default.Chat, contentDescription = "Uzmanya Mesaj Gönder")
+                        }
+                    }
                     IconButton(onClick = onNavigateToLeaderboard) { 
                         Icon(imageVector = Icons.Default.EmojiEvents, contentDescription = "Sıralama") 
                     }

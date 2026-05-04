@@ -11,6 +11,7 @@ import com.google.firebase.firestore.ktx.toObject
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.firestore.AggregateSource
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.channels.awaitClose
 
 class FirestoreService {
 
@@ -29,6 +30,7 @@ class FirestoreService {
         const val DOCTOR_PATIENTS = "doctor_patients"
         const val TASK_PROGRESS = "task_progress"
         const val EXPERT_NOTES = "expert_notes"
+        const val CHATS = "chats"
     }
 
     // =====================================================================
@@ -161,6 +163,46 @@ class FirestoreService {
         val noteWithId = note.copy(id = ref.id)
         ref.set(noteWithId).await()
         return ref.id
+    }
+
+    // =====================================================================
+    // SOHBET (MESAJLAŞMA)
+    // =====================================================================
+    
+    private fun getChatId(uid1: String, uid2: String): String {
+        return if (uid1 < uid2) "${uid1}_$uid2" else "${uid2}_$uid1"
+    }
+
+    fun observeMessages(uid1: String, uid2: String): kotlinx.coroutines.flow.Flow<List<FirestoreChatMessage>> = kotlinx.coroutines.flow.callbackFlow {
+        val chatId = getChatId(uid1, uid2)
+        val listener = db.collection(CHATS).document(chatId).collection("messages")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    close(e)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val messages = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject<FirestoreChatMessage>()?.copy(id = doc.id)
+                    }
+                    trySend(messages)
+                }
+            }
+        awaitClose { listener.remove() }
+    }
+
+    suspend fun sendMessage(uid1: String, uid2: String, messageText: String, senderId: String) {
+        val chatId = getChatId(uid1, uid2)
+        val receiverId = if (senderId == uid1) uid2 else uid1
+        val message = FirestoreChatMessage(
+            senderId = senderId,
+            receiverId = receiverId,
+            message = messageText,
+            createdAt = System.currentTimeMillis()
+        )
+        val ref = db.collection(CHATS).document(chatId).collection("messages").document()
+        ref.set(message.copy(id = ref.id)).await()
     }
 
     // =====================================================================

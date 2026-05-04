@@ -110,7 +110,8 @@ fun AdminDashboardScreen(
                         onNavigateToGroups = onNavigateToGroups,
                         onNavigateToSocial = onNavigateToSocial,
                         onNavigateToLeaderboard = onNavigateToLeaderboard,
-                        onLogout = onLogout
+                        onLogout = onLogout,
+                        onNavigateToChat = { _, _ -> }
                     )
                 }
                 AdminPanelType.EXPERT -> {

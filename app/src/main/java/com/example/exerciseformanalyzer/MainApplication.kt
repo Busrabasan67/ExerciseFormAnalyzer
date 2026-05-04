@@ -129,13 +129,19 @@ class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Firebase SDK başlatma
-        // NOT: google-services.json olmadan bu satır crash verir!
-        // google-services.json'ı app/ klasörüne ekleyip tekrar build alın.
-        FirebaseApp.initializeApp(this)
+        // Firestore Offline Persistence Yapılandırması
+        // NOT: FirebaseApp.initializeApp(this) plugin kullanılıyorsa otomatiktir.
+        try {
+            val firestoreSettings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
+                .setPersistenceEnabled(true)
+                .setCacheSizeBytes(com.google.firebase.firestore.FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                .build()
+            com.google.firebase.firestore.FirebaseFirestore.getInstance().firestoreSettings = firestoreSettings
+        } catch (e: Exception) {
+            android.util.Log.e("FirebaseInit", "Firestore settings error: ${e.message}")
+        }
 
         // WorkManager — Periyodik senkronizasyon ayarı
-        // Sadece internet bağlantısı varken çalışır
         scheduleSyncWorker()
         scheduleTaskMarkMissedWorker()
     }

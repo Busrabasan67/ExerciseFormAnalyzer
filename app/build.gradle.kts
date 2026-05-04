@@ -122,13 +122,17 @@ dependencies {
 
     // --- FİREBASE ---
     // Firebase BOM: tüm Firebase kütüphanelerinin versiyonunu tek yerden yönetir.
-    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation(platform("com.google.firebase:firebase-bom:33.5.0"))
+
+    // Firebase Analytics — GMS içindeki bazı hataları önlemek ve takip için önerilir.
+    implementation("com.google.firebase:firebase-analytics-ktx")
 
     // Firebase Authentication — Email/şifre ve Google Sign-In
     implementation("com.google.firebase:firebase-auth-ktx")
 
     // Google Sign-In (Firebase Auth Google ile giriş için gerekli)
     implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation("com.google.android.gms:play-services-base:18.5.0")
 
     // Cloud Firestore — Kullanıcı profilleri, planlar, gruplar, raporlar
     implementation("com.google.firebase:firebase-firestore-ktx")

@@ -55,6 +55,9 @@ sealed class Route(val route: String) {
     }
     object SocialFeed : Route("social_feed")
     object Leaderboard : Route("leaderboard")
+    object Chat : Route("chat/{otherUid}/{otherUserName}") {
+        fun createRoute(otherUid: String, otherUserName: String) = "chat/$otherUid/$otherUserName"
+    }
 }
 
 @Composable
@@ -193,6 +196,9 @@ fun AppNavigation(
                     navController.navigate(Route.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onNavigateToChat = { expertUid, expertName ->
+                    navController.navigate(Route.Chat.createRoute(expertUid, expertName))
                 }
             )
         }
@@ -218,6 +224,21 @@ fun AppNavigation(
             com.example.exerciseformanalyzer.ui.dashboard.PatientDetailScreen(
                 viewModel = expertViewModel,
                 patientUid = uid,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToChat = { patientName ->
+                    navController.navigate(Route.Chat.createRoute(uid, patientName))
+                }
+            )
+        }
+
+        composable(Route.Chat.route) { backStackEntry ->
+            val otherUid = backStackEntry.arguments?.getString("otherUid") ?: ""
+            val otherUserName = backStackEntry.arguments?.getString("otherUserName") ?: "Mesajlar"
+            val chatViewModel: com.example.exerciseformanalyzer.ui.chat.ChatViewModel = viewModel()
+            com.example.exerciseformanalyzer.ui.chat.ChatScreen(
+                viewModel = chatViewModel,
+                otherUid = otherUid,
+                otherUserName = otherUserName,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

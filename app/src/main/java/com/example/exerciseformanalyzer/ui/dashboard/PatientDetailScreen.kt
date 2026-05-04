@@ -24,7 +24,8 @@ import java.util.*
 fun PatientDetailScreen(
     viewModel: com.example.exerciseformanalyzer.ui.dashboard.ExpertViewModel,
     patientUid: String,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToChat: (String) -> Unit
 ) {
     val patients by viewModel.observeMyPatients().collectAsState(initial = emptyList())
     val patient = remember(patients, patientUid) { patients.find { it.uid == patientUid } }
@@ -65,6 +66,9 @@ fun PatientDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onNavigateToChat(patientName) }) {
+                        Icon(Icons.Default.Chat, contentDescription = "Mesaj Gönder")
+                    }
                     IconButton(onClick = { showDateRangePicker = true }) {
                         Icon(Icons.Default.DateRange, contentDescription = "Tarih Seç")
                     }
