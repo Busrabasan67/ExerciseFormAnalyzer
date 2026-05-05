@@ -846,11 +846,14 @@ private fun PatientFrequencyInfoRow(task: com.example.exerciseformanalyzer.data.
         "CUSTOM" -> {
             try {
                 val daysArr = org.json.JSONArray(task.daysOfWeekJson)
-                val dayNames = listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+                // Calendar.SUNDAY=1, MONDAY=2, ... SATURDAY=7
+                val dayMap = mapOf(
+                    2 to "Pzt", 3 to "Sal", 4 to "Çar", 5 to "Per", 6 to "Cum", 7 to "Cmt", 1 to "Paz"
+                )
                 val selectedList = mutableListOf<String>()
                 for (i in 0 until daysArr.length()) {
                     val dayIdx = daysArr.getInt(i)
-                    dayNames.getOrNull(dayIdx - 1)?.let { selectedList.add(it) }
+                    dayMap[dayIdx]?.let { selectedList.add(it) }
                 }
                 "Özel Günler (${selectedList.joinToString(", ")})"
             } catch (e: Exception) { "Özel Günler" }

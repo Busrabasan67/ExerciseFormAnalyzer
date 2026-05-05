@@ -25,6 +25,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.ui.dashboard.ExpertViewModel.TaskExerciseInput
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,16 +44,22 @@ fun AssignTaskDialog(
     submitText: String = "Görevi Yayınla",
     onAssignTask: (title: String, note: String, dueDate: Long, exercises: List<TaskExerciseInput>, sched: String, days: List<Int>, auto: Boolean, weeks: Int?) -> Unit
 ) {
-    var title by remember { mutableStateOf(defaultTitle) }
-    var note by remember { mutableStateOf(defaultNote) }
+    var title by remember(defaultTitle) { mutableStateOf(defaultTitle) }
+    var note by remember(defaultNote) { mutableStateOf(defaultNote) }
     
-    var sched by remember { mutableStateOf(defaultSched) }
-    val days = remember { mutableStateListOf<Int>().apply { addAll(defaultDays) } }
-    var auto by remember { mutableStateOf(defaultAuto) }
-    var weeksStr by remember { mutableStateOf(defaultWeeks?.toString() ?: "") }
+    var sched by remember(defaultSched) { mutableStateOf(defaultSched) }
+    val days = remember(defaultDays) { 
+        mutableStateListOf<Int>().apply { 
+            clear()
+            addAll(defaultDays) 
+        } 
+    }
+    var auto by remember(defaultAuto) { mutableStateOf(defaultAuto) }
+    var weeksStr by remember(defaultWeeks) { mutableStateOf(defaultWeeks?.toString() ?: "") }
     
-    val exercises = remember { 
+    val exercises = remember(initialExercises) { 
         mutableStateListOf<TaskExerciseInput>().apply { 
+            clear()
             if (initialExercises != null) {
                 addAll(initialExercises)
             } else {
@@ -125,7 +133,12 @@ fun AssignTaskDialog(
                             val dayNames = listOf(
                                 2 to "Pzt", 3 to "Sal", 4 to "Çar", 5 to "Per", 6 to "Cum", 7 to "Cmt", 1 to "Paz"
                             )
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
                                 dayNames.forEach { (calDay, label) ->
                                     val isSelected = days.contains(calDay)
                                     FilterChip(
@@ -133,7 +146,7 @@ fun AssignTaskDialog(
                                         onClick = {
                                             if (isSelected) days.remove(calDay) else days.add(calDay)
                                         },
-                                        label = { Text(label) }
+                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) }
                                     )
                                 }
                             }
@@ -226,7 +239,9 @@ fun AssignTaskDialog(
                                 showError = "Set sayısı 0'dan büyük olmalıdır."
                             sched == "CUSTOM" && days.isEmpty() -> showError = "Özel günler için en az bir gün seçmelisiniz."
                             else -> {
-                                onAssignTask(title, note, c.timeInMillis, validatedExercises, sched, days.toList(), auto, finalWeeks)
+                                // Sort days chronologically before assigning (Monday=2 to Sunday=1)
+                                val sortedDays = days.sortedWith(compareBy { if (it == 1) 8 else it })
+                                onAssignTask(title, note, c.timeInMillis, validatedExercises, sched, sortedDays, auto, finalWeeks)
                             }
                         }
                     }) {

@@ -368,16 +368,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         if (status in listOf("inactive", "removed")) return false
 
         val cal = Calendar.getInstance()
-        val today = when (cal.get(Calendar.DAY_OF_WEEK)) {
-            Calendar.MONDAY    -> 1
-            Calendar.TUESDAY   -> 2
-            Calendar.WEDNESDAY -> 3
-            Calendar.THURSDAY  -> 4
-            Calendar.FRIDAY    -> 5
-            Calendar.SATURDAY  -> 6
-            Calendar.SUNDAY    -> 7
-            else               -> 1
-        }
+        val today = cal.get(Calendar.DAY_OF_WEEK)
 
         return when (task.scheduleType) {
             "DAILY"  -> true

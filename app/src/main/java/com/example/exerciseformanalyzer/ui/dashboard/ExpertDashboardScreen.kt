@@ -641,14 +641,21 @@ fun TaskTrackingCard(
                 "DAILY" -> "Her Gün"
                 "WEEKLY" -> "Haftalık"
                 "CUSTOM" -> {
-                    val days = try {
+                    val daysText = try {
                         val arr = JSONArray(task.daysOfWeekJson)
-                        val dayNames = listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
-                        List(arr.length()) { i -> dayNames.getOrNull(arr.getInt(i) - 1) ?: "" }
-                            .filter { it.isNotEmpty() }
+                        val dayMap = mapOf(
+                            2 to "Pzt", 3 to "Sal", 4 to "Çar", 5 to "Per", 6 to "Cum", 7 to "Cmt", 1 to "Paz"
+                        )
+                        val list = mutableListOf<Int>()
+                        for (i in 0 until arr.length()) {
+                            list.add(arr.getInt(i))
+                        }
+                        // Sort: Monday(2) to Sunday(1)
+                        list.sortedWith(compareBy { if (it == 1) 8 else it })
+                            .mapNotNull { dayMap[it] }
                             .joinToString(", ")
                     } catch (e: Exception) { "Belirtilmedi" }
-                    "Özel Günler • $days"
+                    "Özel Günler • $daysText"
                 }
                 else -> task.scheduleType
             }
