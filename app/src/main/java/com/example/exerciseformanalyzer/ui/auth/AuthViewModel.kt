@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.take
 
@@ -115,5 +115,50 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             userPrefs.clearUserSession()
             _uiState.value = AuthUiState.Idle
         }
+    }
+
+    fun loginWithGoogle(idToken: String) {
+        _uiState.value = AuthUiState.Loading
+        viewModelScope.launch {
+            when (val result = authRepository.loginWithGoogle(idToken)) {
+                is AuthResult.Success -> {
+                    val uid = result.data.uid
+                    // Kullanıcı profilinin Room/Firestore'dan gelmesini bekle (filterNotNull)
+                    viewModelScope.launch {
+                        try {
+                            val user = userRepository.observeCurrentUser(uid)
+                                .filterNotNull()
+                                .first()
+                            
+                            val role = user.role.uppercase()
+                            userPrefs.saveUserSession(uid, role, true)
+                            _uiState.value = AuthUiState.Success(uid, role)
+                        } catch (e: Exception) {
+                            _uiState.value = AuthUiState.Error("Kullanıcı profili alınamadı.")
+                        }
+                    }
+                }
+                is AuthResult.Error -> {
+                    _uiState.value = AuthUiState.Error(result.message)
+                }
+                is AuthResult.Loading -> {}
+            }
+        }
+    }
+
+    fun sendVerificationEmail() {
+        viewModelScope.launch {
+            authRepository.sendEmailVerification()
+        }
+    }
+
+    fun reloadUser() {
+        viewModelScope.launch {
+            authRepository.reloadUser()
+        }
+    }
+
+    fun setError(message: String) {
+        _uiState.value = AuthUiState.Error(message)
     }
 }

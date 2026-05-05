@@ -15,6 +15,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.exerciseformanalyzer.R
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.gms.common.api.ApiException
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import coil.compose.AsyncImage
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 
 import com.example.exerciseformanalyzer.ui.components.LanguageSlidingToggle
 
@@ -132,6 +144,58 @@ fun RegisterScreen(
 
             TextButton(onClick = onNavigateToLogin) {
                 Text(stringResource(R.string.have_account))
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // --- GOOGLE REGISTER ---
+            val context = LocalContext.current
+            val gso = remember {
+                GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                    .requestIdToken(context.getString(R.string.default_web_client_id))
+                    .requestEmail()
+                    .build()
+            }
+            val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
+
+            val launcher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                try {
+                    val account = task.getResult(ApiException::class.java)
+                    account?.idToken?.let { token ->
+                        viewModel.loginWithGoogle(token)
+                    } ?: run {
+                        viewModel.setError("Google token alınamadı.")
+                    }
+                } catch (e: Exception) {
+                    viewModel.setError("Google kaydı iptal edildi veya bir hata oluştu: ${e.message}")
+                }
+            }
+
+            OutlinedButton(
+                onClick = { 
+                    googleSignInClient.signOut().addOnCompleteListener {
+                        launcher.launch(googleSignInClient.signInIntent)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AsyncImage(
+                        model = "https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png",
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        stringResource(R.string.register_with_google),
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                    )
+                }
             }
         }
     }

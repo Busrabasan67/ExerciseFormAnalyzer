@@ -48,6 +48,12 @@ interface IAuthRepository {
      */
     suspend fun loginWithGoogle(idToken: String): AuthResult<FirebaseUser>
 
+    /** E-posta doğrulama linki gönderir. */
+    suspend fun sendEmailVerification(): AuthResult<Unit>
+
+    /** Kullanıcı bilgilerini yeniler (doğrulama durumunu güncellemek için). */
+    suspend fun reloadUser(): AuthResult<Unit>
+
     /** Oturumu kapatır. */
     fun signOut()
 

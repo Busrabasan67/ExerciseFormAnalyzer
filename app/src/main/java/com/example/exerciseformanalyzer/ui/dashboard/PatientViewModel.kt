@@ -75,7 +75,13 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     private val _hasCommunityNotifications = MutableStateFlow(false)
     val hasCommunityNotifications: StateFlow<Boolean> = _hasCommunityNotifications.asStateFlow()
 
-    val isEmailVerified = authRepo.isEmailVerified
+    val isEmailVerified: Boolean get() = authRepo.isEmailVerified
+
+    fun sendVerificationEmail() {
+        viewModelScope.launch {
+            authRepo.sendEmailVerification()
+        }
+    }
 
     fun observeCurrentUser(): Flow<UserEntity?> {
         val uid = currentUid

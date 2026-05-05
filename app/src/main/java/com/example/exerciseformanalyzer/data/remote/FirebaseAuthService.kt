@@ -54,11 +54,22 @@ class FirebaseAuthService {
         return result.user ?: throw Exception("Google girişi başarısız.")
     }
 
-    /**
-     * Şifre unutma — kullanıcının emailine sıfırlama linki gönderir.
-     */
     suspend fun sendPasswordReset(email: String) {
         auth.sendPasswordResetEmail(email).await()
+    }
+
+    /**
+     * E-posta doğrulama linki gönderir.
+     */
+    suspend fun sendEmailVerification() {
+        auth.currentUser?.sendEmailVerification()?.await()
+    }
+
+    /**
+     * Kullanıcı verilerini günceller (doğrulama durumunu kontrol etmek için).
+     */
+    suspend fun reloadUser() {
+        auth.currentUser?.reload()?.await()
     }
 
     /**

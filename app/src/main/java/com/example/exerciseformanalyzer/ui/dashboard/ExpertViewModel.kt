@@ -72,6 +72,14 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
     private val _hasCommunityNotifications = MutableStateFlow(false)
     val hasCommunityNotifications: StateFlow<Boolean> = _hasCommunityNotifications.asStateFlow()
 
+    val isEmailVerified: Boolean get() = authRepo.isEmailVerified
+
+    fun sendVerificationEmail() {
+        viewModelScope.launch {
+            authRepo.sendEmailVerification()
+        }
+    }
+
     // ── Uzman Takip Filtresi — PatientViewModel'den TAMAMEN BAĞIMSIZ ──
     private val _selectedFilter = MutableStateFlow(TaskFilter.ALL)
     val selectedFilter: StateFlow<TaskFilter> = _selectedFilter.asStateFlow()

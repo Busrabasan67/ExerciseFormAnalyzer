@@ -97,48 +97,73 @@ fun PatientDashboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.patient_dashboard_title),
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                },
-                actions = {
-                    val expertUid = currentUser?.expertUid
-                    if (!expertUid.isNullOrEmpty()) {
-                        IconButton(onClick = { onNavigateToChat(expertUid, "Uzmanınız") }) {
-                            Icon(imageVector = Icons.Default.Chat, contentDescription = "Uzmanya Mesaj Gönder")
+            Column {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = stringResource(R.string.patient_dashboard_title),
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    },
+                    actions = {
+                        val expertUid = currentUser?.expertUid
+                        if (!expertUid.isNullOrEmpty()) {
+                            IconButton(onClick = { onNavigateToChat(expertUid, "Uzmanınız") }) {
+                                Icon(imageVector = Icons.Default.Chat, contentDescription = "Uzmanya Mesaj Gönder")
+                            }
+                        }
+                        IconButton(onClick = onNavigateToLeaderboard) { 
+                            Icon(imageVector = Icons.Default.EmojiEvents, contentDescription = "Sıralama") 
+                        }
+                        IconButton(onClick = onNavigateToSocial) { 
+                            Icon(imageVector = Icons.Default.Share, contentDescription = "Sosyal Feed") 
+                        }
+                        TextButton(onClick = onNavigateToGroups) {
+                            BadgedBox(
+                                badge = {
+                                    if (hasCommunityNotifications) {
+                                        Badge()
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    stringResource(R.string.groups_title),
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
+                        TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 
+                            Text(stringResource(R.string.logout), color = MaterialTheme.colorScheme.error) 
                         }
                     }
-                    IconButton(onClick = onNavigateToLeaderboard) { 
-                        Icon(imageVector = Icons.Default.EmojiEvents, contentDescription = "Sıralama") 
-                    }
-                    IconButton(onClick = onNavigateToSocial) { 
-                        Icon(imageVector = Icons.Default.Share, contentDescription = "Sosyal Feed") 
-                    }
-                    TextButton(onClick = onNavigateToGroups) {
-                        BadgedBox(
-                            badge = {
-                                if (hasCommunityNotifications) {
-                                    Badge()
-                                }
-                            }
+                )
+                
+                // --- EMAIL VERIFICATION BANNER ---
+                if (!viewModel.isEmailVerified) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                stringResource(R.string.groups_title),
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                text = stringResource(R.string.email_not_verified),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
                             )
+                            TextButton(onClick = { viewModel.sendVerificationEmail() }) {
+                                Text(stringResource(R.string.verify_now))
+                            }
                         }
                     }
-                    TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
-                    TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 
-                        Text(stringResource(R.string.logout)) 
-                    }
                 }
-            )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { onNavigateToCamera(null) }) {

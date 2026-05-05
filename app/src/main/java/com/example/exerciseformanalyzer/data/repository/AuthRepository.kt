@@ -105,6 +105,24 @@ class AuthRepository(
         }
     }
 
+    override suspend fun sendEmailVerification(): AuthResult<Unit> {
+        return try {
+            authService.sendEmailVerification()
+            AuthResult.Success(Unit)
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Doğrulama e-postası gönderilemedi.")
+        }
+    }
+
+    override suspend fun reloadUser(): AuthResult<Unit> {
+        return try {
+            authService.reloadUser()
+            AuthResult.Success(Unit)
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Kullanıcı bilgileri güncellenemedi.")
+        }
+    }
+
     /**
      * Oturumu kapatır ve lokal UID cache'ini temizlemez
      * (uygulama offline açılabilmeli; clearUserCache ayrı çağrılabilir).

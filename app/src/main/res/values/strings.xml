@@ -12,8 +12,11 @@
     <string name="register_button">Kayıt Ol</string>
     <string name="no_account">Hesabın yok mu? Kayıt Ol</string>
     <string name="have_account">Zaten hesabın var mı? Giriş Yap</string>
+    <string name="register_with_google">Google ile Kayıt Ol</string>
     <string name="password_show">Şifreyi göster</string>
     <string name="password_hide">Şifreyi gizle</string>
+    <string name="login_with_google">Google ile Giriş Yap</string>
+    <string name="default_web_client_id">224335351544-4jteci92ov879c6ruu8ntduadcaavmun.apps.googleusercontent.com</string> <!-- Bu Firebase Console'dan alınmalı -->
 
     <!-- Dashboard -->
     <string name="patient_dashboard_title">Panelim</string>
@@ -111,4 +114,8 @@
     <string name="profile_photo_source_msg">Fotoğrafınızı nasıl eklemek istersiniz?</string>
     <string name="gallery">Galeri</string>
     <string name="camera">Kamera</string>
+
+    <string name="email_not_verified">E-posta adresiniz doğrulanmamış.</string>
+    <string name="verify_now">Şimdi Doğrula</string>
+    <string name="verification_email_sent">Doğrulama e-postası gönderildi. Lütfen gelen kutunuzu kontrol edin.</string>
 </resources>

@@ -107,29 +107,54 @@ fun ExpertDashboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.expert_dashboard_title)) },
-                actions = {
-                    IconButton(onClick = onNavigateToSocial) { 
-                        Icon(imageVector = Icons.Default.Share, contentDescription = "Sosyal Feed") 
-                    }
-                    TextButton(onClick = onNavigateToGroups) {
-                        BadgedBox(
-                            badge = {
-                                if (hasCommunityNotifications) {
-                                    Badge()
+            Column {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.expert_dashboard_title)) },
+                    actions = {
+                        IconButton(onClick = onNavigateToSocial) { 
+                            Icon(imageVector = Icons.Default.Share, contentDescription = "Sosyal Feed") 
+                        }
+                        TextButton(onClick = onNavigateToGroups) {
+                            BadgedBox(
+                                badge = {
+                                    if (hasCommunityNotifications) {
+                                        Badge()
+                                    }
                                 }
+                            ) {
+                                Text(stringResource(R.string.groups_title))
                             }
-                        ) {
-                            Text(stringResource(R.string.groups_title))
+                        }
+                        TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
+                        TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 
+                            Text(stringResource(R.string.logout), color = MaterialTheme.colorScheme.error)
                         }
                     }
-                    TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
-                    TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 
-                        Text(stringResource(R.string.logout)) 
+                )
+                
+                // --- EMAIL VERIFICATION BANNER ---
+                if (!viewModel.isEmailVerified) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = stringResource(R.string.email_not_verified),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            TextButton(onClick = { viewModel.sendVerificationEmail() }) {
+                                Text(stringResource(R.string.verify_now))
+                            }
+                        }
                     }
                 }
-            )
+            }
         }
     ) { paddingVals ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingVals)) {
