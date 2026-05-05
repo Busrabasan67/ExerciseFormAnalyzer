@@ -43,6 +43,12 @@ fun AdminDashboardScreen(
     LaunchedEffect(Unit) {
         viewModel.fetchAdminStats()
     }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.setShowLogoutDialog(false)
+        }
+    }
 
     Scaffold(
         topBar = {

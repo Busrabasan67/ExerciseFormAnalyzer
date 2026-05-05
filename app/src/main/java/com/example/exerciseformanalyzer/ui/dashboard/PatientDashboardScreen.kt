@@ -89,7 +89,10 @@ fun PatientDashboardScreen(
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose { 
+            lifecycleOwner.lifecycle.removeObserver(observer) 
+            viewModel.setShowLogoutDialog(false)
+        }
     }
 
     Scaffold(

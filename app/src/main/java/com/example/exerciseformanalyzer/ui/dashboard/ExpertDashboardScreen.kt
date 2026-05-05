@@ -95,11 +95,14 @@ fun ExpertDashboardScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.refreshCommunityNotifications()
+                viewModel.syncExpertData()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose { 
+            lifecycleOwner.lifecycle.removeObserver(observer) 
+            viewModel.setShowLogoutDialog(false)
+        }
     }
 
     Scaffold(

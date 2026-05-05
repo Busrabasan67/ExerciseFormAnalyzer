@@ -33,6 +33,7 @@ import java.util.Locale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.ui.MainViewModel
+import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.model.WorkoutStats
 import coil.compose.AsyncImage
@@ -265,24 +266,13 @@ fun ProfileScreen(
     }
 
     if (showLogoutDialog) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
-            title = { Text(stringResource(R.string.logout_confirm_title)) },
-            text = { Text(stringResource(R.string.logout_confirm_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showLogoutDialog = false
-                    viewModel.logout()
-                    onLogout()
-                }) {
-                    Text(stringResource(R.string.yes), color = MaterialTheme.colorScheme.error)
-                }
+        LogoutConfirmationDialog(
+            onConfirm = {
+                showLogoutDialog = false
+                viewModel.logout()
+                onLogout()
             },
-            dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) {
-                    Text(stringResource(R.string.no))
-                }
-            }
+            onDismiss = { showLogoutDialog = false }
         )
     }
 
