@@ -33,18 +33,32 @@ fun AssignTaskDialog(
     onDismissRequest: () -> Unit,
     dialogTitle: String = "Gelişmiş Görev Planla",
     defaultTitle: String = "Haftalık Antrenman",
+    defaultNote: String = "",
+    defaultSched: String = "DAILY",
+    defaultDays: List<Int> = emptyList(),
+    defaultAuto: Boolean = false,
+    defaultWeeks: Int? = null,
+    initialExercises: List<TaskExerciseInput>? = null,
     submitText: String = "Görevi Yayınla",
     onAssignTask: (title: String, note: String, dueDate: Long, exercises: List<TaskExerciseInput>, sched: String, days: List<Int>, auto: Boolean, weeks: Int?) -> Unit
 ) {
     var title by remember { mutableStateOf(defaultTitle) }
-    var note by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf(defaultNote) }
     
-    var sched by remember { mutableStateOf("DAILY") }
-    val days = remember { mutableStateListOf<Int>() }
-    var auto by remember { mutableStateOf(false) }
-    var weeksStr by remember { mutableStateOf("") }
+    var sched by remember { mutableStateOf(defaultSched) }
+    val days = remember { mutableStateListOf<Int>().apply { addAll(defaultDays) } }
+    var auto by remember { mutableStateOf(defaultAuto) }
+    var weeksStr by remember { mutableStateOf(defaultWeeks?.toString() ?: "") }
     
-    val exercises = remember { mutableStateListOf(TaskExerciseInput()) }
+    val exercises = remember { 
+        mutableStateListOf<TaskExerciseInput>().apply { 
+            if (initialExercises != null) {
+                addAll(initialExercises)
+            } else {
+                add(TaskExerciseInput())
+            }
+        } 
+    }
     var showError by remember { mutableStateOf("") }
 
     Dialog(

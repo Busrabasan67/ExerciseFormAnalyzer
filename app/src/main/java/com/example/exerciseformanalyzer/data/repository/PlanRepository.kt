@@ -95,6 +95,7 @@ class PlanRepository(
             val exercisesJson = jsonArray.toString()
             val daysOfWeekJson = org.json.JSONArray(daysOfWeek).toString()
 
+            val now = System.currentTimeMillis()
             val localTask = TaskAssignmentEntity(
                 patientUid = patientUid,
                 expertUid = expertUid,
@@ -108,7 +109,8 @@ class PlanRepository(
                 status = TaskStatus.PENDING.name,
                 exercisesJson = exercisesJson,
                 isSynced = false,
-                createdAt = System.currentTimeMillis()
+                createdAt = now,
+                updatedAt = now
             )
             val taskId = taskDao.insertTask(localTask)
 
@@ -124,7 +126,8 @@ class PlanRepository(
                     autoRepeat = autoRepeat,
                     repeatDurationWeeks = repeatDurationWeeks,
                     status = TaskStatus.PENDING.name,
-                    exercises = exercises
+                    exercises = exercises,
+                    updatedAt = now
                 )
                 val taskDocId = firestoreService.createTask(fsTask)
                 taskDao.markTaskAsSynced(taskId.toInt(), taskDocId)
@@ -136,6 +139,97 @@ class PlanRepository(
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Görev oluşturma hatası: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateTaskAssignment(
+        taskId: Int,
+        firebaseDocId: String?,
+        expertUid: String,
+        patientUid: String,
+        title: String,
+        note: String,
+        dueDate: Long,
+        exercises: List<com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem>,
+        scheduleType: String,
+        daysOfWeek: List<Int>,
+        autoRepeat: Boolean,
+        repeatDurationWeeks: Int?
+    ): Result<Unit> {
+        return try {
+            val jsonArray = org.json.JSONArray()
+            for (ex in exercises) {
+                val obj = org.json.JSONObject()
+                obj.put("exerciseType", ex.exerciseType)
+                obj.put("targetType", ex.targetType)
+                if (ex.targetReps != null) obj.put("targetReps", ex.targetReps)
+                if (ex.targetDurationSeconds != null) obj.put("targetDurationSeconds", ex.targetDurationSeconds)
+                obj.put("sets", ex.sets)
+                obj.put("completedSets", ex.completedSets)
+                obj.put("restTimeSeconds", ex.restTimeSeconds)
+                obj.put("difficulty", ex.difficulty)
+                obj.put("category", ex.category)
+                if (ex.videoUrl != null) obj.put("videoUrl", ex.videoUrl)
+                obj.put("status", ex.status)
+                jsonArray.put(obj)
+            }
+            val exercisesJson = jsonArray.toString()
+            val daysOfWeekJson = org.json.JSONArray(daysOfWeek).toString()
+
+            val existing = taskDao.getTaskById(taskId)
+            val now = System.currentTimeMillis()
+            if (existing != null) {
+                val updated = existing.copy(
+                    title = title,
+                    note = note,
+                    dueDate = dueDate,
+                    scheduleType = scheduleType,
+                    daysOfWeekJson = daysOfWeekJson,
+                    autoRepeat = autoRepeat,
+                    repeatDurationWeeks = repeatDurationWeeks,
+                    exercisesJson = exercisesJson,
+                    isSynced = false,
+                    updatedAt = now
+                )
+                taskDao.updateTask(updated)
+            }
+
+            if (!firebaseDocId.isNullOrBlank()) {
+                val fsTask = FirestoreTaskAssignment(
+                    patientId = patientUid,
+                    expertId = expertUid,
+                    title = title,
+                    note = note,
+                    dueDate = dueDate,
+                    scheduleType = scheduleType,
+                    daysOfWeek = daysOfWeek,
+                    autoRepeat = autoRepeat,
+                    repeatDurationWeeks = repeatDurationWeeks,
+                    status = TaskStatus.PENDING.name,
+                    exercises = exercises,
+                    updatedAt = now
+                )
+                firestoreService.updateTask(firebaseDocId, fsTask)
+                taskDao.markTaskAsSynced(taskId, firebaseDocId)
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Görev güncelleme hatası: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteTaskAssignment(taskId: Int, firebaseDocId: String?): Result<Unit> {
+        return try {
+            taskDao.deleteTask(taskId)
+            if (!firebaseDocId.isNullOrBlank()) {
+                firestoreService.deleteTask(firebaseDocId)
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Görev silme hatası: ${e.message}")
             Result.failure(e)
         }
     }
@@ -235,7 +329,8 @@ class PlanRepository(
                         autoRepeat = fsTask.autoRepeat,
                         repeatDurationWeeks = fsTask.repeatDurationWeeks,
                         exercisesJson = exJson,
-                        createdAt = fsTask.createdAt?.time ?: existingTask.createdAt
+                        createdAt = fsTask.createdAt?.time ?: existingTask.createdAt,
+                        updatedAt = fsTask.updatedAt ?: existingTask.updatedAt
                     )
                     taskDao.updateTask(updated)
                 } else {
@@ -254,7 +349,8 @@ class PlanRepository(
                         repeatDurationWeeks = fsTask.repeatDurationWeeks,
                         exercisesJson = exJson,
                         isSynced = true,
-                        createdAt = fsTask.createdAt?.time ?: System.currentTimeMillis()
+                        createdAt = fsTask.createdAt?.time ?: System.currentTimeMillis(),
+                        updatedAt = fsTask.updatedAt ?: System.currentTimeMillis()
                     )
                     taskDao.insertTask(newTask)
                 }
@@ -304,7 +400,8 @@ class PlanRepository(
                         autoRepeat = fsTask.autoRepeat,
                         repeatDurationWeeks = fsTask.repeatDurationWeeks,
                         exercisesJson = exJson,
-                        createdAt = fsTask.createdAt?.time ?: existingTask.createdAt
+                        createdAt = fsTask.createdAt?.time ?: existingTask.createdAt,
+                        updatedAt = fsTask.updatedAt ?: existingTask.updatedAt
                     )
                     taskDao.updateTask(updated)
                 } else {
@@ -322,7 +419,8 @@ class PlanRepository(
                         repeatDurationWeeks = fsTask.repeatDurationWeeks,
                         exercisesJson = exJson,
                         isSynced = true,
-                        createdAt = fsTask.createdAt?.time ?: System.currentTimeMillis()
+                        createdAt = fsTask.createdAt?.time ?: System.currentTimeMillis(),
+                        updatedAt = fsTask.updatedAt ?: System.currentTimeMillis()
                     )
                     taskDao.insertTask(newTask)
                 }

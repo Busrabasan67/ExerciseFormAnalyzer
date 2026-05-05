@@ -33,6 +33,7 @@ import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.ui.dashboard.components.AssignTaskDialog
 import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
 import org.json.JSONArray
+import org.json.JSONObject
 import java.util.Calendar
 import java.util.Date
 import java.text.SimpleDateFormat
@@ -81,6 +82,9 @@ fun ExpertDashboardScreen(
     var assignmentNote by remember { mutableStateOf("") }
     
     var patientIdToRemove by remember { mutableStateOf<String?>(null) }
+    var taskToEdit by remember { mutableStateOf<TaskAssignmentEntity?>(null) }
+    var taskIdToDelete by remember { mutableStateOf<TaskAssignmentEntity?>(null) }
+    var exerciseToDelete by remember { mutableStateOf<Triple<TaskAssignmentEntity, Int, String>?>(null) }
     
     LaunchedEffect(viewModel.currentUid) {
         if (viewModel.currentUid.isNotEmpty()) {
@@ -352,7 +356,10 @@ fun ExpertDashboardScreen(
                                     val patient = patients.find { it.uid == task.patientUid }
                                     TaskTrackingCard(
                                         task = task,
-                                        patientName = patient?.fullName ?: "Bilinmeyen Hasta"
+                                        patientName = patient?.fullName ?: "Bilinmeyen Hasta",
+                                        onEdit = { taskToEdit = it },
+                                        onDelete = { taskIdToDelete = it },
+                                        onDeleteExercise = { t, idx, name -> exerciseToDelete = Triple(t, idx, name) }
                                     )
                                 }
                             }
@@ -369,6 +376,148 @@ fun ExpertDashboardScreen(
                     onLogout()
                 },
                 onDismiss = { viewModel.setShowLogoutDialog(false) }
+            )
+        }
+
+        // Edit Task Dialog
+        taskToEdit?.let { task ->
+            val initialExercises = remember(task.exercisesJson) {
+                try {
+                    val arr = JSONArray(task.exercisesJson)
+                    List(arr.length()) { i ->
+                        val obj = arr.getJSONObject(i)
+                        ExpertViewModel.TaskExerciseInput(
+                            exerciseType = ExerciseType.valueOf(obj.optString("exerciseType", "SQUAT")),
+                            isDurationBased = obj.optString("targetType") == "DURATION",
+                            targetValue = (if (obj.optString("targetType") == "DURATION") obj.optInt("targetDurationSeconds") else obj.optInt("targetReps")).toString(),
+                            sets = obj.optInt("sets", 1).toString(),
+                            restTimeSeconds = obj.optInt("restTimeSeconds", 30).toString(),
+                            difficulty = obj.optString("difficulty", "MEDIUM"),
+                            category = obj.optString("category", "STRENGTH"),
+                            videoUrl = obj.optString("videoUrl").takeIf { it.isNotEmpty() }
+                        )
+                    }
+                } catch (e: Exception) { emptyList() }
+            }
+
+            val initialDays = remember(task.daysOfWeekJson) {
+                try {
+                    val arr = JSONArray(task.daysOfWeekJson)
+                    List(arr.length()) { i -> arr.getInt(i) }
+                } catch (e: Exception) { emptyList() }
+            }
+
+            AssignTaskDialog(
+                onDismissRequest = { taskToEdit = null },
+                dialogTitle = "Görevi Düzenle",
+                defaultTitle = task.title,
+                defaultNote = task.note,
+                defaultSched = task.scheduleType,
+                defaultDays = initialDays,
+                defaultAuto = task.autoRepeat,
+                defaultWeeks = task.repeatDurationWeeks,
+                initialExercises = initialExercises,
+                submitText = "Güncelle",
+                onAssignTask = { title, note, dueDate, exercises, sched, days, auto, weeks ->
+                    viewModel.updateTask(
+                        taskId = task.id,
+                        firebaseDocId = task.firebaseDocId,
+                        patientUid = task.patientUid,
+                        title = title,
+                        note = note,
+                        dueDate = dueDate,
+                        exercises = exercises,
+                        scheduleType = sched,
+                        daysOfWeek = days,
+                        autoRepeat = auto,
+                        repeatWeeks = weeks
+                    )
+                    taskToEdit = null
+                }
+            )
+        }
+
+        // Delete Task Confirmation
+        taskIdToDelete?.let { task ->
+            AlertDialog(
+                onDismissRequest = { taskIdToDelete = null },
+                title = { Text("Görevi Sil") },
+                text = { Text("'${task.title}' görevini tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.deleteTask(task.id, task.firebaseDocId)
+                        taskIdToDelete = null
+                    }) {
+                        Text("Sil", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { taskIdToDelete = null }) {
+                        Text("İptal")
+                    }
+                }
+            )
+        }
+
+        // Delete Individual Exercise Confirmation
+        exerciseToDelete?.let { (task, index, name) ->
+            AlertDialog(
+                onDismissRequest = { exerciseToDelete = null },
+                title = { Text("Egzersizi Sil") },
+                text = { Text("'$name' egzersizini bu görevden silmek istediğinize emin misiniz?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        try {
+                            val arr = JSONArray(task.exercisesJson)
+                            val updatedList = mutableListOf<JSONObject>()
+                            for (i in 0 until arr.length()) {
+                                if (i != index) updatedList.add(arr.getJSONObject(i))
+                            }
+                            
+                            val taskExerciseInputs = updatedList.map { obj ->
+                                ExpertViewModel.TaskExerciseInput(
+                                    exerciseType = ExerciseType.valueOf(obj.optString("exerciseType", "SQUAT")),
+                                    isDurationBased = obj.optString("targetType") == "DURATION",
+                                    targetValue = (if (obj.optString("targetType") == "DURATION") obj.optInt("targetDurationSeconds") else obj.optInt("targetReps")).toString(),
+                                    sets = obj.optInt("sets", 1).toString(),
+                                    restTimeSeconds = obj.optInt("restTimeSeconds", 30).toString(),
+                                    difficulty = obj.optString("difficulty", "MEDIUM"),
+                                    category = obj.optString("category", "STRENGTH"),
+                                    videoUrl = obj.optString("videoUrl").takeIf { it.isNotEmpty() }
+                                )
+                            }
+
+                            val days = try {
+                                val dArr = JSONArray(task.daysOfWeekJson)
+                                List(dArr.length()) { i -> dArr.getInt(i) }
+                            } catch (e: Exception) { emptyList() }
+
+                            viewModel.updateTask(
+                                taskId = task.id,
+                                firebaseDocId = task.firebaseDocId,
+                                patientUid = task.patientUid,
+                                title = task.title,
+                                note = task.note,
+                                dueDate = task.dueDate,
+                                exercises = taskExerciseInputs,
+                                scheduleType = task.scheduleType,
+                                daysOfWeek = days,
+                                autoRepeat = task.autoRepeat,
+                                repeatWeeks = task.repeatDurationWeeks
+                            )
+                        } catch (e: Exception) {
+                            android.util.Log.e("ExpertDashboard", "Egzersiz silme hatası", e)
+                        }
+                        exerciseToDelete = null
+                    }) {
+                        Text("Sil", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { exerciseToDelete = null }) {
+                        Text("İptal")
+                    }
+                }
             )
         }
 
@@ -426,7 +575,10 @@ fun TaskFilterChips(
 @Composable
 fun TaskTrackingCard(
     task: TaskAssignmentEntity,
-    patientName: String
+    patientName: String,
+    onEdit: (TaskAssignmentEntity) -> Unit,
+    onDelete: (TaskAssignmentEntity) -> Unit,
+    onDeleteExercise: (TaskAssignmentEntity, Int, String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
@@ -477,6 +629,14 @@ fun TaskTrackingCard(
             val createdAtText = if (task.createdAt > 0L) sdf.format(Date(task.createdAt)) else "Belirtilmedi"
             TaskInfoRow(Icons.Default.Event, "Verildi: $createdAtText")
             
+            val updatedAtText = if (task.updatedAt > task.createdAt && (task.updatedAt - task.createdAt) > 5000) {
+                sdf.format(Date(task.updatedAt))
+            } else null
+            
+            if (updatedAtText != null) {
+                TaskInfoRow(Icons.Default.Edit, "Güncellendi: $updatedAtText")
+            }
+            
             val planText = when(task.scheduleType) {
                 "DAILY" -> "Her Gün"
                 "WEEKLY" -> "Haftalık"
@@ -523,12 +683,29 @@ fun TaskTrackingCard(
                     contentDescription = null
                 )
             }
-            
+
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        IconButton(onClick = { onEdit(task) }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Düzenle", tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(onClick = { onDelete(task) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    exercises.forEach { ex ->
-                        ExerciseDetailRow(ex)
+                    exercises.forEachIndexed { index, ex ->
+                        ExerciseDetailRow(
+                            ex = ex,
+                            onDelete = {
+                                val name = ex.optString("exerciseType", "Egzersiz")
+                                onDeleteExercise(task, index, name)
+                            }
+                        )
                     }
                 }
             }
@@ -590,7 +767,7 @@ fun TaskProgressBar(progress: Float) {
 }
 
 @Composable
-fun ExerciseDetailRow(ex: org.json.JSONObject) {
+fun ExerciseDetailRow(ex: org.json.JSONObject, onDelete: () -> Unit) {
     val name = ex.optString("exerciseType", "Egzersiz")
     val sets = ex.optInt("sets", 0)
     val comp = ex.optInt("completedSets", 0)
@@ -599,9 +776,12 @@ fun ExerciseDetailRow(ex: org.json.JSONObject) {
     val targetStr = if (reps > 0) "$reps Tekrar" else "$dur Sn"
     
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Text("$comp / $sets Set", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            IconButton(onClick = onDelete, modifier = Modifier.size(24.dp).padding(start = 4.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "Egzersizi Sil", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+            }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(targetStr, style = MaterialTheme.typography.bodySmall, color = Color.Gray)

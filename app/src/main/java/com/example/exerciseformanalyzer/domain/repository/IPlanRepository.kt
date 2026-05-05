@@ -50,6 +50,25 @@ interface IPlanRepository {
         repeatDurationWeeks: Int? = null
     ): Result<Unit>
 
+    /** Mevcut bir görevi günceller. */
+    suspend fun updateTaskAssignment(
+        taskId: Int,
+        firebaseDocId: String?,
+        expertUid: String,
+        patientUid: String,
+        title: String,
+        note: String,
+        dueDate: Long,
+        exercises: List<FirestoreExerciseItem>,
+        scheduleType: String,
+        daysOfWeek: List<Int>,
+        autoRepeat: Boolean,
+        repeatDurationWeeks: Int?
+    ): Result<Unit>
+
+    /** Görevi tamamen siler (Room + Firestore). */
+    suspend fun deleteTaskAssignment(taskId: Int, firebaseDocId: String?): Result<Unit>
+
     /** Görevi tamamlandı olarak işaretler. */
     suspend fun completeTask(taskId: Int, firebaseDocId: String?, reportId: Int)
 

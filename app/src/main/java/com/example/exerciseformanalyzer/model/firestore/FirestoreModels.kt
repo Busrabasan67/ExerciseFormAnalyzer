@@ -102,7 +102,8 @@ data class FirestoreTaskAssignment(
     val repeatDurationWeeks: Int? = null,
     val status: String = "PENDING", // "PENDING" | "COMPLETED" | "MISSED"
     val exercises: List<FirestoreExerciseItem> = emptyList(),
-    @ServerTimestamp val createdAt: Date? = null
+    @ServerTimestamp val createdAt: Date? = null,
+    val updatedAt: Long? = null
 )
 
 // =========================================================

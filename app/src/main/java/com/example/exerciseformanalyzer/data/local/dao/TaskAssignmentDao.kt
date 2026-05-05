@@ -59,6 +59,9 @@ interface TaskAssignmentDao {
     @Query("UPDATE task_assignments SET status = 'removed' WHERE id = :taskId")
     suspend fun markTaskAsRemoved(taskId: Int)
 
+    @Query("DELETE FROM task_assignments WHERE id = :taskId")
+    suspend fun deleteTask(taskId: Int)
+
     // Senkronizasyon için
     @Query("SELECT * FROM task_assignments WHERE isSynced = 0")
     suspend fun getUnsyncedTasks(): List<TaskAssignmentEntity>

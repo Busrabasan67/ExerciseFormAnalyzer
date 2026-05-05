@@ -340,4 +340,63 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
+
+    fun deleteTask(taskId: Int, firebaseDocId: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            planRepo.deleteTaskAssignment(taskId, firebaseDocId)
+        }
+    }
+
+    fun updateTask(
+        taskId: Int,
+        firebaseDocId: String?,
+        patientUid: String,
+        title: String,
+        note: String,
+        dueDate: Long,
+        exercises: List<TaskExerciseInput>,
+        scheduleType: String,
+        daysOfWeek: List<Int>,
+        autoRepeat: Boolean,
+        repeatWeeks: Int?
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val uid = currentUid
+            if (uid.isNotEmpty()) {
+                val fsExercises = exercises.map { input ->
+                    val value = input.targetValue.toIntOrNull() ?: 1
+                    val s = input.sets.toIntOrNull() ?: 1
+                    val rt = input.restTimeSeconds.toIntOrNull() ?: 30
+                    
+                    FirestoreExerciseItem(
+                        exerciseType = input.exerciseType.name,
+                        targetType = if (input.isDurationBased) "DURATION" else "REPS",
+                        targetReps = if (!input.isDurationBased) value else null,
+                        targetDurationSeconds = if (input.isDurationBased) value else null,
+                        sets = s,
+                        restTimeSeconds = rt,
+                        difficulty = input.difficulty,
+                        category = input.category,
+                        videoUrl = input.videoUrl,
+                        status = "PENDING"
+                    )
+                }
+
+                planRepo.updateTaskAssignment(
+                    taskId = taskId,
+                    firebaseDocId = firebaseDocId,
+                    expertUid = uid,
+                    patientUid = patientUid,
+                    title = title,
+                    note = note,
+                    dueDate = dueDate,
+                    exercises = fsExercises,
+                    scheduleType = scheduleType,
+                    daysOfWeek = daysOfWeek,
+                    autoRepeat = autoRepeat,
+                    repeatDurationWeeks = repeatWeeks
+                )
+            }
+        }
+    }
 }

@@ -257,6 +257,16 @@ class FirestoreService {
         db.collection(TASK_ASSIGNMENTS).document(taskDocId).update(updates).await()
     }
 
+    /** Görevi tamamen günceller (Düzenleme ekranı için). */
+    suspend fun updateTask(taskDocId: String, task: FirestoreTaskAssignment) {
+        db.collection(TASK_ASSIGNMENTS).document(taskDocId).set(task, com.google.firebase.firestore.SetOptions.merge()).await()
+    }
+
+    /** Görevi Firestore'dan siler. */
+    suspend fun deleteTask(taskDocId: String) {
+        db.collection(TASK_ASSIGNMENTS).document(taskDocId).delete().await()
+    }
+
     /** Hastanın görevlerini Firestore'dan çek. */
     suspend fun getTasksForPatient(patientUid: String): List<Pair<String, FirestoreTaskAssignment>> {
         return db.collection(TASK_ASSIGNMENTS)
