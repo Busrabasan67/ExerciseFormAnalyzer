@@ -79,6 +79,10 @@ class FirebaseAuthService {
         auth.signOut()
     }
 
+    suspend fun updatePassword(newPassword: String) {
+        auth.currentUser?.updatePassword(newPassword)?.await()
+    }
+
     /**
      * Kullanıcı giriş durumunu kontrol et — Splash ekranında kullanılır.
      */

@@ -53,7 +53,6 @@ sealed class Route(val route: String) {
     object PatientDetail : Route("patient_detail/{patientUid}") {
         fun createRoute(uid: String) = "patient_detail/$uid"
     }
-    object SocialFeed : Route("social_feed")
     object Leaderboard : Route("leaderboard")
     object Chat : Route("chat/{otherUid}/{otherUserName}") {
         fun createRoute(otherUid: String, otherUserName: String) = "chat/$otherUid/$otherUserName"
@@ -191,7 +190,6 @@ fun AppNavigation(
                 },
                 onNavigateToProfile = { navController.navigate(Route.Profile.route) },
                 onNavigateToGroups = { navController.navigate(Route.Community.route) },
-                onNavigateToSocial = { navController.navigate(Route.SocialFeed.route) },
                 onNavigateToLeaderboard = { navController.navigate(Route.Leaderboard.route) },
                 onLogout = {
                     authViewModel.logout()
@@ -211,7 +209,6 @@ fun AppNavigation(
                 onNavigateToProfile = { navController.navigate(Route.Profile.route) },
                 onNavigateToPatientDetail = { uid -> navController.navigate(Route.PatientDetail.createRoute(uid)) },
                 onNavigateToGroups = { navController.navigate(Route.Community.route) },
-                onNavigateToSocial = { navController.navigate(Route.SocialFeed.route) },
                 onLogout = {
                     authViewModel.logout()
                     navController.navigate(Route.Login.route) {
@@ -277,7 +274,6 @@ fun AppNavigation(
                 },
                 onNavigateToProfile = { navController.navigate(Route.Profile.route) },
                 onNavigateToGroups = { navController.navigate(Route.Community.route) },
-                onNavigateToSocial = { navController.navigate(Route.SocialFeed.route) },
                 onNavigateToLeaderboard = { navController.navigate(Route.Leaderboard.route) },
                 onNavigateToPatientDetail = { uid -> navController.navigate(Route.PatientDetail.createRoute(uid)) },
                 onLogout = {
@@ -289,12 +285,6 @@ fun AppNavigation(
             )
         }
 
-        composable(Route.SocialFeed.route) {
-            com.example.exerciseformanalyzer.ui.social.SocialFeedScreen(
-                viewModel = patientViewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
 
         composable(Route.Leaderboard.route) {
             com.example.exerciseformanalyzer.ui.social.LeaderboardScreen(

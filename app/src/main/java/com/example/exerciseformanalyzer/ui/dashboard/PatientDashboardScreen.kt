@@ -17,10 +17,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
 import com.example.exerciseformanalyzer.model.ExerciseType
@@ -58,7 +61,7 @@ fun PatientDashboardScreen(
     onNavigateToTaskExercise: (TaskExerciseStartParams) -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToGroups: () -> Unit = {},
-    onNavigateToSocial: () -> Unit,
+
     onNavigateToLeaderboard: () -> Unit,
     onLogout: () -> Unit,
     onNavigateToChat: (expertUid: String, expertName: String) -> Unit
@@ -67,7 +70,7 @@ fun PatientDashboardScreen(
     val categorizedTasks by viewModel.categorizedTasks.collectAsState()
     val reports by viewModel.observeMyReports().collectAsState(initial = emptyList())
     val incomingRequests by viewModel.incomingRequests.collectAsState()
-    val isEmailVerified = viewModel.isEmailVerified
+    val isEmailVerified by viewModel.isEmailVerified.collectAsStateWithLifecycle()
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
     val hasCommunityNotifications by viewModel.hasCommunityNotifications.collectAsState()
     val expertNotes by viewModel.expertNotes.collectAsState()
@@ -116,9 +119,7 @@ fun PatientDashboardScreen(
                         IconButton(onClick = onNavigateToLeaderboard) { 
                             Icon(imageVector = Icons.Default.EmojiEvents, contentDescription = "Sıralama") 
                         }
-                        IconButton(onClick = onNavigateToSocial) { 
-                            Icon(imageVector = Icons.Default.Share, contentDescription = "Sosyal Feed") 
-                        }
+
                         TextButton(onClick = onNavigateToGroups) {
                             BadgedBox(
                                 badge = {
@@ -142,23 +143,89 @@ fun PatientDashboardScreen(
                 )
                 
                 // --- EMAIL VERIFICATION BANNER ---
-                if (!viewModel.isEmailVerified) {
+                var showSuccessBanner by remember { mutableStateOf(false) }
+                LaunchedEffect(isEmailVerified) {
+                    if (isEmailVerified) {
+                        // Eğer az önce doğrulandıysa başarı mesajı göster
+                        if (!isEmailVerified) { // Bu mantık StateFlow değiştiğinde tetiklenir
+                           showSuccessBanner = true
+                           kotlinx.coroutines.delay(4000)
+                           showSuccessBanner = false
+                        }
+                    } else {
+                        while(true) {
+                            kotlinx.coroutines.delay(4000)
+                            viewModel.reloadUser { verified ->
+                                if (verified) showSuccessBanner = true
+                            }
+                            if (isEmailVerified) break
+                        }
+                    }
+                }
+
+                if (showSuccessBanner) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.errorContainer
+                        color = Color(0xFF4CAF50), // Yeşil
+                        shadowElevation = 4.dp
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("E-posta adresiniz başarıyla doğrulandı!", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+
+                if (!isEmailVerified && !showSuccessBanner) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                        shadowElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ErrorOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = stringResource(R.string.email_not_verified),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            TextButton(onClick = { viewModel.sendVerificationEmail() }) {
-                                Text(stringResource(R.string.verify_now))
+                            TextButton(
+                                onClick = { 
+                                    viewModel.sendVerificationEmail()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.verification_email_sent), android.widget.Toast.LENGTH_LONG).show()
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Text(stringResource(R.string.verify_now), style = MaterialTheme.typography.labelLarge)
+                            }
+                            IconButton(
+                                onClick = { viewModel.reloadUser() },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = stringResource(R.string.check_status),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }

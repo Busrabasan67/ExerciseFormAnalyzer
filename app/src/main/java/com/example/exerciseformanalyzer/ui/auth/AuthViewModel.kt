@@ -161,4 +161,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun setError(message: String) {
         _uiState.value = AuthUiState.Error(message)
     }
+
+    fun sendPasswordResetEmail(email: String, onSuccess: () -> Unit) {
+        if (email.isBlank()) {
+            _uiState.value = AuthUiState.Error("Lütfen e-posta adresinizi girin.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            when (val result = authRepository.sendPasswordResetEmail(email)) {
+                is AuthResult.Success -> {
+                    _uiState.value = AuthUiState.Idle
+                    onSuccess()
+                }
+                is AuthResult.Error -> {
+                    _uiState.value = AuthUiState.Error(result.message)
+                }
+                else -> { _uiState.value = AuthUiState.Idle }
+            }
+        }
+    }
 }

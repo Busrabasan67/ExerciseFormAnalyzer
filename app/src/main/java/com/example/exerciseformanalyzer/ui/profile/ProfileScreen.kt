@@ -70,6 +70,8 @@ fun ProfileScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var isUploading by remember { mutableStateOf(false) }
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var newPassword by remember { mutableStateOf("") }
 
     // Android 13+ (API 33) için READ_MEDIA_IMAGES, daha eskiler için READ_EXTERNAL_STORAGE
     val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -252,8 +254,12 @@ fun ProfileScreen(
                                 onDarkModeToggle = { mainViewModel.setDarkMode(it) },
                                 onLogoutClick = { showLogoutDialog = true },
                                 onChangePasswordClick = {
-                                    viewModel.sendPasswordReset { success ->
-                                        // Reset linki gönderildi uyarısı eklenebilir
+                                    viewModel.sendPasswordReset { success, error ->
+                                        if (success) {
+                                            scope.launch { snackbarHostState.showSnackbar("Şifre sıfırlama e-postası gönderildi.") }
+                                        } else {
+                                            scope.launch { snackbarHostState.showSnackbar("Hata: $error") }
+                                        }
                                     }
                                 }
                             )
@@ -275,6 +281,8 @@ fun ProfileScreen(
             onDismiss = { showLogoutDialog = false }
         )
     }
+
+
 
     if (showImageSourceDialog) {
         ModalBottomSheet(

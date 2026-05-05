@@ -110,6 +110,16 @@ fun LoginScreen(
                     onCheckedChange = { rememberMe = it }
                 )
                 Text(text = stringResource(R.string.remember_me))
+                Spacer(modifier = Modifier.weight(1f))
+                val context = LocalContext.current
+                val resetSuccessMsg = stringResource(R.string.password_reset_sent)
+                TextButton(onClick = { 
+                    viewModel.sendPasswordResetEmail(email) {
+                        android.widget.Toast.makeText(context, resetSuccessMsg, android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }) {
+                    Text(stringResource(R.string.forgot_password), style = MaterialTheme.typography.bodySmall)
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

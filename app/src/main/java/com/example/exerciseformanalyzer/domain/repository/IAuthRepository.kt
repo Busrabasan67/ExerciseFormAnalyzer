@@ -54,6 +54,12 @@ interface IAuthRepository {
     /** Kullanıcı bilgilerini yeniler (doğrulama durumunu güncellemek için). */
     suspend fun reloadUser(): AuthResult<Unit>
 
+    /** Şifre sıfırlama e-postası gönderir. */
+    suspend fun sendPasswordResetEmail(email: String): AuthResult<Unit>
+
+    /** Şifreyi günceller. */
+    suspend fun updatePassword(newPassword: String): AuthResult<Unit>
+
     /** Oturumu kapatır. */
     fun signOut()
 

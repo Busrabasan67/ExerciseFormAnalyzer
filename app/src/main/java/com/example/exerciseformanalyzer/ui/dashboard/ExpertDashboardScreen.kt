@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.horizontalScroll
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,7 +59,7 @@ fun ExpertDashboardScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToPatientDetail: (String) -> Unit,
     onNavigateToGroups: () -> Unit,
-    onNavigateToSocial: () -> Unit,
+
     onLogout: () -> Unit
 ) {
     val patients by viewModel.observeMyPatients().collectAsState(initial = emptyList())
@@ -69,7 +71,9 @@ fun ExpertDashboardScreen(
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
     val requestStatus by viewModel.requestStatus.collectAsState()
     val hasCommunityNotifications by viewModel.hasCommunityNotifications.collectAsState()
+    val isEmailVerified by viewModel.isEmailVerified.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Hastalarım", "Görev Ata", "Takip")
@@ -111,9 +115,7 @@ fun ExpertDashboardScreen(
                 TopAppBar(
                     title = { Text(stringResource(R.string.expert_dashboard_title)) },
                     actions = {
-                        IconButton(onClick = onNavigateToSocial) { 
-                            Icon(imageVector = Icons.Default.Share, contentDescription = "Sosyal Feed") 
-                        }
+
                         TextButton(onClick = onNavigateToGroups) {
                             BadgedBox(
                                 badge = {
@@ -133,23 +135,84 @@ fun ExpertDashboardScreen(
                 )
                 
                 // --- EMAIL VERIFICATION BANNER ---
-                if (!viewModel.isEmailVerified) {
+                var showSuccessBanner by remember { mutableStateOf(false) }
+                LaunchedEffect(isEmailVerified) {
+                    if (isEmailVerified) {
+                        // Başarı mesajı gösterilecek bir tetikleyici eklenebilir
+                    } else {
+                        while(true) {
+                            kotlinx.coroutines.delay(4000)
+                            viewModel.reloadUser { verified ->
+                                if (verified) showSuccessBanner = true
+                            }
+                            if (isEmailVerified) break
+                        }
+                    }
+                }
+
+                if (showSuccessBanner) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.errorContainer
+                        color = Color(0xFF4CAF50),
+                        shadowElevation = 4.dp
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("E-posta adresiniz başarıyla doğrulandı!", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+
+                if (!isEmailVerified && !showSuccessBanner) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                        shadowElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ErrorOutline,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = stringResource(R.string.email_not_verified),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            TextButton(onClick = { viewModel.sendVerificationEmail() }) {
-                                Text(stringResource(R.string.verify_now))
+                            TextButton(
+                                onClick = { 
+                                    viewModel.sendVerificationEmail()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.verification_email_sent), android.widget.Toast.LENGTH_LONG).show()
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Text(stringResource(R.string.verify_now), style = MaterialTheme.typography.labelLarge)
+                            }
+                            IconButton(
+                                onClick = { viewModel.reloadUser() },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = stringResource(R.string.check_status),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }

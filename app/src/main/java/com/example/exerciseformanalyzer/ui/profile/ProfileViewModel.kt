@@ -70,23 +70,31 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun sendPasswordReset(onResult: (Boolean) -> Unit = {}) {
+    fun sendPasswordReset(onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         val email = authRepo.currentUserEmail
         if (email.isNullOrEmpty()) {
-            onResult(false)
+            onResult(false, "E-posta adresi bulunamadı.")
             return
         }
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                (getApplication<MainApplication>().authRepository as? com.example.exerciseformanalyzer.data.repository.AuthRepository)?.let {
-                    // Normalde FirebaseAuthService'e erişim repository üzerinden olmalı
-                    // Ama burada kolaya kaçıp repository'deki signOut gibi bir yapı kuruyoruz.
-                    // AuthRepository'ye sendPasswordReset eklemediğimiz için direkt erişemiyoruz.
-                    // Mevcut yapıya sadık kalarak sadece UI'da bildirim gösterebiliriz.
-                }
-                onResult(true)
-            } catch (e: Exception) {
-                onResult(false)
+        viewModelScope.launch {
+            when (val result = authRepo.sendPasswordResetEmail(email)) {
+                is com.example.exerciseformanalyzer.domain.model.AuthResult.Success -> onResult(true, null)
+                is com.example.exerciseformanalyzer.domain.model.AuthResult.Error -> onResult(false, result.message)
+                else -> onResult(false, "Bilinmeyen bir hata oluştu.")
+            }
+        }
+    }
+
+    fun updatePassword(newPassword: String, onResult: (Boolean, String?) -> Unit) {
+        if (newPassword.length < 6) {
+            onResult(false, "Şifre en az 6 karakter olmalıdır.")
+            return
+        }
+        viewModelScope.launch {
+            when (val result = authRepo.updatePassword(newPassword)) {
+                is com.example.exerciseformanalyzer.domain.model.AuthResult.Success -> onResult(true, null)
+                is com.example.exerciseformanalyzer.domain.model.AuthResult.Error -> onResult(false, result.message)
+                else -> onResult(false, "Bilinmeyen bir hata oluştu.")
             }
         }
     }

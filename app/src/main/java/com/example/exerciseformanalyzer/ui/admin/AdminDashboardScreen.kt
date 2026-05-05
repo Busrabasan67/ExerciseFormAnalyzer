@@ -26,7 +26,7 @@ fun AdminDashboardScreen(
     onNavigateToTaskExercise: (com.example.exerciseformanalyzer.ui.dashboard.TaskExerciseStartParams) -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToGroups: () -> Unit,
-    onNavigateToSocial: () -> Unit,
+
     onNavigateToLeaderboard: () -> Unit,
     onNavigateToPatientDetail: (String) -> Unit,
     onLogout: () -> Unit
@@ -114,7 +114,7 @@ fun AdminDashboardScreen(
                         onNavigateToTaskExercise = onNavigateToTaskExercise,
                         onNavigateToProfile = onNavigateToProfile,
                         onNavigateToGroups = onNavigateToGroups,
-                        onNavigateToSocial = onNavigateToSocial,
+
                         onNavigateToLeaderboard = onNavigateToLeaderboard,
                         onLogout = onLogout,
                         onNavigateToChat = { _, _ -> }
@@ -126,7 +126,7 @@ fun AdminDashboardScreen(
                         onNavigateToProfile = onNavigateToProfile,
                         onNavigateToPatientDetail = onNavigateToPatientDetail,
                         onNavigateToGroups = onNavigateToGroups,
-                        onNavigateToSocial = onNavigateToSocial,
+
                         onLogout = onLogout
                     )
                 }

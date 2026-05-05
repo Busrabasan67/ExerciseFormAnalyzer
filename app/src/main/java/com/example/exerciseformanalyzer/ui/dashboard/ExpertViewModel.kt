@@ -72,11 +72,22 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
     private val _hasCommunityNotifications = MutableStateFlow(false)
     val hasCommunityNotifications: StateFlow<Boolean> = _hasCommunityNotifications.asStateFlow()
 
-    val isEmailVerified: Boolean get() = authRepo.isEmailVerified
+    private val _isEmailVerified = MutableStateFlow(authRepo.isEmailVerified)
+    val isEmailVerified: StateFlow<Boolean> = _isEmailVerified.asStateFlow()
 
     fun sendVerificationEmail() {
         viewModelScope.launch {
             authRepo.sendEmailVerification()
+        }
+    }
+
+    fun reloadUser(onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            authRepo.reloadUser()
+            val verified = authRepo.isEmailVerified
+            _isEmailVerified.value = verified
+            android.util.Log.d("Verification", "User reloaded. isEmailVerified: $verified")
+            onComplete(verified)
         }
     }
 

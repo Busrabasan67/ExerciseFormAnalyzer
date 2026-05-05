@@ -131,6 +131,24 @@ class AuthRepository(
         authService.signOut()
     }
 
+    override suspend fun updatePassword(newPassword: String): AuthResult<Unit> {
+        return try {
+            authService.updatePassword(newPassword)
+            AuthResult.Success(Unit)
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Şifre güncellenemedi.")
+        }
+    }
+
+    override suspend fun sendPasswordResetEmail(email: String): AuthResult<Unit> {
+        return try {
+            authService.sendPasswordReset(email)
+            AuthResult.Success(Unit)
+        } catch (e: Exception) {
+            AuthResult.Error(e.message ?: "Şifre sıfırlama e-postası gönderilemedi.")
+        }
+    }
+
     /**
      * Firestore'daki kullanıcı profilini Room'a yazarak lokal cache'i günceller.
      * Cihaz değişimi veya uygulama yeniden kurulumunda çağrılır.
