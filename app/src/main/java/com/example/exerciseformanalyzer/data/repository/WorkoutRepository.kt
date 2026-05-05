@@ -174,7 +174,8 @@ class WorkoutRepository(
                                 exerciseType = taskContext.exerciseType,
                                 periodKey = pKey,
                                 completedSets = taskContext.completedSets, // Doğru değer WorkoutViewModel'dan geliyor
-                                totalSets = exObj.optInt("sets", 1)
+                                totalSets = exObj.optInt("sets", 1),
+                                taskExerciseCount = arr.length()
                             )
                         }
                         

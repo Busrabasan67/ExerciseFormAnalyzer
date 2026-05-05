@@ -579,7 +579,12 @@ private fun PatientTaskCard(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                PatientTaskStatusBadge(progress?.status ?: "pending")
+                val effectiveStatus = when {
+                    percent >= 0.99f && totalSets > 0 -> "completed"
+                    percent > 0f || (progress?.status ?: "").lowercase() == "in_progress" -> "in_progress"
+                    else -> "pending"
+                }
+                PatientTaskStatusBadge(effectiveStatus)
             }
 
             Spacer(modifier = Modifier.height(8.dp))

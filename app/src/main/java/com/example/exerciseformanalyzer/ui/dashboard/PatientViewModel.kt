@@ -135,12 +135,27 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                 val progress = planRepo.getTaskProgress(taskIdForProgress, pKey, uid)
                 val progStatus = progress.status.orEmpty().lowercase()
 
-                when {
-                    // Periyot devam ediyor
-                    progStatus == "in_progress" -> progressList.add(task)
+                // EKSTRA GÜVENLİK: progress.status hatalıysa bile set sayılarına bakarak doğrula
+                val taskExercises = try { org.json.JSONArray(task.exercisesJson) } catch(e: Exception) { org.json.JSONArray() }
+                val progExercises = try { org.json.JSONArray(progress.progressJson) } catch(e: Exception) { org.json.JSONArray() }
+                
+                var completedExercisesInProg = 0
+                for(i in 0 until progExercises.length()) {
+                    if(progExercises.getJSONObject(i).optString("status") == "COMPLETED") {
+                        completedExercisesInProg++
+                    }
+                }
+                val isReallyCompleted = completedExercisesInProg >= taskExercises.length() && taskExercises.length() > 0
 
-                    // Periyot bugün tamamlandı (ertesi gün tekrar todayList'e düşer)
-                    progStatus == "completed" -> completedList.add(task)
+                when {
+                    // Gerçekten bittiyse (veya status completed ise)
+                    progStatus == "completed" || isReallyCompleted -> {
+                        if (isReallyCompleted) completedList.add(task)
+                        else progressList.add(task) // Status completed ama aslında bitmemişse in_progress'e çek
+                    }
+
+                    // Periyot devam ediyor veya en az bir egzersiz başlanmış
+                    progStatus == "in_progress" || progExercises.length() > 0 -> progressList.add(task)
 
                     // Bugün aktif ve henüz başlanmamış
                     isActiveToday -> todayList.add(task)
@@ -327,6 +342,7 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         scheduleType: String,
         newCompletedSets: Int,
         totalSets: Int,
+        taskExerciseCount: Int,
         onDone: () -> Unit = {}
     ) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -336,7 +352,8 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
                 exerciseType = exerciseType,
                 periodKey = getPeriodKey(scheduleType),
                 completedSets = newCompletedSets,
-                totalSets = totalSets
+                totalSets = totalSets,
+                taskExerciseCount = taskExerciseCount
             )
             withContext(Dispatchers.Main) { onDone() }
         }

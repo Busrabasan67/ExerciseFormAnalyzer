@@ -525,7 +525,8 @@ class PlanRepository(
         exerciseType: String,
         periodKey: String,
         completedSets: Int,
-        totalSets: Int
+        totalSets: Int,
+        taskExerciseCount: Int
     ) {
         val existing = getTaskProgress(firebaseTaskId, periodKey, patientUid)
         
@@ -555,18 +556,38 @@ class PlanRepository(
             })
         }
 
-        // Recalculate overall status
-        var allCompleted = progressArr.length() > 0
-        var anyStarted = false
+        // Recalculate overall status based on total sets for better reliability
+        var totalCompletedSetsInPeriod = 0
+        var anySetStarted = false
         for (i in 0 until progressArr.length()) {
-            val s = progressArr.getJSONObject(i).optString("status", "PENDING")
-            if (s != "COMPLETED") allCompleted = false
-            if (s != "PENDING") anyStarted = true
+            val obj = progressArr.getJSONObject(i)
+            val cSets = obj.optInt("completedSets", 0)
+            totalCompletedSetsInPeriod += cSets
+            if (cSets > 0 || obj.optString("status") == "IN_PROGRESS") {
+                anySetStarted = true
+            }
         }
         
+        // Görevdeki toplam hedef set sayısını bulmak için task'ı DAO'dan tazeleyelim (veya parametreyi kullanalım)
+        // Ancak daha güvenlisi toplam hedef set sayısını parametre olarak almak (zaten ekledik).
+        // Fakat user'ın ekranında 5 set görünüyor. 
+        // Biz burada tekil egzersizlerin hedef setlerini değil, tüm görevin toplam hedef setini bilmeliyiz.
+        
+        // Yeni bir yaklaşım: taskExerciseCount yerine totalTaskSets geçebiliriz ama 
+        // mevcut taskExerciseCount'u kullanarak "kaç egzersiz tam bitti" kontrolünü daha sağlam yapalım.
+        
+        var exercisesFullyCompleted = 0
+        for (i in 0 until progressArr.length()) {
+            if (progressArr.getJSONObject(i).optString("status") == "COMPLETED") {
+                exercisesFullyCompleted++
+            }
+        }
+
+        val allExercisesDone = exercisesFullyCompleted >= taskExerciseCount && taskExerciseCount > 0
+        
         val overallStatus = when {
-            allCompleted -> "COMPLETED"
-            anyStarted -> "IN_PROGRESS"
+            allExercisesDone -> "COMPLETED"
+            anySetStarted || progressArr.length() > 0 -> "IN_PROGRESS"
             else -> "PENDING"
         }
 

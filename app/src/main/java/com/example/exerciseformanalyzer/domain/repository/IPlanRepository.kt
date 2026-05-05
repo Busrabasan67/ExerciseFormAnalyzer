@@ -95,6 +95,7 @@ interface IPlanRepository {
         exerciseType: String,
         periodKey: String,
         completedSets: Int,
-        totalSets: Int
+        totalSets: Int,
+        taskExerciseCount: Int
     )
 }
