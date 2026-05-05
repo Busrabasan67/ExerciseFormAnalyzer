@@ -15,6 +15,7 @@ import com.example.exerciseformanalyzer.data.local.dao.UserDao
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
 import com.example.exerciseformanalyzer.domain.repository.IUserRepository
+import com.example.exerciseformanalyzer.model.firestore.FirestoreRelationshipNotification
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 import com.google.firebase.storage.ktx.storage
 import com.google.firebase.ktx.Firebase
@@ -223,6 +224,49 @@ class UserRepository(
     /**
      * Uzmanın hasta listesini getir — ExpertDashboard için.
      */
+    override suspend fun acceptConnectionRequestWithSingleExpertRule(
+        request: com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest,
+        currentExpertId: String?
+    ): Result<Unit> {
+        return try {
+            firestoreService.acceptConnectionRequestWithSingleExpertRule(request, currentExpertId)
+            refreshUserFromFirestore(request.patientId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun unlinkCurrentExpertByPatient(
+        patientId: String,
+        oldExpertId: String,
+        patientName: String
+    ): Result<Unit> {
+        return try {
+            firestoreService.unlinkPatientFromExpertByPatient(patientId, oldExpertId, patientName)
+            val existing = userDao.getUserByUid(patientId)
+            if (existing != null) {
+                userDao.updateUser(existing.copy(expertUid = ""))
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override fun observeRelationshipNotifications(expertId: String): Flow<List<FirestoreRelationshipNotification>> {
+        return firestoreService.observeRelationshipNotifications(expertId)
+    }
+
+    override suspend fun dismissRelationshipNotification(notificationId: String): Result<Unit> {
+        return try {
+            firestoreService.dismissRelationshipNotification(notificationId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override fun observePatients(expertUid: String): Flow<List<UserEntity>> {
         return userDao.observePatientsByExpert(expertUid)
     }

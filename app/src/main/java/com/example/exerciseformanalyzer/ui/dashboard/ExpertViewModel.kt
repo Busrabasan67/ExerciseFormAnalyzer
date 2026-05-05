@@ -49,6 +49,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
     private val planRepo = (application as MainApplication).planRepository
     private val leaderboardRepo = (application as MainApplication).leaderboardRepository
     private val communityRepo = CommunityRepository((application as MainApplication).communityFirestoreService)
+    private val firestoreService = com.example.exerciseformanalyzer.data.remote.FirestoreService()
 
     val currentUid: String get() = authRepo.currentUid ?: ""
 
@@ -71,6 +72,17 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _hasCommunityNotifications = MutableStateFlow(false)
     val hasCommunityNotifications: StateFlow<Boolean> = _hasCommunityNotifications.asStateFlow()
+
+    private val _relationshipNotifications =
+        MutableStateFlow<List<com.example.exerciseformanalyzer.model.firestore.FirestoreRelationshipNotification>>(emptyList())
+    val relationshipNotifications: StateFlow<List<com.example.exerciseformanalyzer.model.firestore.FirestoreRelationshipNotification>> =
+        _relationshipNotifications.asStateFlow()
+
+    private val _unreadChatPartnerIds = MutableStateFlow<Set<String>>(emptySet())
+    val unreadChatPartnerIds: StateFlow<Set<String>> = _unreadChatPartnerIds.asStateFlow()
+
+    private var relationshipNotificationsJob: Job? = null
+    private var unreadChatJob: Job? = null
 
     private val _isEmailVerified = MutableStateFlow(authRepo.isEmailVerified)
     val isEmailVerified: StateFlow<Boolean> = _isEmailVerified.asStateFlow()
@@ -162,10 +174,32 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             val uid = currentUid
             if (uid.isNotEmpty()) {
+                startRealtimeObservers(uid)
                 userRepo.syncPatientsForExpert(uid)
                 planRepo.syncTasksForExpert(uid)
                 loadSentRequests()
                 loadCommunityNotifications(uid)
+            }
+        }
+    }
+
+    private fun startRealtimeObservers(uid: String) {
+        relationshipNotificationsJob?.cancel()
+        relationshipNotificationsJob = viewModelScope.launch(Dispatchers.IO) {
+            userRepo.observeRelationshipNotifications(uid).collect { notifications ->
+                _relationshipNotifications.value = notifications
+            }
+        }
+
+        unreadChatJob?.cancel()
+        unreadChatJob = viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                firestoreService.observeUnreadChatPartnerIds(uid).collect { partnerIds ->
+                    _unreadChatPartnerIds.value = partnerIds
+                }
+            }.onFailure { e ->
+                android.util.Log.w("ExpertViewModel", "unreadChatJob hatası (Firestore index gerekiyor olabilir): ${e.message}")
+                _unreadChatPartnerIds.value = emptySet()
             }
         }
     }
@@ -250,6 +284,12 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearRequestStatus() { _requestStatus.value = null }
 
+    fun dismissRelationshipNotification(notificationId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            userRepo.dismissRelationshipNotification(notificationId)
+        }
+    }
+
     fun setFilter(filter: TaskFilter) {
         _selectedFilter.value = filter
     }
@@ -264,7 +304,6 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
     fun loadExpertNotes(patientId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val firestoreService = com.example.exerciseformanalyzer.data.remote.FirestoreService()
                 _expertNotes.value = firestoreService.getExpertNotes(patientId, currentUid)
             } catch (e: Exception) {
                 android.util.Log.e("ExpertViewModel", "Notlar yüklenirken hata: ${e.message}")
@@ -275,7 +314,6 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
     fun addExpertNote(patientId: String, noteText: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val firestoreService = com.example.exerciseformanalyzer.data.remote.FirestoreService()
                 val note = com.example.exerciseformanalyzer.model.firestore.FirestoreExpertNote(
                     expertId = currentUid,
                     patientId = patientId,

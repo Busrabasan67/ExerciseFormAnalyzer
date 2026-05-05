@@ -30,7 +30,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         UserBadgeProgressEntity::class,
         TaskProgressEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -57,17 +57,17 @@ abstract class AppDatabase : RoomDatabase() {
                 // Yeni tabloyu oluşturuyoruz
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS task_assignments_new (
-                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
-                        `firebaseDocId` TEXT, 
-                        `patientUid` TEXT NOT NULL, 
-                        `expertUid` TEXT NOT NULL, 
-                        `title` TEXT NOT NULL, 
-                        `note` TEXT NOT NULL, 
-                        `dueDate` INTEGER NOT NULL, 
-                        `status` TEXT NOT NULL, 
-                        `exercisesJson` TEXT NOT NULL, 
-                        `completedAt` INTEGER, 
-                        `linkedReportId` INTEGER, 
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `firebaseDocId` TEXT,
+                        `patientUid` TEXT NOT NULL,
+                        `expertUid` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `note` TEXT NOT NULL,
+                        `dueDate` INTEGER NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `exercisesJson` TEXT NOT NULL,
+                        `completedAt` INTEGER,
+                        `linkedReportId` INTEGER,
                         `isSynced` INTEGER NOT NULL
                     )
                 """.trimIndent())
@@ -77,7 +77,7 @@ abstract class AppDatabase : RoomDatabase() {
                     INSERT INTO task_assignments_new (
                         id, firebaseDocId, patientUid, expertUid, title, note, dueDate, status, exercisesJson, completedAt, linkedReportId, isSynced
                     )
-                    SELECT 
+                    SELECT
                         id, firebaseDocId, patientUid, '', '', '', dueDate, status, '[]', completedAt, linkedReportId, isSynced
                     FROM task_assignments
                 """.trimIndent())
@@ -123,16 +123,22 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS `task_progress` (
-                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
-                        `taskId` TEXT NOT NULL, 
-                        `patientUid` TEXT NOT NULL, 
-                        `periodKey` TEXT NOT NULL, 
-                        `progressJson` TEXT NOT NULL, 
-                        `status` TEXT NOT NULL, 
-                        `lastUpdatedAt` INTEGER NOT NULL, 
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `taskId` TEXT NOT NULL,
+                        `patientUid` TEXT NOT NULL,
+                        `periodKey` TEXT NOT NULL,
+                        `progressJson` TEXT NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `lastUpdatedAt` INTEGER NOT NULL,
                         `isSynced` INTEGER NOT NULL
                     )
                 """.trimIndent())
+            }
+        }
+
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE task_assignments ADD COLUMN hiddenFromPatient INTEGER NOT NULL DEFAULT 0")
             }
         }
 
@@ -143,7 +149,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "exercise_app_database"
                 )
-                .addMigrations(MIGRATION_3_4, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(MIGRATION_3_4, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_15_16)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
@@ -152,4 +158,4 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
-
+

@@ -48,6 +48,7 @@ class ChatViewModel : ViewModel() {
         observeJob = viewModelScope.launch(Dispatchers.IO) {
             firestoreService.observeMessages(currentUid, otherUid).collect { msgList ->
                 _messages.value = msgList
+                markConversationRead(otherUid)
             }
         }
     }
@@ -73,6 +74,14 @@ class ChatViewModel : ViewModel() {
             } catch (e: Exception) {
                 android.util.Log.e("ChatViewModel", "Mesaj gönderilemedi: ${e.message}")
             }
+        }
+    }
+
+    fun markConversationRead(otherUid: String) {
+        val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        if (currentUid.isEmpty() || otherUid.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { firestoreService.markChatAsRead(currentUid, otherUid) }
         }
     }
     

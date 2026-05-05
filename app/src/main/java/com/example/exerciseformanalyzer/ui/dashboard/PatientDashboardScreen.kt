@@ -74,11 +74,14 @@ fun PatientDashboardScreen(
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
     val hasCommunityNotifications by viewModel.hasCommunityNotifications.collectAsState()
     val expertNotes by viewModel.expertNotes.collectAsState()
+    val pendingExpertSwitch by viewModel.pendingExpertSwitch.collectAsState()
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var selectedMainTab by remember { mutableIntStateOf(0) }
+    var showUnlinkExpertDialog by remember { mutableStateOf(false) }
+    var taskToHideFromHistory by remember { mutableStateOf<TaskAssignmentEntity?>(null) }
     val mainTabs = listOf("Genel Bakış", "İstatistikler")
 
     LaunchedEffect(currentUser?.expertUid) {
@@ -305,17 +308,16 @@ fun PatientDashboardScreen(
                             }
                         }
 
-                        val currentUserData = currentUser
-                        if (currentUserData != null) {
-                            val recommendedPlan = remember(currentUserData) {
-                                com.example.exerciseformanalyzer.domain.RecommendationHelper.generatePlan(currentUserData)
+                        if (!currentUser?.expertUid.isNullOrEmpty()) {
+                            OutlinedButton(
+                                onClick = { showUnlinkExpertDialog = true },
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.Default.LinkOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("İlişkiyi Kes")
                             }
-                            
-                            RecommendationCard(
-                                plan = recommendedPlan,
-                                onApply = { viewModel.applyRecommendedPlan(recommendedPlan) }
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
                         }
 
                         if (expertNotes.isNotEmpty()) {
@@ -393,6 +395,7 @@ fun PatientDashboardScreen(
                                         task = task,
                                         viewModel = viewModel,
                                         onNavigateToExercise = onNavigateToTaskExercise,
+                                        onHideFromHistory = { taskToHideFromHistory = it },
                                         onRemoveGroupTask = { groupTask ->
                                             viewModel.removeGroupProgramTask(groupTask) { _, message ->
                                                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -416,6 +419,7 @@ fun PatientDashboardScreen(
                                         task = task,
                                         viewModel = viewModel,
                                         onNavigateToExercise = onNavigateToTaskExercise,
+                                        onHideFromHistory = { taskToHideFromHistory = it },
                                         onRemoveGroupTask = { groupTask ->
                                             viewModel.removeGroupProgramTask(groupTask) { _, message ->
                                                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -553,65 +557,62 @@ fun PatientDashboardScreen(
                 onDismiss = { viewModel.setShowLogoutDialog(false) }
             )
         }
-    }
-}
 
-@Composable
-private fun RecommendationCard(
-    plan: com.example.exerciseformanalyzer.domain.RecommendedPlan,
-    onApply: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        ),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-        elevation = CardDefaults.cardElevation(4.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.EmojiEvents,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Senin İçin Önerilen Program",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            
-            Text(
-                text = "Sağlık durumuna ve hedeflerine göre optimize edilmiş program.",
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-            
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            
-            plan.exercises.forEach { ex ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(ex.exerciseType, style = MaterialTheme.typography.bodyMedium)
-                    Text("${ex.sets} Set", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        pendingExpertSwitch?.let {
+            AlertDialog(
+                onDismissRequest = { viewModel.cancelExpertSwitch() },
+                title = { Text("Uzman Değişikliği") },
+                text = { Text("Yeni uzmanla çalışmaya başlarsanız mevcut uzman bağlantınız kopacak ve aktif görevleriniz kaldırılacak.") },
+                confirmButton = {
+                    Button(onClick = { viewModel.confirmExpertSwitch() }) { Text("Onayla") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.cancelExpertSwitch() }) { Text("İptal") }
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Button(
-                onClick = onApply,
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Text("Bu Programı Uygula")
-            }
+            )
+        }
+
+        if (showUnlinkExpertDialog) {
+            AlertDialog(
+                onDismissRequest = { showUnlinkExpertDialog = false },
+                title = { Text("İlişkiyi Kes") },
+                text = { Text("Uzmanınızla ilişkinizi keserseniz aktif görevleriniz kaldırılır. Tamamlanan geçmiş görevleriniz kalır.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val user = currentUser
+                            viewModel.unlinkCurrentExpert(
+                                patientName = user?.fullName.orEmpty(),
+                                oldExpertId = user?.expertUid.orEmpty()
+                            ) { _, message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
+                            showUnlinkExpertDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) { Text("İlişkiyi Kes") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUnlinkExpertDialog = false }) { Text("İptal") }
+                }
+            )
+        }
+
+        taskToHideFromHistory?.let { task ->
+            AlertDialog(
+                onDismissRequest = { taskToHideFromHistory = null },
+                title = { Text("Geçmişten Sil") },
+                text = { Text("Bu tamamlanan görevi kendi geçmişinizden kaldırmak istiyor musunuz? Uzman tarafındaki kayıt etkilenmez.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        viewModel.hideTaskFromHistory(task) { _, message ->
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        }
+                        taskToHideFromHistory = null
+                    }) { Text("Sil", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { taskToHideFromHistory = null }) { Text("İptal") }
+                }
+            )
         }
     }
 }
@@ -621,6 +622,7 @@ private fun PatientTaskCard(
     task: com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity,
     viewModel: PatientViewModel,
     onNavigateToExercise: (TaskExerciseStartParams) -> Unit,
+    onHideFromHistory: (TaskAssignmentEntity) -> Unit = {},
     onRemoveGroupTask: (TaskAssignmentEntity) -> Unit
 ) {
     var expanded by remember { mutableStateOf(true) }
@@ -685,6 +687,21 @@ private fun PatientTaskCard(
             Spacer(modifier = Modifier.height(8.dp))
             PatientFrequencyInfoRow(task)
 
+            if (task.note.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text("Uzman Notu", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(task.note, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+
             if (isGroupTask) {
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
@@ -697,6 +714,19 @@ private fun PatientTaskCard(
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Programı Sil")
+                }
+            }
+
+            if (task.status.equals("COMPLETED", ignoreCase = true) || task.status.equals("DONE", ignoreCase = true)) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { onHideFromHistory(task) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Geçmişten Sil")
                 }
             }
 

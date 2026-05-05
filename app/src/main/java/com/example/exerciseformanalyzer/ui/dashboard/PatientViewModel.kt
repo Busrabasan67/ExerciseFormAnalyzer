@@ -43,6 +43,11 @@ data class PatientTasksUiState(
     val errorMessage: String? = null
 )
 
+data class PendingExpertSwitch(
+    val request: FirestorePatientRequest,
+    val currentExpertId: String
+)
+
 class PatientViewModel(application: Application) : AndroidViewModel(application) {
 
     private val authRepo = (application as MainApplication).authRepository
@@ -59,6 +64,9 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
 
     private val _incomingRequests = MutableStateFlow<List<FirestorePatientRequest>>(emptyList())
     val incomingRequests: StateFlow<List<FirestorePatientRequest>> = _incomingRequests.asStateFlow()
+
+    private val _pendingExpertSwitch = MutableStateFlow<PendingExpertSwitch?>(null)
+    val pendingExpertSwitch: StateFlow<PendingExpertSwitch?> = _pendingExpertSwitch.asStateFlow()
 
     private val _activities = MutableStateFlow<List<FirestoreActivity>>(emptyList())
     val activities: StateFlow<List<FirestoreActivity>> = _activities.asStateFlow()
@@ -294,16 +302,80 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     fun respondToRequest(request: FirestorePatientRequest, status: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val uid = currentUid
-            val result = userRepo.respondToConnectionRequest(
-                requestId = request.requestId,
-                status = status.uppercase(),
-                patientUid = uid,
-                expertUid = request.doctorId,
-                patientName = request.patientName,
-                patientEmail = request.patientEmail
-            )
+            val currentUser = userRepo.observeCurrentUser(uid).first()
+            val currentExpertId = currentUser?.expertUid.orEmpty()
+            if (status.equals("ACCEPTED", ignoreCase = true) &&
+                currentExpertId.isNotBlank() &&
+                currentExpertId != request.doctorId
+            ) {
+                _pendingExpertSwitch.value = PendingExpertSwitch(request, currentExpertId)
+                return@launch
+            }
+
+            val result = if (status.equals("ACCEPTED", ignoreCase = true)) {
+                userRepo.acceptConnectionRequestWithSingleExpertRule(request, currentExpertId)
+            } else {
+                userRepo.respondToConnectionRequest(
+                    requestId = request.requestId,
+                    status = status.uppercase(),
+                    patientUid = uid,
+                    expertUid = request.doctorId,
+                    patientName = request.patientName,
+                    patientEmail = request.patientEmail
+                )
+            }
             if (result.isSuccess) {
                 syncPatientData(null)
+            }
+        }
+    }
+
+    fun confirmExpertSwitch() {
+        val pending = _pendingExpertSwitch.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            planRepo.deactivateDoctorTasks(pending.currentExpertId, currentUid)
+            val result = userRepo.acceptConnectionRequestWithSingleExpertRule(
+                request = pending.request,
+                currentExpertId = pending.currentExpertId
+            )
+            _pendingExpertSwitch.value = null
+            if (result.isSuccess) {
+                syncPatientData(pending.request.doctorId)
+            }
+        }
+    }
+
+    fun cancelExpertSwitch() {
+        _pendingExpertSwitch.value = null
+    }
+
+    fun unlinkCurrentExpert(patientName: String, oldExpertId: String, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        if (oldExpertId.isBlank()) {
+            onResult(false, "Bağlı uzman bulunamadı.")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            planRepo.deactivateDoctorTasks(oldExpertId, currentUid)
+            val result = userRepo.unlinkCurrentExpertByPatient(currentUid, oldExpertId, patientName)
+            if (result.isSuccess) {
+                syncPatientData(null)
+                withContext(Dispatchers.Main) { onResult(true, "Uzman bağlantısı kesildi.") }
+            } else {
+                withContext(Dispatchers.Main) {
+                    onResult(false, result.exceptionOrNull()?.message ?: "İlişki kesilemedi.")
+                }
+            }
+        }
+    }
+
+    fun hideTaskFromHistory(task: TaskAssignmentEntity, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = planRepo.hideTaskFromPatientHistory(task.id)
+            withContext(Dispatchers.Main) {
+                onResult(
+                    result.isSuccess,
+                    if (result.isSuccess) "Görev geçmişten kaldırıldı." else result.exceptionOrNull()?.message ?: "Görev kaldırılamadı."
+                )
             }
         }
     }
@@ -420,26 +492,6 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
 
     fun observeTaskProgress(taskId: String, scheduleType: String): Flow<TaskProgressEntity?> {
         return planRepo.observeTaskProgress(taskId, getPeriodKey(scheduleType))
-    }
-
-    fun applyRecommendedPlan(plan: com.example.exerciseformanalyzer.domain.RecommendedPlan) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val uid = currentUid
-            if (uid.isNotEmpty()) {
-                planRepo.createTaskAssignment(
-                    expertUid = "SYSTEM",
-                    patientUid = uid,
-                    title = plan.title,
-                    note = plan.note,
-                    dueDate = System.currentTimeMillis() + (7 * 24 * 60 * 60 * 1000L),
-                    exercises = plan.exercises,
-                    scheduleType = "DAILY",
-                    daysOfWeek = emptyList(),
-                    autoRepeat = true,
-                    repeatDurationWeeks = 4
-                )
-            }
-        }
     }
 
     /**
