@@ -59,10 +59,6 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun logout() {
-        authRepo.signOut()
-    }
-
     fun uploadProfileImage(imageBytes: ByteArray, onResult: (Result<String>) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             val result = userRepo.uploadProfileImage(currentUid, imageBytes)

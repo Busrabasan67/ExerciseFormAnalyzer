@@ -51,6 +51,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
+import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +60,7 @@ fun ExpertDashboardScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToPatientDetail: (String) -> Unit,
     onNavigateToGroups: () -> Unit,
+    onNavigateToChat: (String, String) -> Unit,
 
     onLogout: () -> Unit
 ) {
@@ -71,12 +73,14 @@ fun ExpertDashboardScreen(
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
     val requestStatus by viewModel.requestStatus.collectAsState()
     val hasCommunityNotifications by viewModel.hasCommunityNotifications.collectAsState()
+    val relationshipNotifications by viewModel.relationshipNotifications.collectAsState()
+    val unreadChatPartnerIds by viewModel.unreadChatPartnerIds.collectAsState()
     val isEmailVerified by viewModel.isEmailVerified.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = androidx.compose.ui.platform.LocalContext.current
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Hastalarım", "Görev Ata", "Takip")
+    val tabs = listOf("Hastalarım", "Görev Ata", "Takip", "Sohbet", "Bildirimler")
     
     var searchQuery by remember { mutableStateOf("") }
     
@@ -221,12 +225,25 @@ fun ExpertDashboardScreen(
         }
     ) { paddingVals ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingVals)) {
-            TabRow(selectedTabIndex = selectedTab) {
+            ScrollableTabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
+                    val showBadge = when (index) {
+                        3 -> unreadChatPartnerIds.isNotEmpty()
+                        4 -> relationshipNotifications.isNotEmpty()
+                        else -> false
+                    }
                     Tab(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
-                        text = { Text(title) }
+                        text = {
+                            BadgedBox(
+                                badge = {
+                                    if (showBadge) Badge()
+                                }
+                            ) {
+                                Text(title)
+                            }
+                        }
                     )
                 }
             }
@@ -236,6 +253,25 @@ fun ExpertDashboardScreen(
                     // PATIENTS LIST
                     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                         item {
+                            relationshipNotifications.forEach { notification ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(notification.message, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                        TextButton(onClick = { viewModel.dismissRelationshipNotification(notification.id) }) {
+                                            Text("Kapat")
+                                        }
+                                    }
+                                }
+                            }
+
                             OutlinedTextField(
                                 value = searchQuery,
                                 onValueChange = { 
@@ -347,6 +383,19 @@ fun ExpertDashboardScreen(
                                         OutlinedButton(onClick = { onNavigateToPatientDetail(patient.uid) }, modifier = Modifier.weight(1f)) {
                                             Text("Detay")
                                         }
+                                        OutlinedButton(onClick = { onNavigateToChat(patient.uid, patient.fullName) }, modifier = Modifier.weight(1f)) {
+                                            BadgedBox(
+                                                badge = {
+                                                    if (patient.uid in unreadChatPartnerIds) Badge()
+                                                }
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("Sohbet")
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -456,6 +505,19 @@ fun ExpertDashboardScreen(
                             }
                         }
                     }
+                }
+                3 -> {
+                    ExpertChatListTab(
+                        patients = patients,
+                        unreadChatPartnerIds = unreadChatPartnerIds,
+                        onNavigateToChat = onNavigateToChat
+                    )
+                }
+                4 -> {
+                    ExpertNotificationsTab(
+                        notifications = relationshipNotifications,
+                        onDismiss = { viewModel.dismissRelationshipNotification(it) }
+                    )
                 }
             }
         }
@@ -715,6 +777,21 @@ fun TaskTrackingCard(
             }
             
             Spacer(modifier = Modifier.height(12.dp))
+
+            if (task.note.isNotBlank()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text("Özel Not", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(task.note, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             
             // Info Rows
             val createdAtText = if (task.createdAt > 0L) sdf.format(Date(task.createdAt)) else "Belirtilmedi"
@@ -804,6 +881,124 @@ fun TaskTrackingCard(
                                 onDeleteExercise(task, index, name)
                             }
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpertChatListTab(
+    patients: List<UserEntity>,
+    unreadChatPartnerIds: Set<String>,
+    onNavigateToChat: (String, String) -> Unit
+) {
+    if (patients.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Sohbet edebileceğiniz aktif hasta yok.")
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(bottom = 80.dp)
+    ) {
+        item {
+            Text("Hasta Sohbetleri", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        items(patients) { patient ->
+            val hasUnread = patient.uid in unreadChatPartnerIds
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToChat(patient.uid, patient.fullName) },
+                colors = CardDefaults.cardColors(
+                    containerColor = if (hasUnread) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    }
+                )
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        modifier = Modifier.size(42.dp),
+                        shape = RoundedCornerShape(21.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = patient.fullName.take(1).uppercase(),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(patient.fullName, style = MaterialTheme.typography.titleMedium)
+                            if (hasUnread) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Badge { Text("Yeni") }
+                            }
+                        }
+                        Text(patient.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpertNotificationsTab(
+    notifications: List<com.example.exerciseformanalyzer.model.firestore.FirestoreRelationshipNotification>,
+    onDismiss: (String) -> Unit
+) {
+    if (notifications.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Yeni bildiriminiz yok.")
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(bottom = 80.dp)
+    ) {
+        item {
+            Text("Bildirimler", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        items(notifications) { notification ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f))
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(notification.message, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        if (notification.patientName.isNotBlank()) {
+                            Text(notification.patientName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    TextButton(onClick = { onDismiss(notification.id) }) {
+                        Text("Kapat")
                     }
                 }
             }

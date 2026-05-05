@@ -31,6 +31,8 @@ class FirestoreService {
         const val TASK_PROGRESS = "task_progress"
         const val EXPERT_NOTES = "expert_notes"
         const val CHATS = "chats"
+        const val CHAT_READS = "chat_reads"
+        const val RELATIONSHIP_NOTIFICATIONS = "relationship_notifications"
     }
 
     // =====================================================================
@@ -113,6 +115,113 @@ class FirestoreService {
             .update("expertId", "").await()
     }
 
+    suspend fun unlinkPatientFromExpertByPatient(patientId: String, oldExpertId: String, patientName: String) {
+        val notificationRef = db.collection(RELATIONSHIP_NOTIFICATIONS).document()
+        db.runTransaction { transaction ->
+            transaction.update(db.collection(USERS).document(patientId), "expertId", "")
+            transaction.set(
+                db.collection(DOCTOR_PATIENTS).document("${oldExpertId}_$patientId"),
+                mapOf(
+                    "doctorId" to oldExpertId,
+                    "patientId" to patientId,
+                    "status" to "removed",
+                    "removedAt" to System.currentTimeMillis()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            transaction.set(
+                notificationRef,
+                FirestoreRelationshipNotification(
+                    id = notificationRef.id,
+                    expertId = oldExpertId,
+                    patientId = patientId,
+                    patientName = patientName,
+                    message = "${patientName.ifBlank { "Hasta" }} ilişiğini kesti",
+                    createdAt = System.currentTimeMillis()
+                )
+            )
+        }.await()
+        markRequestsAsRemoved(oldExpertId, patientId)
+    }
+
+    suspend fun acceptConnectionRequestWithSingleExpertRule(
+        request: FirestorePatientRequest,
+        currentExpertId: String?
+    ) {
+        val patientId = request.patientId
+        val newExpertId = request.doctorId
+        val oldExpertId = currentExpertId.orEmpty().takeIf { it.isNotBlank() && it != newExpertId }
+        val notificationRef = oldExpertId?.let { db.collection(RELATIONSHIP_NOTIFICATIONS).document() }
+
+        db.runTransaction { transaction ->
+            transaction.update(db.collection(PATIENT_REQUESTS).document(request.requestId), "status", "ACCEPTED")
+
+            oldExpertId?.let { oldId ->
+                transaction.set(
+                    db.collection(DOCTOR_PATIENTS).document("${oldId}_$patientId"),
+                    mapOf(
+                        "doctorId" to oldId,
+                        "patientId" to patientId,
+                        "status" to "removed",
+                        "removedAt" to System.currentTimeMillis()
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
+                )
+                transaction.set(
+                    notificationRef!!,
+                    FirestoreRelationshipNotification(
+                        id = notificationRef.id,
+                        expertId = oldId,
+                        patientId = patientId,
+                        patientName = request.patientName,
+                        message = "${request.patientName.ifBlank { "Hasta" }} ilişiğini kesti",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            transaction.set(
+                db.collection(DOCTOR_PATIENTS).document("${newExpertId}_$patientId"),
+                mapOf(
+                    "doctorId" to newExpertId,
+                    "patientId" to patientId,
+                    "patientName" to request.patientName,
+                    "patientEmail" to request.patientEmail,
+                    "status" to "active",
+                    "createdAt" to System.currentTimeMillis()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            transaction.update(db.collection(USERS).document(patientId), "expertId", newExpertId)
+        }.await()
+
+        oldExpertId?.let { markRequestsAsRemoved(it, patientId) }
+    }
+
+    fun observeRelationshipNotifications(expertId: String): kotlinx.coroutines.flow.Flow<List<FirestoreRelationshipNotification>> =
+        kotlinx.coroutines.flow.callbackFlow {
+            val listener = db.collection(RELATIONSHIP_NOTIFICATIONS)
+                .whereEqualTo("expertId", expertId)
+                .whereEqualTo("isDismissed", false)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+                    val notifications = snapshot?.documents
+                        ?.mapNotNull { doc -> doc.toObject<FirestoreRelationshipNotification>()?.copy(id = doc.id) }
+                        ?.sortedByDescending { it.createdAt }
+                        ?: emptyList()
+                    trySend(notifications)
+                }
+            awaitClose { listener.remove() }
+        }
+
+    suspend fun dismissRelationshipNotification(notificationId: String) {
+        db.collection(RELATIONSHIP_NOTIFICATIONS).document(notificationId)
+            .update("isDismissed", true).await()
+    }
+
     /** Uzmanın hastalarını listele. */
     suspend fun getPatientsByExpert(expertUid: String): List<FirestoreUser> {
         // Artık doctor_patients koleksiyonundan çekiyoruz
@@ -173,6 +282,8 @@ class FirestoreService {
         return if (uid1 < uid2) "${uid1}_$uid2" else "${uid2}_$uid1"
     }
 
+    private fun getChatReadId(chatId: String, userId: String): String = "${chatId}_$userId"
+
     fun observeMessages(uid1: String, uid2: String): kotlinx.coroutines.flow.Flow<List<FirestoreChatMessage>> = kotlinx.coroutines.flow.callbackFlow {
         val chatId = getChatId(uid1, uid2)
         val listener = db.collection(CHATS).document(chatId).collection("messages")
@@ -204,6 +315,84 @@ class FirestoreService {
         val ref = db.collection(CHATS).document(chatId).collection("messages").document()
         ref.set(message.copy(id = ref.id)).await()
     }
+
+    suspend fun markChatAsRead(currentUid: String, otherUid: String) {
+        if (currentUid.isBlank() || otherUid.isBlank()) return
+        val chatId = getChatId(currentUid, otherUid)
+        db.collection(CHAT_READS)
+            .document(getChatReadId(chatId, currentUid))
+            .set(
+                mapOf(
+                    "chatId" to chatId,
+                    "userId" to currentUid,
+                    "lastReadAt" to System.currentTimeMillis()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            .await()
+    }
+
+    fun observeUnreadChatPartnerIds(currentUid: String): kotlinx.coroutines.flow.Flow<Set<String>> =
+        kotlinx.coroutines.flow.callbackFlow {
+            val latestIncomingByPartner = mutableMapOf<String, Pair<String, Long>>()
+            val readAtByChatId = mutableMapOf<String, Long>()
+
+            fun emitUnread() {
+                val unreadPartnerIds = latestIncomingByPartner
+                    .filter { (_, chatAndTime) ->
+                        val (chatId, latestIncomingAt) = chatAndTime
+                        latestIncomingAt > (readAtByChatId[chatId] ?: 0L)
+                    }
+                    .keys
+                    .toSet()
+                trySend(unreadPartnerIds)
+            }
+
+            val messageListener = db.collectionGroup("messages")
+                .whereEqualTo("receiverId", currentUid)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        // Index henüz oluşturulmamış olabilir (FAILED_PRECONDITION).
+                        // Uygulamanın çökmesini önlemek için hata loglanıp boş set döndürülür.
+                        android.util.Log.w(
+                            "FirestoreService",
+                            "observeUnreadChatPartnerIds: messageListener hatası (Firestore index gerekiyor olabilir): ${error.message}"
+                        )
+                        trySend(emptySet())
+                        return@addSnapshotListener
+                    }
+                    latestIncomingByPartner.clear()
+                    snapshot?.documents.orEmpty().forEach { doc ->
+                        val message = doc.toObject<FirestoreChatMessage>() ?: return@forEach
+                        val chatId = doc.reference.parent.parent?.id ?: return@forEach
+                        val previous = latestIncomingByPartner[message.senderId]?.second ?: 0L
+                        if (message.createdAt > previous) {
+                            latestIncomingByPartner[message.senderId] = chatId to message.createdAt
+                        }
+                    }
+                    emitUnread()
+                }
+
+            val readListener = db.collection(CHAT_READS)
+                .whereEqualTo("userId", currentUid)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+                    readAtByChatId.clear()
+                    snapshot?.documents.orEmpty().forEach { doc ->
+                        val chatId = doc.getString("chatId") ?: return@forEach
+                        readAtByChatId[chatId] = doc.getLong("lastReadAt") ?: 0L
+                    }
+                    emitUnread()
+                }
+
+            awaitClose {
+                messageListener.remove()
+                readListener.remove()
+            }
+        }
 
     // =====================================================================
     // ANTRENMAN RAPORU
@@ -292,7 +481,7 @@ class FirestoreService {
     /** Uzmanın belirli bir hastaya atadığı aktif görevleri pasif yap. */
     suspend fun deactivateTasksByDoctor(doctorId: String, patientId: String) {
         val tasks = db.collection(TASK_ASSIGNMENTS)
-            .whereEqualTo("doctorId", doctorId)
+            .whereEqualTo("expertId", doctorId)
             .whereEqualTo("patientId", patientId)
             .get().await()
         

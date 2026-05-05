@@ -283,6 +283,15 @@ class PlanRepository(
         }
     }
 
+    override suspend fun hideTaskFromPatientHistory(taskId: Int): Result<Unit> {
+        return try {
+            taskDao.hideTaskFromPatient(taskId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Firestore'dan hastaya atanmış görevleri çeker ve Room'a eşler.
      */

@@ -16,6 +16,8 @@ import com.example.exerciseformanalyzer.ui.ExerciseSelectionScreen
 import com.example.exerciseformanalyzer.ui.MainViewModel
 import com.example.exerciseformanalyzer.ui.workout.WorkoutViewModel
 import com.example.exerciseformanalyzer.ui.auth.AuthViewModel
+import com.example.exerciseformanalyzer.ui.auth.AuthUiState
+import com.example.exerciseformanalyzer.ui.auth.GoogleRoleSelectionScreen
 import com.example.exerciseformanalyzer.ui.auth.LoginScreen
 import com.example.exerciseformanalyzer.ui.auth.RegisterScreen
 import com.example.exerciseformanalyzer.ui.dashboard.PatientViewModel
@@ -38,6 +40,7 @@ sealed class Route(val route: String) {
     object Splash : Route("splash")
     object Login : Route("login")
     object Register : Route("register")
+    object GoogleRoleSelection : Route("google_role_selection")
     object PatientDashboard : Route("patient_dashboard")
     object ExpertDashboard : Route("expert_dashboard")
     object AdminDashboard : Route("admin_dashboard")
@@ -126,6 +129,12 @@ fun AppNavigation(
             )
         }
         composable(Route.Login.route) {
+            val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+            androidx.compose.runtime.LaunchedEffect(authState) {
+                if (authState is AuthUiState.RequiresGoogleRoleSelection) {
+                    navController.navigate(Route.GoogleRoleSelection.route)
+                }
+            }
             LoginScreen(
                 viewModel = authViewModel,
                 onNavigateToRegister = { navController.navigate(Route.Register.route) },
@@ -144,6 +153,12 @@ fun AppNavigation(
         }
 
         composable(Route.Register.route) {
+            val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+            androidx.compose.runtime.LaunchedEffect(authState) {
+                if (authState is AuthUiState.RequiresGoogleRoleSelection) {
+                    navController.navigate(Route.GoogleRoleSelection.route)
+                }
+            }
             RegisterScreen(
                 viewModel = authViewModel,
                 onNavigateToLogin = { navController.popBackStack() },
@@ -152,6 +167,22 @@ fun AppNavigation(
                     val target = if (role == "EXPERT") Route.ExpertDashboard.route else Route.PatientDashboard.route
                     navController.navigate(target) {
                         popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Route.GoogleRoleSelection.route) {
+            GoogleRoleSelectionScreen(
+                viewModel = authViewModel,
+                onCompleted = { role ->
+                    val target = when (role.uppercase()) {
+                        "ADMIN" -> Route.AdminDashboard.route
+                        "EXPERT" -> Route.ExpertDashboard.route
+                        else -> Route.PatientDashboard.route
+                    }
+                    navController.navigate(target) {
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
                 }
             )
@@ -192,9 +223,10 @@ fun AppNavigation(
                 onNavigateToGroups = { navController.navigate(Route.Community.route) },
                 onNavigateToLeaderboard = { navController.navigate(Route.Leaderboard.route) },
                 onLogout = {
-                    authViewModel.logout()
-                    navController.navigate(Route.Login.route) {
-                        popUpTo(0) { inclusive = true }
+                    authViewModel.logout {
+                        navController.navigate(Route.Login.route) {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
                     }
                 },
                 onNavigateToChat = { expertUid, expertName ->
@@ -209,10 +241,14 @@ fun AppNavigation(
                 onNavigateToProfile = { navController.navigate(Route.Profile.route) },
                 onNavigateToPatientDetail = { uid -> navController.navigate(Route.PatientDetail.createRoute(uid)) },
                 onNavigateToGroups = { navController.navigate(Route.Community.route) },
+                onNavigateToChat = { patientUid, patientName ->
+                    navController.navigate(Route.Chat.createRoute(patientUid, patientName))
+                },
                 onLogout = {
-                    authViewModel.logout()
-                    navController.navigate(Route.Login.route) {
-                        popUpTo(0) { inclusive = true }
+                    authViewModel.logout {
+                        navController.navigate(Route.Login.route) {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
                     }
                 }
             )
@@ -277,9 +313,10 @@ fun AppNavigation(
                 onNavigateToLeaderboard = { navController.navigate(Route.Leaderboard.route) },
                 onNavigateToPatientDetail = { uid -> navController.navigate(Route.PatientDetail.createRoute(uid)) },
                 onLogout = {
-                    authViewModel.logout()
-                    navController.navigate(Route.Login.route) {
-                        popUpTo(0) { inclusive = true }
+                    authViewModel.logout {
+                        navController.navigate(Route.Login.route) {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
                     }
                 }
             )
@@ -298,9 +335,10 @@ fun AppNavigation(
                 mainViewModel = mainViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onLogout = {
-                    authViewModel.logout()
-                    navController.navigate(Route.Login.route) {
-                        popUpTo(0) { inclusive = true }
+                    authViewModel.logout {
+                        navController.navigate(Route.Login.route) {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
                     }
                 }
             )

@@ -28,15 +28,15 @@ interface TaskAssignmentDao {
     @Query("SELECT * FROM task_assignments WHERE id = :taskId LIMIT 1")
     suspend fun getTaskById(taskId: Int): TaskAssignmentEntity?
 
-    @Query("SELECT * FROM task_assignments WHERE patientUid = :patientUid AND (status = 'PENDING' OR status = 'IN_PROGRESS')")
+    @Query("SELECT * FROM task_assignments WHERE patientUid = :patientUid AND hiddenFromPatient = 0 AND (status = 'PENDING' OR status = 'IN_PROGRESS')")
     suspend fun getPendingTasksForPatientSync(patientUid: String): List<TaskAssignmentEntity>
 
     // Hastanın bekleyen aktif görevlerini listele — PatientDashboardScreen
-    @Query("SELECT * FROM task_assignments WHERE patientUid = :patientUid AND (status = 'PENDING' OR status = 'IN_PROGRESS') ORDER BY dueDate ASC")
+    @Query("SELECT * FROM task_assignments WHERE patientUid = :patientUid AND hiddenFromPatient = 0 AND (status = 'PENDING' OR status = 'IN_PROGRESS') ORDER BY dueDate ASC")
     fun observePendingTasksForPatient(patientUid: String): Flow<List<TaskAssignmentEntity>>
 
     // Hastanın tüm görevlerini getir (tamamlananlar dahil — geçmiş için)
-    @Query("SELECT * FROM task_assignments WHERE patientUid = :patientUid ORDER BY dueDate DESC")
+    @Query("SELECT * FROM task_assignments WHERE patientUid = :patientUid AND hiddenFromPatient = 0 ORDER BY dueDate DESC")
     fun observeAllTasksForPatient(patientUid: String): Flow<List<TaskAssignmentEntity>>
 
     // Uzman ekranında verilen tüm görevlerin durumunu izlemek için
@@ -58,6 +58,9 @@ interface TaskAssignmentDao {
 
     @Query("UPDATE task_assignments SET status = 'removed' WHERE id = :taskId")
     suspend fun markTaskAsRemoved(taskId: Int)
+
+    @Query("UPDATE task_assignments SET hiddenFromPatient = 1 WHERE id = :taskId")
+    suspend fun hideTaskFromPatient(taskId: Int)
 
     @Query("DELETE FROM task_assignments WHERE id = :taskId")
     suspend fun deleteTask(taskId: Int)

@@ -193,6 +193,17 @@ data class FirestorePatientRequest(
 // =========================================================
 // GRUP DAVETİ — group_invites/{docId}
 // =========================================================
+data class FirestoreRelationshipNotification(
+    val id: String = "",
+    val expertId: String = "",
+    val patientId: String = "",
+    val patientName: String = "",
+    val message: String = "",
+    val type: String = "PATIENT_UNLINKED",
+    val isDismissed: Boolean = false,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
 data class FirestoreGroupInvite(
     val groupId: String = "",
     val groupName: String = "",

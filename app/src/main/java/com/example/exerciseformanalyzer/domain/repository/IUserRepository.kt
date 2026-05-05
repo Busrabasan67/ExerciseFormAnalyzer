@@ -2,6 +2,7 @@ package com.example.exerciseformanalyzer.domain.repository
 
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest
+import com.example.exerciseformanalyzer.model.firestore.FirestoreRelationshipNotification
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 import kotlinx.coroutines.flow.Flow
 
@@ -48,7 +49,22 @@ interface IUserRepository {
     ): Result<Unit>
 
     /** Hastayı uzmanın listesinden kaldır. */
+    suspend fun acceptConnectionRequestWithSingleExpertRule(
+        request: FirestorePatientRequest,
+        currentExpertId: String?
+    ): Result<Unit>
+
+    suspend fun unlinkCurrentExpertByPatient(
+        patientId: String,
+        oldExpertId: String,
+        patientName: String
+    ): Result<Unit>
+
     suspend fun removePatientFromExpert(patientId: String, expertId: String): Result<Unit>
+
+    fun observeRelationshipNotifications(expertId: String): Flow<List<FirestoreRelationshipNotification>>
+
+    suspend fun dismissRelationshipNotification(notificationId: String): Result<Unit>
 
     /** Doktor-hasta ilişkisi aktif mi? */
     suspend fun isDoctorPatientRelationActive(doctorId: String, patientId: String): Boolean

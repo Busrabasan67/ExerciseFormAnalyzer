@@ -40,6 +40,7 @@ data class TaskAssignmentEntity(
     val completedAt: Long? = null,
     val linkedReportId: Int? = null,
     val isSynced: Boolean = false,
+    val hiddenFromPatient: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

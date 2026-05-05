@@ -1,6 +1,7 @@
 package com.example.exerciseformanalyzer.domain.repository
 
 import com.example.exerciseformanalyzer.domain.model.AuthResult
+import com.example.exerciseformanalyzer.domain.model.GoogleAuthResult
 import com.google.firebase.auth.FirebaseUser
 
 /**
@@ -46,7 +47,9 @@ interface IAuthRepository {
      * Google Sign-In token ile giriş yapar.
      * İlk girişte Firestore'da profil oluşturur.
      */
-    suspend fun loginWithGoogle(idToken: String): AuthResult<FirebaseUser>
+    suspend fun loginWithGoogle(idToken: String): GoogleAuthResult
+
+    suspend fun completeGoogleRegistration(role: String): GoogleAuthResult
 
     /** E-posta doğrulama linki gönderir. */
     suspend fun sendEmailVerification(): AuthResult<Unit>

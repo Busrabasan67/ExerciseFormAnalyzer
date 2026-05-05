@@ -83,6 +83,8 @@ interface IPlanRepository {
 
     suspend fun removeTaskFromHome(taskId: Int, firebaseDocId: String?): Result<Unit>
 
+    suspend fun hideTaskFromPatientHistory(taskId: Int): Result<Unit>
+
     // Görev İlerleme Metotları
     fun getPeriodKey(scheduleType: String): String
     suspend fun getTaskProgress(taskId: String, periodKey: String, patientUid: String): TaskProgressEntity

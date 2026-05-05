@@ -49,6 +49,7 @@ fun ChatScreen(
 
     LaunchedEffect(otherUid) {
         viewModel.observeMessages(otherUid)
+        viewModel.markConversationRead(otherUid)
     }
 
     LaunchedEffect(messages.size) {

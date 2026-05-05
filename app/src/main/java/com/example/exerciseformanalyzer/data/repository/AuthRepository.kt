@@ -1,17 +1,11 @@
 package com.example.exerciseformanalyzer.data.repository
 
-// AuthRepository — Kimlik doğrulama işlemleri için tek giriş noktası (IAuthRepository implementasyonu)
-//
-// Veri akışı:
-//   Firebase Auth (kimlik doğrulama) → Firestore (profil kayıt) → Room (lokal cache)
-//
-// ViewModel bu repository'yi kullanır; UI Firebase SDK'ya doğrudan erişmez.
-
 import com.example.exerciseformanalyzer.data.local.dao.UserDao
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.data.remote.FirebaseAuthService
 import com.example.exerciseformanalyzer.data.remote.FirestoreService
 import com.example.exerciseformanalyzer.domain.model.AuthResult
+import com.example.exerciseformanalyzer.domain.model.GoogleAuthResult
 import com.example.exerciseformanalyzer.domain.repository.IAuthRepository
 import com.example.exerciseformanalyzer.model.firestore.FirestoreUser
 import com.google.firebase.auth.FirebaseUser
@@ -22,18 +16,11 @@ class AuthRepository(
     private val firestoreService: FirestoreService
 ) : IAuthRepository {
 
-    // Şu an giriş yapmış kullanıcının UID'si
     override val currentUid: String? get() = authService.currentUid
     override val currentUserEmail: String? get() = authService.currentUser?.email
     override val isLoggedIn: Boolean get() = authService.isLoggedIn()
     override val isEmailVerified: Boolean get() = authService.currentUser?.isEmailVerified == true
 
-    /**
-     * Email ve şifre ile yeni kayıt.
-     * 1. Firebase Auth'ta hesap oluştur
-     * 2. Firestore'a profil kaydet
-     * 3. Room cache'e yaz (isSynced = true çünkü Firestore'a gitti)
-     */
     override suspend fun registerWithEmail(
         fullName: String,
         email: String,
@@ -42,66 +29,64 @@ class AuthRepository(
     ): AuthResult<FirebaseUser> {
         return try {
             val firebaseUser = authService.registerWithEmail(email, password)
-
             val profile = FirestoreUser(
                 uid = firebaseUser.uid,
                 fullName = fullName,
                 email = email,
-                role = role
+                role = role.uppercase()
             )
             firestoreService.saveUserProfile(firebaseUser.uid, profile)
-
-            // Lokal cache'e yaz
             cacheUserLocally(firebaseUser.uid, profile)
-
             AuthResult.Success(firebaseUser)
         } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Kayıt sırasında bilinmeyen hata oluştu.")
+            AuthResult.Error(e.message ?: "Kayit sirasinda bilinmeyen hata olustu.")
         }
     }
 
-    /**
-     * Email ve şifre ile giriş.
-     * 1. Firebase Auth ile doğrula
-     * 2. Firestore'dan profili çek
-     * 3. Room cache'i güncelle
-     */
     override suspend fun loginWithEmail(email: String, password: String): AuthResult<FirebaseUser> {
         return try {
             val firebaseUser = authService.loginWithEmail(email, password)
             syncUserProfileFromFirestore(firebaseUser.uid)
             AuthResult.Success(firebaseUser)
         } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Giriş sırasında bilinmeyen hata oluştu.")
+            AuthResult.Error(e.message ?: "Giris sirasinda bilinmeyen hata olustu.")
         }
     }
 
-    /**
-     * Google Sign-In ile giriş.
-     * Google Activity'den dönen idToken burada işlenir.
-     */
-    override suspend fun loginWithGoogle(idToken: String): AuthResult<FirebaseUser> {
+    override suspend fun loginWithGoogle(idToken: String): GoogleAuthResult {
         return try {
             val firebaseUser = authService.loginWithGoogle(idToken)
-
-            // Firestore'da profil var mı kontrol et; yoksa oluştur
             val existingProfile = firestoreService.getUserProfile(firebaseUser.uid)
             if (existingProfile == null) {
-                val newProfile = FirestoreUser(
+                GoogleAuthResult.RequiresRoleSelection(
                     uid = firebaseUser.uid,
                     fullName = firebaseUser.displayName ?: "",
-                    email = firebaseUser.email ?: "",
-                    role = "PATIENT"  // Google ile ilk girişte default rol
+                    email = firebaseUser.email ?: ""
                 )
-                firestoreService.saveUserProfile(firebaseUser.uid, newProfile)
-                cacheUserLocally(firebaseUser.uid, newProfile)
             } else {
                 cacheUserLocally(firebaseUser.uid, existingProfile)
+                GoogleAuthResult.ExistingUser(firebaseUser.uid, existingProfile.role)
             }
-
-            AuthResult.Success(firebaseUser)
         } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Google girişi sırasında hata oluştu.")
+            GoogleAuthResult.Error(e.message ?: "Google girisi sirasinda hata olustu.")
+        }
+    }
+
+    override suspend fun completeGoogleRegistration(role: String): GoogleAuthResult {
+        return try {
+            val firebaseUser = authService.currentUser
+                ?: return GoogleAuthResult.Error("Google oturumu bulunamadi.")
+            val profile = FirestoreUser(
+                uid = firebaseUser.uid,
+                fullName = firebaseUser.displayName ?: "",
+                email = firebaseUser.email ?: "",
+                role = role.uppercase()
+            )
+            firestoreService.saveUserProfile(firebaseUser.uid, profile)
+            cacheUserLocally(firebaseUser.uid, profile)
+            GoogleAuthResult.ExistingUser(firebaseUser.uid, profile.role)
+        } catch (e: Exception) {
+            GoogleAuthResult.Error(e.message ?: "Google kaydi tamamlanamadi.")
         }
     }
 
@@ -110,7 +95,7 @@ class AuthRepository(
             authService.sendEmailVerification()
             AuthResult.Success(Unit)
         } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Doğrulama e-postası gönderilemedi.")
+            AuthResult.Error(e.message ?: "Dogrulama e-postasi gonderilemedi.")
         }
     }
 
@@ -119,14 +104,10 @@ class AuthRepository(
             authService.reloadUser()
             AuthResult.Success(Unit)
         } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Kullanıcı bilgileri güncellenemedi.")
+            AuthResult.Error(e.message ?: "Kullanici bilgileri guncellenemedi.")
         }
     }
 
-    /**
-     * Oturumu kapatır ve lokal UID cache'ini temizlemez
-     * (uygulama offline açılabilmeli; clearUserCache ayrı çağrılabilir).
-     */
     override fun signOut() {
         authService.signOut()
     }
@@ -136,7 +117,7 @@ class AuthRepository(
             authService.updatePassword(newPassword)
             AuthResult.Success(Unit)
         } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Şifre güncellenemedi.")
+            AuthResult.Error(e.message ?: "Sifre guncellenemedi.")
         }
     }
 
@@ -145,20 +126,14 @@ class AuthRepository(
             authService.sendPasswordReset(email)
             AuthResult.Success(Unit)
         } catch (e: Exception) {
-            AuthResult.Error(e.message ?: "Şifre sıfırlama e-postası gönderilemedi.")
+            AuthResult.Error(e.message ?: "Sifre sifirlama e-postasi gonderilemedi.")
         }
     }
 
-    /**
-     * Firestore'daki kullanıcı profilini Room'a yazarak lokal cache'i günceller.
-     * Cihaz değişimi veya uygulama yeniden kurulumunda çağrılır.
-     */
     override suspend fun syncUserProfileFromFirestore(uid: String) {
         val profile = firestoreService.getUserProfile(uid) ?: return
         cacheUserLocally(uid, profile)
     }
-
-    // --- PRIVATE ---
 
     private suspend fun cacheUserLocally(uid: String, profile: FirestoreUser) {
         val existing = userDao.getUserByUid(uid)
@@ -184,11 +159,11 @@ class AuthRepository(
             isSmoker = profile.isSmoker,
             isDrinker = profile.isDrinker,
             expertUid = profile.expertId,
-            isSynced = true,  // Firestore'dan geldiği için senkronize
+            isSynced = true,
             defaultRestSeconds = profile.defaultRestSeconds,
             profileImageUrl = profile.profileImageUrl,
             gender = profile.gender
         )
-        userDao.insertUser(entity) // OnConflictStrategy.REPLACE ile günceller
+        userDao.insertUser(entity)
     }
-}
+}

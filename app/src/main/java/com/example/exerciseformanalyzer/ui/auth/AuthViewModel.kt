@@ -5,20 +5,21 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
 import com.example.exerciseformanalyzer.domain.model.AuthResult
+import com.example.exerciseformanalyzer.domain.model.GoogleAuthResult
 import com.example.exerciseformanalyzer.domain.repository.IAuthRepository
 import com.example.exerciseformanalyzer.domain.repository.IUserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.launch
 
 sealed class AuthUiState {
     object Idle : AuthUiState()
     object Loading : AuthUiState()
     data class Success(val uid: String, val role: String) : AuthUiState()
+    data class RequiresGoogleRoleSelection(val uid: String, val fullName: String, val email: String) : AuthUiState()
+    object LoggedOut : AuthUiState()
     data class Error(val message: String) : AuthUiState()
 }
 
@@ -39,7 +40,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun checkAutoLogin() {
         if (_uiState.value != AuthUiState.Idle) return
-        
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             when (val result = checkAutoLoginUseCase()) {
@@ -47,17 +47,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = AuthUiState.Success(result.uid, result.role)
                 }
                 is com.example.exerciseformanalyzer.domain.usecase.auth.CheckAutoLoginUseCase.AutoLoginResult.NotLoggedIn -> {
-                    _uiState.value = AuthUiState.Idle
                     userPrefs.clearUserSession()
+                    _uiState.value = AuthUiState.Idle
                 }
             }
         }
     }
 
-    // Login process
     fun login(email: String, pass: String, rememberMe: Boolean = false) {
         if (email.isBlank() || pass.isBlank()) {
-            _uiState.value = AuthUiState.Error("Email ve şifre boş olamaz.")
+            _uiState.value = AuthUiState.Error("Email ve sifre bos olamaz.")
             return
         }
 
@@ -66,28 +65,25 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             when (val result = loginUseCase(email, pass)) {
                 is AuthResult.Success -> {
                     val uid = result.data.uid
-                    // Start observing the DB to get the user role
                     userRepository.observeCurrentUser(uid).take(1).collect { user ->
                         if (user != null) {
                             val role = user.role.uppercase()
                             userPrefs.saveUserSession(uid, role, rememberMe)
                             _uiState.value = AuthUiState.Success(uid, role)
+                        } else {
+                            _uiState.value = AuthUiState.Error("Kullanici profili bulunamadi.")
                         }
                     }
                 }
-                is AuthResult.Error -> {
-                    _uiState.value = AuthUiState.Error(result.message)
-                }
-                is AuthResult.Loading -> { }
+                is AuthResult.Error -> _uiState.value = AuthUiState.Error(result.message)
+                is AuthResult.Loading -> Unit
             }
         }
     }
 
-
-    // Register process
     fun register(fullName: String, email: String, pass: String, role: String) {
         if (fullName.isBlank() || email.isBlank() || pass.isBlank()) {
-            _uiState.value = AuthUiState.Error("Lütfen tüm alanları doldurunuz.")
+            _uiState.value = AuthUiState.Error("Lutfen tum alanlari doldurunuz.")
             return
         }
 
@@ -95,12 +91,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             when (val result = registerUseCase(fullName, email, pass, role)) {
                 is AuthResult.Success -> {
-                    _uiState.value = AuthUiState.Success(result.data.uid, role.uppercase())
+                    val finalRole = role.uppercase()
+                    userPrefs.saveUserSession(result.data.uid, finalRole, false)
+                    _uiState.value = AuthUiState.Success(result.data.uid, finalRole)
                 }
-                is AuthResult.Error -> {
-                    _uiState.value = AuthUiState.Error(result.message)
-                }
-                is AuthResult.Loading -> { }
+                is AuthResult.Error -> _uiState.value = AuthUiState.Error(result.message)
+                is AuthResult.Loading -> Unit
             }
         }
     }
@@ -108,12 +104,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun resetState() {
         _uiState.value = AuthUiState.Idle
     }
-    
-    fun logout() {
+
+    fun logout(onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             logoutUseCase()
             userPrefs.clearUserSession()
-            _uiState.value = AuthUiState.Idle
+            _uiState.value = AuthUiState.LoggedOut
+            onComplete()
         }
     }
 
@@ -121,41 +118,46 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = AuthUiState.Loading
         viewModelScope.launch {
             when (val result = authRepository.loginWithGoogle(idToken)) {
-                is AuthResult.Success -> {
-                    val uid = result.data.uid
-                    // Kullanıcı profilinin Room/Firestore'dan gelmesini bekle (filterNotNull)
-                    viewModelScope.launch {
-                        try {
-                            val user = userRepository.observeCurrentUser(uid)
-                                .filterNotNull()
-                                .first()
-                            
-                            val role = user.role.uppercase()
-                            userPrefs.saveUserSession(uid, role, true)
-                            _uiState.value = AuthUiState.Success(uid, role)
-                        } catch (e: Exception) {
-                            _uiState.value = AuthUiState.Error("Kullanıcı profili alınamadı.")
-                        }
-                    }
+                is GoogleAuthResult.ExistingUser -> {
+                    val role = result.role.uppercase()
+                    userPrefs.saveUserSession(result.uid, role, true)
+                    _uiState.value = AuthUiState.Success(result.uid, role)
                 }
-                is AuthResult.Error -> {
-                    _uiState.value = AuthUiState.Error(result.message)
+                is GoogleAuthResult.RequiresRoleSelection -> {
+                    _uiState.value = AuthUiState.RequiresGoogleRoleSelection(
+                        uid = result.uid,
+                        fullName = result.fullName,
+                        email = result.email
+                    )
                 }
-                is AuthResult.Loading -> {}
+                is GoogleAuthResult.Error -> _uiState.value = AuthUiState.Error(result.message)
+            }
+        }
+    }
+
+    fun completeGoogleRegistration(role: String) {
+        _uiState.value = AuthUiState.Loading
+        viewModelScope.launch {
+            when (val result = authRepository.completeGoogleRegistration(role)) {
+                is GoogleAuthResult.ExistingUser -> {
+                    val finalRole = result.role.uppercase()
+                    userPrefs.saveUserSession(result.uid, finalRole, true)
+                    _uiState.value = AuthUiState.Success(result.uid, finalRole)
+                }
+                is GoogleAuthResult.RequiresRoleSelection -> {
+                    _uiState.value = AuthUiState.RequiresGoogleRoleSelection(result.uid, result.fullName, result.email)
+                }
+                is GoogleAuthResult.Error -> _uiState.value = AuthUiState.Error(result.message)
             }
         }
     }
 
     fun sendVerificationEmail() {
-        viewModelScope.launch {
-            authRepository.sendEmailVerification()
-        }
+        viewModelScope.launch { authRepository.sendEmailVerification() }
     }
 
     fun reloadUser() {
-        viewModelScope.launch {
-            authRepository.reloadUser()
-        }
+        viewModelScope.launch { authRepository.reloadUser() }
     }
 
     fun setError(message: String) {
@@ -164,7 +166,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendPasswordResetEmail(email: String, onSuccess: () -> Unit) {
         if (email.isBlank()) {
-            _uiState.value = AuthUiState.Error("Lütfen e-posta adresinizi girin.")
+            _uiState.value = AuthUiState.Error("Lutfen e-posta adresinizi girin.")
             return
         }
         viewModelScope.launch {
@@ -174,10 +176,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = AuthUiState.Idle
                     onSuccess()
                 }
-                is AuthResult.Error -> {
-                    _uiState.value = AuthUiState.Error(result.message)
-                }
-                else -> { _uiState.value = AuthUiState.Idle }
+                is AuthResult.Error -> _uiState.value = AuthUiState.Error(result.message)
+                else -> _uiState.value = AuthUiState.Idle
             }
         }
     }

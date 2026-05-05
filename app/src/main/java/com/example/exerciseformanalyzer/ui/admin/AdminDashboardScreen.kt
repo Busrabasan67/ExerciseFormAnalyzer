@@ -126,6 +126,7 @@ fun AdminDashboardScreen(
                         onNavigateToProfile = onNavigateToProfile,
                         onNavigateToPatientDetail = onNavigateToPatientDetail,
                         onNavigateToGroups = onNavigateToGroups,
+                        onNavigateToChat = { _, _ -> },
 
                         onLogout = onLogout
                     )

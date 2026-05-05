@@ -33,6 +33,7 @@ import java.util.Locale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.ui.MainViewModel
+import com.example.exerciseformanalyzer.ui.components.LanguageSlidingToggle
 import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.model.WorkoutStats
@@ -62,6 +63,7 @@ fun ProfileScreen(
     val user by viewModel.observeCurrentUser().collectAsState(initial = null)
     val stats by viewModel.observePatientStats().collectAsState(initial = WorkoutStats())
     val isDarkMode by mainViewModel.isDarkMode.collectAsStateWithLifecycle()
+    val currentLanguage by mainViewModel.currentLanguage.collectAsStateWithLifecycle()
     
     var isEditMode by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -252,6 +254,8 @@ fun ProfileScreen(
                                     showImageSourceDialog = true
                                 },
                                 onDarkModeToggle = { mainViewModel.setDarkMode(it) },
+                                currentLanguage = currentLanguage,
+                                onLanguageChange = { mainViewModel.setLanguage(it) },
                                 onLogoutClick = { showLogoutDialog = true },
                                 onChangePasswordClick = {
                                     viewModel.sendPasswordReset { success, error ->
@@ -275,7 +279,6 @@ fun ProfileScreen(
         LogoutConfirmationDialog(
             onConfirm = {
                 showLogoutDialog = false
-                viewModel.logout()
                 onLogout()
             },
             onDismiss = { showLogoutDialog = false }
@@ -445,6 +448,8 @@ fun ProfileDisplayContent(
     isUploading: Boolean,
     onImageClick: () -> Unit,
     onDarkModeToggle: (Boolean) -> Unit,
+    currentLanguage: String,
+    onLanguageChange: (String) -> Unit,
     onLogoutClick: () -> Unit,
     onChangePasswordClick: () -> Unit
 ) {
@@ -468,6 +473,8 @@ fun ProfileDisplayContent(
         SettingsSection(
             isDarkMode = isDarkMode,
             onDarkModeToggle = onDarkModeToggle,
+            currentLanguage = currentLanguage,
+            onLanguageChange = onLanguageChange,
             onChangePasswordClick = onChangePasswordClick,
             onLogoutClick = onLogoutClick
         )
@@ -769,6 +776,8 @@ fun InfoRow(icon: ImageVector, label: String, value: String) {
 fun SettingsSection(
     isDarkMode: Boolean,
     onDarkModeToggle: (Boolean) -> Unit,
+    currentLanguage: String,
+    onLanguageChange: (String) -> Unit,
     onChangePasswordClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
@@ -784,6 +793,13 @@ fun SettingsSection(
                 title = stringResource(R.string.dark_mode),
                 trailing = {
                     Switch(checked = isDarkMode, onCheckedChange = onDarkModeToggle)
+                }
+            )
+            ActionItem(
+                icon = Icons.Default.Language,
+                title = stringResource(R.string.language_label),
+                trailing = {
+                    LanguageSlidingToggle(onLanguageChange = onLanguageChange)
                 }
             )
             ActionItem(
