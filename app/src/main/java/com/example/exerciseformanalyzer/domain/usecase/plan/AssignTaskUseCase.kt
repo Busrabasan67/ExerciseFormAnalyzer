@@ -13,6 +13,7 @@ class AssignTaskUseCase(private val planRepository: IPlanRepository) {
     suspend operator fun invoke(
         expertUid: String,
         patientUid: String,
+        patientName: String,
         title: String,
         note: String,
         dueDate: Long,
@@ -25,6 +26,7 @@ class AssignTaskUseCase(private val planRepository: IPlanRepository) {
         return planRepository.createTaskAssignment(
             expertUid = expertUid,
             patientUid = patientUid,
+            patientName = patientName,
             title = title,
             note = note,
             dueDate = dueDate,

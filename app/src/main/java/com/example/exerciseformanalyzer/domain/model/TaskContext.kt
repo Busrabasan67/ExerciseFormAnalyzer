@@ -20,7 +20,7 @@ data class TaskContext(
     val targetDurationSeconds: Int,
     val targetSets: Int,
     val completedSets: Int,
-    val restTimeSeconds: Int,
+    val restTimeSeconds: Int?,
     val scheduleType: String = "DAILY",  // Periyot anahtarı için
     val repsDoneInCurrentSet: Int = 0,
     val durDoneInCurrentSet: Int = 0

@@ -18,6 +18,7 @@ data class WorkoutReportEntity(
     val userUid: String = "",
 
     val exerciseId: Int,
+    val exerciseName: String = "",
     val score: Int,           // 0-100 arası form puanı
     val reps: Int,            // Tekrar sayısı
     val totalTimeSeconds: Int,// Egzersiz süresi (saniye)

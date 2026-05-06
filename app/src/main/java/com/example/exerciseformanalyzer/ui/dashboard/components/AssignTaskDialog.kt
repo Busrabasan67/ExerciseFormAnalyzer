@@ -227,7 +227,7 @@ fun AssignTaskDialog(
                             ex.copy(
                                 targetValue = ex.targetValue.ifEmpty { "1" },
                                 sets = ex.sets.ifEmpty { "1" },
-                                restTimeSeconds = ex.restTimeSeconds.ifEmpty { "30" }
+                                restTimeSeconds = ex.restTimeSeconds
                             )
                         }
                         

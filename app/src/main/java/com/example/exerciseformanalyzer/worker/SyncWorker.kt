@@ -88,7 +88,12 @@ class SyncWorker(
                                     targetDurationSeconds = if (obj.has("targetDurationSeconds")) obj.getInt("targetDurationSeconds") else null,
                                     actualReps = if (obj.has("actualReps")) obj.getInt("actualReps") else null,
                                     actualDurationSeconds = if (obj.has("actualDurationSeconds")) obj.getInt("actualDurationSeconds") else null,
-                                    status = obj.optString("status")
+                                    status = obj.optString("status"),
+                                    sets = obj.optInt("sets", 1),
+                                    completedSets = obj.optInt("completedSets", 0),
+                                    restTimeSeconds = if (obj.has("restTimeSeconds") && !obj.isNull("restTimeSeconds")) obj.getInt("restTimeSeconds") else null,
+                                    difficulty = obj.optString("difficulty", "MEDIUM"),
+                                    category = obj.optString("category", "STRENGTH")
                                 ))
                             }
                         } catch (e: Exception) {}
@@ -120,7 +125,12 @@ class SyncWorker(
                                     targetDurationSeconds = if (obj.has("targetDurationSeconds")) obj.getInt("targetDurationSeconds") else null,
                                     actualReps = if (obj.has("actualReps")) obj.getInt("actualReps") else null,
                                     actualDurationSeconds = if (obj.has("actualDurationSeconds")) obj.getInt("actualDurationSeconds") else null,
-                                    status = obj.optString("status")
+                                    status = obj.optString("status"),
+                                    sets = obj.optInt("sets", 1),
+                                    completedSets = obj.optInt("completedSets", 0),
+                                    restTimeSeconds = if (obj.has("restTimeSeconds") && !obj.isNull("restTimeSeconds")) obj.getInt("restTimeSeconds") else null,
+                                    difficulty = obj.optString("difficulty", "MEDIUM"),
+                                    category = obj.optString("category", "STRENGTH")
                                 ))
                             }
                         } catch (e: Exception) {}

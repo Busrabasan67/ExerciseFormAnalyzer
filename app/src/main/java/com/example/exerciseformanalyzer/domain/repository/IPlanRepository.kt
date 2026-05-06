@@ -40,6 +40,7 @@ interface IPlanRepository {
     suspend fun createTaskAssignment(
         expertUid: String,
         patientUid: String,
+        patientName: String,
         title: String,
         note: String,
         dueDate: Long,
@@ -56,6 +57,7 @@ interface IPlanRepository {
         firebaseDocId: String?,
         expertUid: String,
         patientUid: String,
+        patientName: String,
         title: String,
         note: String,
         dueDate: Long,
@@ -77,6 +79,12 @@ interface IPlanRepository {
 
     /** Firestore'dan uzmanın atadığı görevleri çekip Room'a senkronize eder. */
     suspend fun syncTasksForExpert(expertUid: String)
+
+    /** Firestore'dan hastanın görevlerini canlı izler ve Room'a yazar. */
+    fun observeAndSyncTasksForPatient(patientUid: String): Flow<Unit>
+
+    /** Firestore'dan uzmanın görevlerini canlı izler ve Room'a yazar. */
+    fun observeAndSyncTasksForExpert(expertUid: String): Flow<Unit>
 
     /** Bir uzmanın belirli bir hastaya atadığı tüm aktif görevleri pasife çeker. */
     suspend fun deactivateDoctorTasks(doctorId: String, patientId: String): Result<Unit>

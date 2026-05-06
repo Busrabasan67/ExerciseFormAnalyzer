@@ -83,6 +83,9 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
     private val _hasCommunityNotifications = MutableStateFlow(false)
     val hasCommunityNotifications: StateFlow<Boolean> = _hasCommunityNotifications.asStateFlow()
 
+    private var requestsJob: kotlinx.coroutines.Job? = null
+    private var tasksJob: kotlinx.coroutines.Job? = null
+
     private val _isEmailVerified = MutableStateFlow(authRepo.isEmailVerified)
     val isEmailVerified: StateFlow<Boolean> = _isEmailVerified.asStateFlow()
 
@@ -261,14 +264,22 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
             val uid = currentUid
 
             if (uid.isNotEmpty()) {
-                planRepo.syncTasksForPatient(uid)
+                tasksJob?.cancel()
+                tasksJob = viewModelScope.launch(Dispatchers.IO) {
+                    planRepo.observeAndSyncTasksForPatient(uid).collect {}
+                }
                 loadDynamicSocialData()
                 loadCommunityNotifications(uid)
 
                 try {
                     val user = userRepo.observeCurrentUser(uid).first()
                     if (user != null) {
-                        _incomingRequests.value = userRepo.getPendingRequests(user.uid)
+                        requestsJob?.cancel()
+                        requestsJob = viewModelScope.launch(Dispatchers.IO) {
+                            userRepo.observePendingRequests(user.uid).collect { reqs ->
+                                _incomingRequests.value = reqs
+                            }
+                        }
                     }
                 } catch (e: Exception) { }
             }

@@ -281,7 +281,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                 speak(if (currentLanguage == "tr") "Egzersiz tamamlandı." else "Exercise completed.")
                 endWorkout()
             } else {
-                val restTime = if (ctx.restTimeSeconds > 0) ctx.restTimeSeconds else defaultRestSeconds
+                val restTime = ctx.restTimeSeconds ?: defaultRestSeconds
                 speak(if (currentLanguage == "tr") "Set tamamlandı. $restTime saniye dinlenin." else "Set completed. Rest for $restTime seconds.")
                 _isResting.value = true
                 _restTimeLeft.value = restTime

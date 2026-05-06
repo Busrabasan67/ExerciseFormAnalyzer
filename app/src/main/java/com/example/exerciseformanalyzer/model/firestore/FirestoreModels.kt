@@ -83,7 +83,7 @@ data class FirestoreExerciseItem(
     val actualDurationSeconds: Int? = null,
     val sets: Int = 1,
     val completedSets: Int = 0,
-    val restTimeSeconds: Int = 30,
+    val restTimeSeconds: Int? = null,
     val difficulty: String = "MEDIUM", // EASY, MEDIUM, HARD
     val category: String = "STRENGTH", // REHAB, STRENGTH, CARDIO
     val videoUrl: String? = null,
@@ -92,6 +92,7 @@ data class FirestoreExerciseItem(
 
 data class FirestoreTaskAssignment(
     val patientId: String = "",
+    val patientName: String = "",
     val expertId: String = "",
     val title: String = "",
     val note: String = "",

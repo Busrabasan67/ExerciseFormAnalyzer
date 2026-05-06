@@ -117,7 +117,7 @@ fun ExpertDashboardScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text(stringResource(R.string.expert_dashboard_title)) },
+                    title = { /* Title removed as requested */ },
                     actions = {
 
                         TextButton(onClick = onNavigateToGroups) {
@@ -455,7 +455,7 @@ fun ExpertDashboardScreen(
                                     AssignTaskDialog(
                                         onDismissRequest = { assignmentPatientId = null },
                                         onAssignTask = { title, note, dueDate, exercises, sched, days, auto, weeks ->
-                                            viewModel.assignTask(selectedPatient.uid, title, note, dueDate, exercises, sched, days, auto, weeks)
+                                            viewModel.assignTask(selectedPatient.uid, selectedPatient.fullName, title, note, dueDate, exercises, sched, days, auto, weeks)
                                             assignmentPatientId = null
                                             selectedTab = 2 // Move to follow-up after success
                                         }
@@ -494,9 +494,12 @@ fun ExpertDashboardScreen(
                             ) {
                                 items(tasks) { task ->
                                     val patient = patients.find { it.uid == task.patientUid }
+                                    val isDisconnected = patient == null
+                                    val nameToShow = patient?.fullName ?: task.patientName.takeIf { it.isNotBlank() } ?: "Bilinmeyen Hasta"
                                     TaskTrackingCard(
                                         task = task,
-                                        patientName = patient?.fullName ?: "Bilinmeyen Hasta",
+                                        patientName = nameToShow,
+                                        isDisconnected = isDisconnected,
                                         onEdit = { taskToEdit = it },
                                         onDelete = { taskIdToDelete = it },
                                         onDeleteExercise = { t, idx, name -> exerciseToDelete = Triple(t, idx, name) }
@@ -544,7 +547,7 @@ fun ExpertDashboardScreen(
                             isDurationBased = obj.optString("targetType") == "DURATION",
                             targetValue = (if (obj.optString("targetType") == "DURATION") obj.optInt("targetDurationSeconds") else obj.optInt("targetReps")).toString(),
                             sets = obj.optInt("sets", 1).toString(),
-                            restTimeSeconds = obj.optInt("restTimeSeconds", 30).toString(),
+                            restTimeSeconds = if (obj.has("restTimeSeconds") && !obj.isNull("restTimeSeconds")) obj.optString("restTimeSeconds") else "",
                             difficulty = obj.optString("difficulty", "MEDIUM"),
                             category = obj.optString("category", "STRENGTH"),
                             videoUrl = obj.optString("videoUrl").takeIf { it.isNotEmpty() }
@@ -576,6 +579,7 @@ fun ExpertDashboardScreen(
                         taskId = task.id,
                         firebaseDocId = task.firebaseDocId,
                         patientUid = task.patientUid,
+                        patientName = task.patientName.ifBlank { "Bilinmeyen Hasta" },
                         title = title,
                         note = note,
                         dueDate = dueDate,
@@ -633,7 +637,7 @@ fun ExpertDashboardScreen(
                                     isDurationBased = obj.optString("targetType") == "DURATION",
                                     targetValue = (if (obj.optString("targetType") == "DURATION") obj.optInt("targetDurationSeconds") else obj.optInt("targetReps")).toString(),
                                     sets = obj.optInt("sets", 1).toString(),
-                                    restTimeSeconds = obj.optInt("restTimeSeconds", 30).toString(),
+                                    restTimeSeconds = if (obj.has("restTimeSeconds") && !obj.isNull("restTimeSeconds")) obj.optString("restTimeSeconds") else "",
                                     difficulty = obj.optString("difficulty", "MEDIUM"),
                                     category = obj.optString("category", "STRENGTH"),
                                     videoUrl = obj.optString("videoUrl").takeIf { it.isNotEmpty() }
@@ -649,6 +653,7 @@ fun ExpertDashboardScreen(
                                 taskId = task.id,
                                 firebaseDocId = task.firebaseDocId,
                                 patientUid = task.patientUid,
+                                patientName = task.patientName.ifBlank { "Bilinmeyen Hasta" },
                                 title = task.title,
                                 note = task.note,
                                 dueDate = task.dueDate,
@@ -729,6 +734,7 @@ fun TaskFilterChips(
 fun TaskTrackingCard(
     task: TaskAssignmentEntity,
     patientName: String,
+    isDisconnected: Boolean = false,
     onEdit: (TaskAssignmentEntity) -> Unit,
     onDelete: (TaskAssignmentEntity) -> Unit,
     onDeleteExercise: (TaskAssignmentEntity, Int, String) -> Unit
@@ -777,6 +783,28 @@ fun TaskTrackingCard(
             }
             
             Spacer(modifier = Modifier.height(12.dp))
+
+            if (isDisconnected) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Bu hastayı artık takip etmiyorsunuz.",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             if (task.note.isNotBlank()) {
                 Surface(
@@ -1077,7 +1105,14 @@ fun ExerciseDetailRow(ex: org.json.JSONObject, onDelete: () -> Unit) {
             }
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(targetStr, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(targetStr, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                val rtStr = if (ex.has("restTimeSeconds") && !ex.isNull("restTimeSeconds")) ex.optString("restTimeSeconds") else null
+                val restTime = rtStr?.toIntOrNull()
+                val restTimeStr = if (restTime != null && restTime > 0) "Din: $restTime Sn" else "Din: Oto"
+                Text("•", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(restTimeStr, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
             val difficulty = ex.optString("difficulty", "MEDIUM")
             Text(difficulty, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
         }

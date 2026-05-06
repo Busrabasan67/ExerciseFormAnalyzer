@@ -50,7 +50,7 @@ fun TaskCard(
                 val actualDur: Int,
                 val status: String,
                 val progressStr: String,
-                val restTimeSeconds: Int,
+                val restTimeSeconds: Int?,
                 val repsDoneInCurrentSet: Int,
                 val durDoneInCurrentSet: Int,
                 val isPartiallyDone: Boolean
@@ -71,7 +71,7 @@ fun TaskCard(
                         val sets = ex.optInt("sets", 1)
                         val cSets = ex.optInt("completedSets", 0)
                         val exStatus = ex.optString("status", "PENDING")
-                        val restTime = ex.optInt("restTimeSeconds", 90)
+                        val restTime = if (ex.has("restTimeSeconds") && !ex.isNull("restTimeSeconds")) ex.optInt("restTimeSeconds") else null
 
                         val rDone = maxOf(0, aReps - (cSets * tReps))
                         val dDone = maxOf(0, aDur - (cSets * tDur))

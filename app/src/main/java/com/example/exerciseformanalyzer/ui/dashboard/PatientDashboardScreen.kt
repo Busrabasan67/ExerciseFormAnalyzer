@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +27,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
+import com.example.exerciseformanalyzer.data.local.entity.WorkoutReportEntity
 import com.example.exerciseformanalyzer.model.ExerciseType
 import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
 import com.example.exerciseformanalyzer.ui.dashboard.components.CalorieBarChart
@@ -47,7 +49,7 @@ data class TaskExerciseStartParams(
     val targetDurationSeconds: Int,
     val targetSets: Int,
     val completedSets: Int,
-    val restTimeSeconds: Int,
+    val restTimeSeconds: Int?,
     val scheduleType: String = "DAILY",
     val repsDoneInCurrentSet: Int = 0,
     val durDoneInCurrentSet: Int = 0
@@ -105,13 +107,7 @@ fun PatientDashboardScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = {
-                        Text(
-                            text = stringResource(R.string.patient_dashboard_title),
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                    },
+                    title = { /* Title removed */ },
                     actions = {
                         val expertUid = currentUser?.expertUid
                         if (!expertUid.isNullOrEmpty()) {
@@ -440,29 +436,7 @@ fun PatientDashboardScreen(
                     }
 
                     items(reports) { report ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            elevation = CardDefaults.cardElevation(2.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "${stringResource(R.string.score_label)}: ${report.score} / ${report.reps} ${stringResource(R.string.reps_unit)}",
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                                Text(
-                                    text = "${report.caloriesBurned.toInt()} ${stringResource(R.string.calorie_unit)}",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                if (!report.feedback.isNullOrEmpty()) {
-                                    val feedbackText = if (report.feedback == "Mükemmel Form") {
-                                        stringResource(R.string.perfect_form)
-                                    } else {
-                                        report.feedback
-                                    }
-                                    Text(text = feedbackText, color = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                        }
+                        PatientReportCard(report = report)
                     }
                 }
             } else {
@@ -820,7 +794,7 @@ private fun PatientTaskCard(
                                                 targetDurationSeconds = exerciseItem.optInt("targetDurationSeconds", 0),
                                                 targetSets = exerciseItem.optInt("sets", 1),
                                                 completedSets = exCompletedSets,
-                                                restTimeSeconds = exerciseItem.optInt("restTimeSeconds", 60),
+                                                restTimeSeconds = if (exerciseItem.has("restTimeSeconds") && !exerciseItem.isNull("restTimeSeconds")) exerciseItem.optInt("restTimeSeconds") else null,
                                                 scheduleType = task.scheduleType,
                                                 repsDoneInCurrentSet = repsDoneInCurrentSet,
                                                 durDoneInCurrentSet = durDoneInCurrentSet
@@ -883,7 +857,7 @@ private fun ExerciseStartRow(
     val totalSets = exerciseJson.optInt("sets", 1)
     val targetReps = exerciseJson.optInt("targetReps", 0)
     val targetDur = exerciseJson.optInt("targetDurationSeconds", 0)
-    val restTime = exerciseJson.optInt("restTimeSeconds", 60)
+    val restTime = if (exerciseJson.has("restTimeSeconds") && !exerciseJson.isNull("restTimeSeconds")) exerciseJson.optInt("restTimeSeconds") else null
     val targetStr = if (targetReps > 0) "$targetReps Tekrar" else "$targetDur Sn"
 
     Row(
@@ -923,7 +897,7 @@ private fun ExerciseStartRow(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
-                if (restTime > 0) {
+                if (restTime != null && restTime > 0) {
                     Text("•", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                     Text("Din: ${restTime}sn", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
@@ -1041,5 +1015,116 @@ private fun PatientExerciseProgressRow(taskEx: org.json.JSONObject, progEx: org.
             Text(targetStr, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
         }
         Text("$compSets / $totalSets Set", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+    }
+}
+@Composable
+fun PatientReportCard(report: WorkoutReportEntity) {
+    val sdf = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault())
+    val dateStr = sdf.format(java.util.Date(report.timestamp))
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (report.exerciseName.isNotEmpty()) report.exerciseName else "Egzersiz",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = dateStr,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+                }
+                
+                Surface(
+                    color = when {
+                        report.score >= 80 -> Color(0xFFE8F5E9)
+                        report.score >= 60 -> Color(0xFFFFF3E0)
+                        else -> Color(0xFFFFEBEE)
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "%${report.score}",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = when {
+                            report.score >= 80 -> Color(0xFF2E7D32)
+                            report.score >= 60 -> Color(0xFFEF6C00)
+                            else -> Color(0xFFC62828)
+                        },
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                ReportInfoItem(
+                    icon = Icons.Default.Repeat,
+                    label = "Tekrar",
+                    value = "${report.reps}"
+                )
+                ReportInfoItem(
+                    icon = Icons.Default.Timer,
+                    label = "Süre",
+                    value = "${report.totalTimeSeconds}sn"
+                )
+                ReportInfoItem(
+                    icon = Icons.Default.Whatshot,
+                    label = "Kalori",
+                    value = "${report.caloriesBurned.toInt()}kcal"
+                )
+            }
+
+            if (!report.feedback.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(modifier = Modifier.alpha(0.3f))
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Info, 
+                        contentDescription = null, 
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = report.feedback,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReportInfoItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.Gray)
+        Spacer(modifier = Modifier.width(4.dp))
+        Column {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+        }
     }
 }

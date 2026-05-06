@@ -190,12 +190,20 @@ class UserRepository(
         }
     }
 
+    override fun observePendingRequests(patientId: String): Flow<List<com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest>> {
+        return firestoreService.observePendingRequestsForPatient(patientId)
+    }
+
     override suspend fun getSentRequestsByDoctor(doctorId: String): List<com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest> {
         return try {
             firestoreService.getSentRequestsByDoctor(doctorId)
         } catch (e: Exception) {
             emptyList()
         }
+    }
+
+    override fun observeSentRequestsByDoctor(doctorId: String): Flow<List<com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest>> {
+        return firestoreService.observeSentRequestsByDoctor(doctorId)
     }
 
     /** İsteği yanıtla ve gerekirse bağı kur. */

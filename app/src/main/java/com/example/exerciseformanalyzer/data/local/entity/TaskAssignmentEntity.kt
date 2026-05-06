@@ -21,6 +21,7 @@ data class TaskAssignmentEntity(
     val firebaseDocId: String? = null,
 
     val patientUid: String = "",
+    val patientName: String = "",
     val expertUid: String = "",
 
     val title: String = "",

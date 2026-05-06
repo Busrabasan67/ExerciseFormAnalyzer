@@ -97,6 +97,7 @@ class WorkoutRepository(
             userId = localUserId,
             userUid = userUid,
             exerciseId = exerciseId,
+            exerciseName = exerciseType.displayName,
             score = score,
             reps = reps,
             totalTimeSeconds = durationSeconds.toInt(),
@@ -198,6 +199,9 @@ class WorkoutRepository(
                                             actualDurationSeconds = if (obj.has("actualDurationSeconds")) obj.getInt("actualDurationSeconds") else null,
                                             sets = obj.optInt("sets", 1),
                                             completedSets = obj.optInt("completedSets", 0),
+                                            restTimeSeconds = if (obj.has("restTimeSeconds") && !obj.isNull("restTimeSeconds")) obj.getInt("restTimeSeconds") else null,
+                                            difficulty = obj.optString("difficulty", "MEDIUM"),
+                                            category = obj.optString("category", "STRENGTH"),
                                             status = obj.optString("status")
                                         )
                                     )

@@ -34,9 +34,11 @@ interface IUserRepository {
 
     /** Hastaya gelen bekleyen bağlantı isteklerini çeker. */
     suspend fun getPendingRequests(patientId: String): List<FirestorePatientRequest>
+    fun observePendingRequests(patientId: String): Flow<List<FirestorePatientRequest>>
 
     /** Uzmanın gönderdiği tüm istekleri çeker. */
     suspend fun getSentRequestsByDoctor(doctorId: String): List<FirestorePatientRequest>
+    fun observeSentRequestsByDoctor(doctorId: String): Flow<List<FirestorePatientRequest>>
 
     /** Bağlantı isteğini yanıtlar. ACCEPTED ise bağı kurar. */
     suspend fun respondToConnectionRequest(

@@ -17,6 +17,7 @@ import com.example.exerciseformanalyzer.data.remote.FirestoreService
 import com.example.exerciseformanalyzer.domain.repository.IPlanRepository
 import com.example.exerciseformanalyzer.model.firestore.FirestoreTaskAssignment
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class PlanRepository(
     private val planDao: WorkoutPlanDao,
@@ -63,6 +64,7 @@ class PlanRepository(
     override suspend fun createTaskAssignment(
         expertUid: String,
         patientUid: String,
+        patientName: String,
         title: String,
         note: String,
         dueDate: Long,
@@ -85,7 +87,11 @@ class PlanRepository(
                 if (ex.actualDurationSeconds != null) obj.put("actualDurationSeconds", ex.actualDurationSeconds)
                 obj.put("sets", ex.sets)
                 obj.put("completedSets", ex.completedSets)
-                obj.put("restTimeSeconds", ex.restTimeSeconds)
+                if (ex.restTimeSeconds != null) {
+                    obj.put("restTimeSeconds", ex.restTimeSeconds)
+                } else {
+                    obj.put("restTimeSeconds", org.json.JSONObject.NULL)
+                }
                 obj.put("difficulty", ex.difficulty)
                 obj.put("category", ex.category)
                 if (ex.videoUrl != null) obj.put("videoUrl", ex.videoUrl)
@@ -98,6 +104,7 @@ class PlanRepository(
             val now = System.currentTimeMillis()
             val localTask = TaskAssignmentEntity(
                 patientUid = patientUid,
+                patientName = patientName,
                 expertUid = expertUid,
                 title = title,
                 note = note,
@@ -117,6 +124,7 @@ class PlanRepository(
             try {
                 val fsTask = FirestoreTaskAssignment(
                     patientId = patientUid,
+                    patientName = patientName,
                     expertId = expertUid,
                     title = title,
                     note = note,
@@ -148,6 +156,7 @@ class PlanRepository(
         firebaseDocId: String?,
         expertUid: String,
         patientUid: String,
+        patientName: String,
         title: String,
         note: String,
         dueDate: Long,
@@ -167,7 +176,11 @@ class PlanRepository(
                 if (ex.targetDurationSeconds != null) obj.put("targetDurationSeconds", ex.targetDurationSeconds)
                 obj.put("sets", ex.sets)
                 obj.put("completedSets", ex.completedSets)
-                obj.put("restTimeSeconds", ex.restTimeSeconds)
+                if (ex.restTimeSeconds != null) {
+                    obj.put("restTimeSeconds", ex.restTimeSeconds)
+                } else {
+                    obj.put("restTimeSeconds", org.json.JSONObject.NULL)
+                }
                 obj.put("difficulty", ex.difficulty)
                 obj.put("category", ex.category)
                 if (ex.videoUrl != null) obj.put("videoUrl", ex.videoUrl)
@@ -181,6 +194,7 @@ class PlanRepository(
             val now = System.currentTimeMillis()
             if (existing != null) {
                 val updated = existing.copy(
+                    patientName = patientName,
                     title = title,
                     note = note,
                     dueDate = dueDate,
@@ -198,6 +212,7 @@ class PlanRepository(
             if (!firebaseDocId.isNullOrBlank()) {
                 val fsTask = FirestoreTaskAssignment(
                     patientId = patientUid,
+                    patientName = patientName,
                     expertId = expertUid,
                     title = title,
                     note = note,
@@ -298,8 +313,33 @@ class PlanRepository(
     override suspend fun syncTasksForPatient(patientUid: String) {
         try {
             val fsTasks = firestoreService.getTasksForPatient(patientUid)
+            processSyncTasks(fsTasks)
+        } catch (e: Exception) {
+            Log.e(TAG, "Sync tasks for patient failed", e)
+        }
+    }
+
+    override fun observeAndSyncTasksForPatient(patientUid: String): Flow<Unit> {
+        return firestoreService.observeTasksForPatient(patientUid).map { fsTasks ->
+            processSyncTasks(fsTasks)
+        }
+    }
+
+    private suspend fun processSyncTasks(fsTasks: List<Pair<String, FirestoreTaskAssignment>>) {
+        try {
+            val unsyncedTasks = taskDao.getUnsyncedTasks()
             for ((docId, fsTask) in fsTasks) {
-                val existingTask = taskDao.getTaskByFirebaseDocId(docId)
+                var existingTask = taskDao.getTaskByFirebaseDocId(docId)
+                if (existingTask == null) {
+                    val match = unsyncedTasks.find { 
+                        it.firebaseDocId == null && 
+                        it.title == fsTask.title && 
+                        it.dueDate == fsTask.dueDate 
+                    }
+                    if (match != null) {
+                        existingTask = match
+                    }
+                }
                 
                 val jsonArray = org.json.JSONArray()
                 for (ex in fsTask.exercises) {
@@ -312,7 +352,11 @@ class PlanRepository(
                     if (ex.actualDurationSeconds != null) obj.put("actualDurationSeconds", ex.actualDurationSeconds)
                     obj.put("sets", ex.sets)
                     obj.put("completedSets", ex.completedSets)
-                    obj.put("restTimeSeconds", ex.restTimeSeconds)
+                    if (ex.restTimeSeconds != null) {
+                        obj.put("restTimeSeconds", ex.restTimeSeconds)
+                    } else {
+                        obj.put("restTimeSeconds", org.json.JSONObject.NULL)
+                    }
                     obj.put("difficulty", ex.difficulty)
                     obj.put("category", ex.category)
                     if (ex.videoUrl != null) obj.put("videoUrl", ex.videoUrl)
@@ -347,6 +391,7 @@ class PlanRepository(
                     val newTask = TaskAssignmentEntity(
                         firebaseDocId = docId,
                         patientUid = fsTask.patientId,
+                        patientName = fsTask.patientName,
                         expertUid = fsTask.expertId,
                         title = fsTask.title,
                         note = fsTask.note,
@@ -365,79 +410,25 @@ class PlanRepository(
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Sync tasks for patient failed", e)
+            Log.e(TAG, "Process Sync tasks failed", e)
         }
     }
 
     override suspend fun syncTasksForExpert(expertUid: String) {
         try {
             val fsTasks = firestoreService.getTasksForExpert(expertUid)
-            for ((docId, fsTask) in fsTasks) {
-                val existingTask = taskDao.getTaskByFirebaseDocId(docId)
-                
-                val jsonArray = org.json.JSONArray()
-                for (ex in fsTask.exercises) {
-                    val obj = org.json.JSONObject()
-                    obj.put("exerciseType", ex.exerciseType)
-                    obj.put("targetType", ex.targetType)
-                    if (ex.targetReps != null) obj.put("targetReps", ex.targetReps)
-                    if (ex.targetDurationSeconds != null) obj.put("targetDurationSeconds", ex.targetDurationSeconds)
-                    if (ex.actualReps != null) obj.put("actualReps", ex.actualReps)
-                    if (ex.actualDurationSeconds != null) obj.put("actualDurationSeconds", ex.actualDurationSeconds)
-                    obj.put("sets", ex.sets)
-                    obj.put("completedSets", ex.completedSets)
-                    obj.put("restTimeSeconds", ex.restTimeSeconds)
-                    obj.put("difficulty", ex.difficulty)
-                    obj.put("category", ex.category)
-                    if (ex.videoUrl != null) obj.put("videoUrl", ex.videoUrl)
-                    obj.put("status", ex.status)
-                    jsonArray.put(obj)
-                }
-                val exJson = jsonArray.toString()
-                val daysOfWeekJson = org.json.JSONArray(fsTask.daysOfWeek).toString()
-
-                if (existingTask != null) {
-                    if (!existingTask.isSynced) continue
-                    
-                    val updated = existingTask.copy(
-                        title = fsTask.title,
-                        note = fsTask.note,
-                        status = fsTask.status,
-                        dueDate = fsTask.dueDate,
-                        scheduleType = fsTask.scheduleType,
-                        daysOfWeekJson = daysOfWeekJson,
-                        autoRepeat = fsTask.autoRepeat,
-                        repeatDurationWeeks = fsTask.repeatDurationWeeks,
-                        exercisesJson = exJson,
-                        createdAt = fsTask.createdAt?.time ?: existingTask.createdAt,
-                        updatedAt = fsTask.updatedAt ?: existingTask.updatedAt
-                    )
-                    taskDao.updateTask(updated)
-                } else {
-                    val newTask = TaskAssignmentEntity(
-                        firebaseDocId = docId,
-                        patientUid = fsTask.patientId,
-                        expertUid = fsTask.expertId,
-                        title = fsTask.title,
-                        note = fsTask.note,
-                        status = fsTask.status,
-                        dueDate = fsTask.dueDate,
-                        scheduleType = fsTask.scheduleType,
-                        daysOfWeekJson = daysOfWeekJson,
-                        autoRepeat = fsTask.autoRepeat,
-                        repeatDurationWeeks = fsTask.repeatDurationWeeks,
-                        exercisesJson = exJson,
-                        isSynced = true,
-                        createdAt = fsTask.createdAt?.time ?: System.currentTimeMillis(),
-                        updatedAt = fsTask.updatedAt ?: System.currentTimeMillis()
-                    )
-                    taskDao.insertTask(newTask)
-                }
-            }
+            processSyncTasks(fsTasks)
         } catch (e: Exception) {
             Log.e(TAG, "Sync tasks for expert failed", e)
         }
     }
+
+    override fun observeAndSyncTasksForExpert(expertUid: String): Flow<Unit> {
+        return firestoreService.observeTasksForExpert(expertUid).map { fsTasks ->
+            processSyncTasks(fsTasks)
+        }
+    }
+
     override fun getPeriodKey(scheduleType: String): String {
         val cal = java.util.Calendar.getInstance()
         return when (scheduleType) {

@@ -101,11 +101,6 @@ fun ChatScreen(
                                 color = MaterialTheme.colorScheme.onSurface,
                                 style = MaterialTheme.typography.bodyLarge
                             )
-                            Text(
-                                text = "Çevrimiçi",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFF00C853).copy(alpha = 0.9f)
-                            )
                         }
                     }
                 },

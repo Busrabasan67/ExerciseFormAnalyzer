@@ -83,6 +83,8 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
 
     private var relationshipNotificationsJob: Job? = null
     private var unreadChatJob: Job? = null
+    private var sentRequestsJob: Job? = null
+    private var tasksJob: Job? = null
 
     private val _isEmailVerified = MutableStateFlow(authRepo.isEmailVerified)
     val isEmailVerified: StateFlow<Boolean> = _isEmailVerified.asStateFlow()
@@ -176,7 +178,12 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
             if (uid.isNotEmpty()) {
                 startRealtimeObservers(uid)
                 userRepo.syncPatientsForExpert(uid)
-                planRepo.syncTasksForExpert(uid)
+                
+                tasksJob?.cancel()
+                tasksJob = viewModelScope.launch(Dispatchers.IO) {
+                    planRepo.observeAndSyncTasksForExpert(uid).collect {}
+                }
+                
                 loadSentRequests()
                 loadCommunityNotifications(uid)
             }
@@ -219,10 +226,13 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun loadSentRequests() {
-        viewModelScope.launch(Dispatchers.IO) {
+        sentRequestsJob?.cancel()
+        sentRequestsJob = viewModelScope.launch(Dispatchers.IO) {
             val uid = currentUid
             if (uid.isNotEmpty()) {
-                _sentRequests.value = userRepo.getSentRequestsByDoctor(uid)
+                userRepo.observeSentRequestsByDoctor(uid).collect { reqs ->
+                    _sentRequests.value = reqs
+                }
             }
         }
     }
@@ -343,7 +353,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         var isDurationBased: Boolean = false,
         var targetValue: String = "10",
         var sets: String = "1",
-        var restTimeSeconds: String = "30",
+        var restTimeSeconds: String = "",
         var difficulty: String = "MEDIUM",
         var category: String = "STRENGTH",
         var videoUrl: String? = null
@@ -351,6 +361,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
 
     fun assignTask(
         patientUid: String,
+        patientName: String,
         title: String,
         note: String,
         dueDate: Long,
@@ -366,7 +377,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
                 val fsExercises = exercises.map { input ->
                     val value = input.targetValue.toIntOrNull() ?: 1
                     val s = input.sets.toIntOrNull() ?: 1
-                    val rt = input.restTimeSeconds.toIntOrNull() ?: 30
+                    val rt = input.restTimeSeconds.toIntOrNull()
                     
                     FirestoreExerciseItem(
                         exerciseType = input.exerciseType.name,
@@ -385,6 +396,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
                 planRepo.createTaskAssignment(
                     expertUid = uid,
                     patientUid = patientUid,
+                    patientName = patientName,
                     title = title,
                     note = note,
                     dueDate = dueDate,
@@ -408,6 +420,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         taskId: Int,
         firebaseDocId: String?,
         patientUid: String,
+        patientName: String,
         title: String,
         note: String,
         dueDate: Long,
@@ -423,7 +436,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
                 val fsExercises = exercises.map { input ->
                     val value = input.targetValue.toIntOrNull() ?: 1
                     val s = input.sets.toIntOrNull() ?: 1
-                    val rt = input.restTimeSeconds.toIntOrNull() ?: 30
+                    val rt = input.restTimeSeconds.toIntOrNull()
                     
                     FirestoreExerciseItem(
                         exerciseType = input.exerciseType.name,
@@ -444,6 +457,7 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
                     firebaseDocId = firebaseDocId,
                     expertUid = uid,
                     patientUid = patientUid,
+                    patientName = patientName,
                     title = title,
                     note = note,
                     dueDate = dueDate,

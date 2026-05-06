@@ -467,6 +467,24 @@ class FirestoreService {
             }
     }
 
+    /** Hastanın görevlerini Firestore'dan canlı izle. */
+    fun observeTasksForPatient(patientUid: String): kotlinx.coroutines.flow.Flow<List<Pair<String, FirestoreTaskAssignment>>> = kotlinx.coroutines.flow.callbackFlow {
+        val listener = db.collection(TASK_ASSIGNMENTS)
+            .whereEqualTo("patientId", patientUid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val tasks = snapshot?.documents?.mapNotNull { doc ->
+                    val model = doc.toObject<FirestoreTaskAssignment>() ?: return@mapNotNull null
+                    Pair(doc.id, model)
+                } ?: emptyList()
+                trySend(tasks)
+            }
+        awaitClose { listener.remove() }
+    }
+
     /** Uzmanın atadığı görevleri Firestore'dan çek. */
     suspend fun getTasksForExpert(expertUid: String): List<Pair<String, FirestoreTaskAssignment>> {
         return db.collection(TASK_ASSIGNMENTS)
@@ -476,6 +494,24 @@ class FirestoreService {
                 val model = doc.toObject<FirestoreTaskAssignment>() ?: return@mapNotNull null
                 Pair(doc.id, model)
             }
+    }
+
+    /** Uzmanın atadığı görevleri Firestore'dan canlı izle. */
+    fun observeTasksForExpert(expertUid: String): kotlinx.coroutines.flow.Flow<List<Pair<String, FirestoreTaskAssignment>>> = kotlinx.coroutines.flow.callbackFlow {
+        val listener = db.collection(TASK_ASSIGNMENTS)
+            .whereEqualTo("expertId", expertUid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val tasks = snapshot?.documents?.mapNotNull { doc ->
+                    val model = doc.toObject<FirestoreTaskAssignment>() ?: return@mapNotNull null
+                    Pair(doc.id, model)
+                } ?: emptyList()
+                trySend(tasks)
+            }
+        awaitClose { listener.remove() }
     }
 
     /** Uzmanın belirli bir hastaya atadığı aktif görevleri pasif yap. */
@@ -611,12 +647,43 @@ class FirestoreService {
             .documents.mapNotNull { it.toObject<FirestorePatientRequest>() }
     }
 
+    /** Hastaya gelen bekleyen istekleri canlı izle. */
+    fun observePendingRequestsForPatient(patientId: String): kotlinx.coroutines.flow.Flow<List<FirestorePatientRequest>> = kotlinx.coroutines.flow.callbackFlow {
+        val listener = db.collection(PATIENT_REQUESTS)
+            .whereEqualTo("patientId", patientId)
+            .whereEqualTo("status", "pending")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val requests = snapshot?.documents?.mapNotNull { it.toObject<FirestorePatientRequest>() } ?: emptyList()
+                trySend(requests)
+            }
+        awaitClose { listener.remove() }
+    }
+
     /** Uzmanın gönderdiği istekleri listele. */
     suspend fun getSentRequestsByDoctor(doctorId: String): List<FirestorePatientRequest> {
         return db.collection(PATIENT_REQUESTS)
             .whereEqualTo("doctorId", doctorId)
             .get().await()
             .documents.mapNotNull { it.toObject<FirestorePatientRequest>() }
+    }
+
+    /** Uzmanın gönderdiği istekleri canlı izle. */
+    fun observeSentRequestsByDoctor(doctorId: String): kotlinx.coroutines.flow.Flow<List<FirestorePatientRequest>> = kotlinx.coroutines.flow.callbackFlow {
+        val listener = db.collection(PATIENT_REQUESTS)
+            .whereEqualTo("doctorId", doctorId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val requests = snapshot?.documents?.mapNotNull { it.toObject<FirestorePatientRequest>() } ?: emptyList()
+                trySend(requests)
+            }
+        awaitClose { listener.remove() }
     }
 
     /** İsteği güncelle (accepted / rejected). */
