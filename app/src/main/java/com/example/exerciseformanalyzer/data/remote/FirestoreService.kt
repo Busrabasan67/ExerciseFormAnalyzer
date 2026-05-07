@@ -692,6 +692,11 @@ class FirestoreService {
             .update("status", status).await()
     }
 
+    /** Gönderilen isteği iptal et (sil). */
+    suspend fun deleteConnectionRequest(requestId: String) {
+        db.collection(PATIENT_REQUESTS).document(requestId).delete().await()
+    }
+
     /** İlgili doktor ve hasta arasındaki tüm istekleri 'removed' yap. */
     suspend fun markRequestsAsRemoved(doctorId: String, patientId: String) {
         val requests = db.collection(PATIENT_REQUESTS)

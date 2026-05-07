@@ -182,6 +182,15 @@ class UserRepository(
         }
     }
 
+    override suspend fun cancelConnectionRequest(requestId: String): Result<Unit> {
+        return try {
+            firestoreService.deleteConnectionRequest(requestId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     override suspend fun getPendingRequests(patientId: String): List<com.example.exerciseformanalyzer.model.firestore.FirestorePatientRequest> {
         return try {
             firestoreService.getPendingRequestsForPatient(patientId)

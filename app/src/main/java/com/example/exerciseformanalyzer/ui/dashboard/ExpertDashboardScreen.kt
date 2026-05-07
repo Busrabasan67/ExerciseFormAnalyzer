@@ -348,7 +348,16 @@ fun ExpertDashboardScreen(
                                                 Text(req.patientName, style = MaterialTheme.typography.titleSmall)
                                                 Text(req.patientEmail, style = MaterialTheme.typography.bodySmall)
                                             }
-                                            Text("Beklemede", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text("Beklemede", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                TextButton(
+                                                    onClick = { viewModel.cancelConnectionRequest(req.requestId) },
+                                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                                                ) {
+                                                    Text("İptal Et", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                                                }
+                                            }
                                         }
                                     }
                                 }

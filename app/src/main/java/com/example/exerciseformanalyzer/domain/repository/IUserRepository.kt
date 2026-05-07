@@ -32,6 +32,9 @@ interface IUserRepository {
     /** Uzmandan hastaya bağlantı isteği gönderir. */
     suspend fun sendConnectionRequest(patient: FirestoreUser, doctor: UserEntity): Result<Unit>
 
+    /** Uzmanın gönderdiği bekleyen bir isteği iptal eder. */
+    suspend fun cancelConnectionRequest(requestId: String): Result<Unit>
+
     /** Hastaya gelen bekleyen bağlantı isteklerini çeker. */
     suspend fun getPendingRequests(patientId: String): List<FirestorePatientRequest>
     fun observePendingRequests(patientId: String): Flow<List<FirestorePatientRequest>>

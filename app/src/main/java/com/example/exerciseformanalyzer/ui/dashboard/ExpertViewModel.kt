@@ -277,6 +277,18 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun cancelConnectionRequest(requestId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = userRepo.cancelConnectionRequest(requestId)
+            if (result.isSuccess) {
+                _requestStatus.value = "İstek iptal edildi"
+                loadSentRequests()
+            } else {
+                _searchError.value = "İstek iptal edilemedi: ${result.exceptionOrNull()?.message}"
+            }
+        }
+    }
+
     fun removePatient(patientId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             val uid = currentUid
