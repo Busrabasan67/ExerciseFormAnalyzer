@@ -42,6 +42,7 @@ import java.util.Locale
 data class TaskExerciseStartParams(
     val exerciseType: ExerciseType,
     val taskId: Int,
+    val taskTitle: String = "",
     val firebaseTaskId: String = "",    // Firestore DocId
     val exerciseIndex: Int,
     val targetType: String,
@@ -225,6 +226,43 @@ fun PatientDashboardScreen(
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp)
                                 )
+                            }
+                        }
+                    }
+                }
+
+                // Profil tamamlama uyarısı (Kalori hesabı için kilo kontrolü)
+                val isProfileIncomplete = currentUser != null && (currentUser?.weightKg == null || currentUser?.weightKg!! <= 0f)
+                if (isProfileIncomplete && !showSuccessBanner) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),
+                        shadowElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Kalori hesabı için lütfen profil bilgilerinden kilonuzu doldurun.",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = onNavigateToProfile,
+                                contentPadding = PaddingValues(horizontal = 8.dp)
+                            ) {
+                                Text("Profile Git", style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
@@ -787,6 +825,7 @@ private fun PatientTaskCard(
                                             TaskExerciseStartParams(
                                                 exerciseType = exerciseEnum,
                                                 taskId = task.id,
+                                                taskTitle = task.title,
                                                 firebaseTaskId = task.firebaseDocId ?: "",
                                                 exerciseIndex = itemIdx,
                                                 targetType = exerciseItem.optString("targetType", "REPS"),

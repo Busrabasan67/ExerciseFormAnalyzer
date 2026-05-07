@@ -13,6 +13,7 @@ package com.example.exerciseformanalyzer.domain.model
 data class TaskContext(
     val taskId: Int,                    // Room local ID
     val firebaseTaskId: String = "",    // Firestore DocId (progress sync için)
+    val taskTitle: String = "",         // Görev başlığı (gruplama için)
     val exerciseIndex: Int,             // exercisesJson array içindeki konum (0-tabanlı)
     val exerciseType: String = "",      // Egzersiz tipi adı (progress güncelleme için)
     val targetType: String,             // "REPS" | "DURATION"

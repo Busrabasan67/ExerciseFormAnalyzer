@@ -295,6 +295,7 @@ fun AppNavigation(
                     val ctx = TaskContext(
                         taskId = params.taskId,
                         firebaseTaskId = params.firebaseTaskId,
+                        taskTitle = params.taskTitle,
                         exerciseIndex = params.exerciseIndex,
                         exerciseType = params.exerciseType.name,
                         targetType = params.targetType,

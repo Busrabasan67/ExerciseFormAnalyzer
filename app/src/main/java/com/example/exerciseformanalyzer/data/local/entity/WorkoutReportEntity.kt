@@ -23,6 +23,10 @@ data class WorkoutReportEntity(
     val reps: Int,            // Tekrar sayısı
     val totalTimeSeconds: Int,// Egzersiz süresi (saniye)
 
+    // Görev bağlamlı raporlar için
+    val taskId: Int? = null,
+    val taskTitle: String? = null,
+
     // MET formülü ile hesaplanan yakılan kalori.
     // CalorieCalculator servisi tarafından doldurulur.
     val caloriesBurned: Float = 0f,

@@ -101,6 +101,8 @@ class WorkoutRepository(
             score = score,
             reps = sessionNewReps,
             totalTimeSeconds = sessionNewDurationSec.toInt(),
+            taskId = taskContext?.taskId,
+            taskTitle = taskContext?.taskTitle,
             caloriesBurned = calories,
             feedback = feedback,
             isSynced = false
