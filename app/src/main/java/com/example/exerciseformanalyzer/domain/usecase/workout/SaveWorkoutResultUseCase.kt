@@ -18,8 +18,8 @@ class SaveWorkoutResultUseCase(private val workoutRepository: IWorkoutRepository
         exerciseType: ExerciseType,
         exerciseId: Int = 1,
         score: Int,
-        reps: Int,
-        durationSeconds: Long,
+        sessionNewReps: Int,
+        sessionNewDurationSec: Long,
         feedback: String?,
         taskContext: TaskContext? = null
     ) {
@@ -29,8 +29,8 @@ class SaveWorkoutResultUseCase(private val workoutRepository: IWorkoutRepository
             exerciseType = exerciseType,
             exerciseId = exerciseId,
             score = score,
-            reps = reps,
-            durationSeconds = durationSeconds,
+            sessionNewReps = sessionNewReps,
+            sessionNewDurationSec = sessionNewDurationSec,
             feedback = feedback,
             taskContext = taskContext
         )

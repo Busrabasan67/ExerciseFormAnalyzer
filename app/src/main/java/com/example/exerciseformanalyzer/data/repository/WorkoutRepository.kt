@@ -51,8 +51,8 @@ class WorkoutRepository(
         exerciseType: ExerciseType,
         exerciseId: Int,
         score: Int,
-        reps: Int,
-        durationSeconds: Long,
+        sessionNewReps: Int,
+        sessionNewDurationSec: Long,
         feedback: String?,
         taskContext: TaskContext?
     ) {
@@ -67,13 +67,13 @@ class WorkoutRepository(
         val calories = CalorieCalculator.calculateForSession(
             exerciseType = exerciseType,
             weightKg = weightKg,
-            durationSeconds = durationSeconds
+            durationSeconds = sessionNewDurationSec
         )
 
         // 2.1 XP Hesapla (Faz 4)
         val user = userDao.getUserByUid(userUid)
         val multiplier = user?.xpMultiplier ?: 1.0f
-        val earnedXp = ((reps + (durationSeconds / 10).toInt()) * multiplier).toInt()
+        val earnedXp = ((sessionNewReps + (sessionNewDurationSec / 10).toInt()) * multiplier).toInt()
         val totalXp = (user?.xp ?: 0) + earnedXp
         
         // Seviye hesapla (Sadeleşmiş: Her 1000 XP bir seviye)
@@ -99,8 +99,8 @@ class WorkoutRepository(
             exerciseId = exerciseId,
             exerciseName = exerciseType.displayName,
             score = score,
-            reps = reps,
-            totalTimeSeconds = durationSeconds.toInt(),
+            reps = sessionNewReps,
+            totalTimeSeconds = sessionNewDurationSec.toInt(),
             caloriesBurned = calories,
             feedback = feedback,
             isSynced = false
@@ -129,8 +129,11 @@ class WorkoutRepository(
                             val newCompletedSets = taskContext.completedSets
                             val isCompleted = newCompletedSets >= targetSets
 
-                            val sessionReps = maxOf(0, reps - taskContext.repsDoneInCurrentSet)
-                            val sessionDur = maxOf(0, durationSeconds.toInt() - taskContext.durDoneInCurrentSet)
+                            // sessionNewReps ve sessionNewDurationSec zaten ViewModel tarafından 
+                            // geçmişteki eksikleri de hesaba katarak hesaplanmış delta değerleridir.
+                            // Bu yüzden tekrar repsDoneInCurrentSet çıkarmaya gerek yok!
+                            val sessionReps = maxOf(0, sessionNewReps)
+                            val sessionDur = maxOf(0, sessionNewDurationSec.toInt())
 
                             val newActualReps = prevActualReps + sessionReps
                             val newActualDur = prevActualDur + sessionDur
@@ -234,8 +237,8 @@ class WorkoutRepository(
                     exerciseId = exerciseId.toString(),
                     exerciseName = exerciseType.displayName,
                     score = score,
-                    reps = reps,
-                    durationSeconds = durationSeconds.toInt(),
+                    reps = sessionNewReps,
+                    durationSeconds = sessionNewDurationSec.toInt(),
                     caloriesBurned = calories,
                     feedback = feedback ?: ""
                 )
@@ -249,8 +252,8 @@ class WorkoutRepository(
                     description = "${exerciseType.displayName} antrenmanını tamamladı!",
                     statistics = mapOf(
                         "calories" to "${calories.toInt()} kcal",
-                        "duration" to "${durationSeconds / 60}:${durationSeconds % 60}",
-                        "reps" to "$reps"
+                        "duration" to "${sessionNewDurationSec / 60}:${sessionNewDurationSec % 60}",
+                        "reps" to "$sessionNewReps"
                     )
                 )
                 firestoreService.createActivity(activity)
@@ -276,6 +279,100 @@ class WorkoutRepository(
             } catch (e: Exception) {
                 android.util.Log.w("WorkoutRepository", "Anlık sync başarısız, SyncWorker bekliyor: ${e.message}")
             }
+        }
+    }
+
+    /**
+     * Egzersiz seti yarıda bırakıldığında (kullanıcı geri çıkınca) çağrılır.
+     * Tam workout raporu yazmadan yalnızca görevin exercisesJson'daki
+     * actualReps / actualDurationSeconds ve completedSets alanlarını günceller.
+     * Böylece bir sonraki girişte kaldığı yerden devam edilebilir.
+     */
+    override suspend fun savePartialProgress(
+        userUid: String,
+        taskContext: TaskContext,
+        sessionNewReps: Int,
+        sessionNewDurSec: Long
+    ) {
+        if (userUid.isEmpty()) return
+        try {
+            val task = taskDao.getTaskById(taskContext.taskId) ?: return
+            val arr = org.json.JSONArray(task.exercisesJson)
+            if (taskContext.exerciseIndex >= arr.length()) return
+
+            val exObj = arr.getJSONObject(taskContext.exerciseIndex)
+            val currentStatus = exObj.optString("status", "PENDING")
+
+            // Tamamlanmış bir egzersizi tekrar yazma
+            if (currentStatus == "COMPLETED") return
+
+            // Bu seansın NET tekrar/süre artışını hesapla
+            // sessionNewReps zaten viewModel'dan delta olarak geliyor
+            val sessionReps = maxOf(0, sessionNewReps)
+            val sessionDur  = maxOf(0, sessionNewDurSec.toInt())
+
+            // Herhangi bir ilerleme yoksa yazmaya gerek yok
+            if (sessionReps == 0 && sessionDur == 0 && taskContext.completedSets == (exObj.optInt("completedSets", 0))) return
+
+            val prevActualReps = exObj.optInt("actualReps", 0)
+            val prevActualDur  = exObj.optInt("actualDurationSeconds", 0)
+
+            exObj.put("actualReps",             prevActualReps + sessionReps)
+            exObj.put("actualDurationSeconds",  prevActualDur  + sessionDur)
+            exObj.put("completedSets",          taskContext.completedSets)
+            // Yarım bırakıldığında status = IN_PROGRESS
+            if (currentStatus == "PENDING" && (sessionReps > 0 || sessionDur > 0 || taskContext.completedSets > 0)) {
+                exObj.put("status", "IN_PROGRESS")
+            }
+
+            val updatedTask = task.copy(
+                exercisesJson = arr.toString(),
+                status = if (task.status == "PENDING") "IN_PROGRESS" else task.status,
+                isSynced = false
+            )
+            taskDao.updateTask(updatedTask)
+
+            // Firestore'a da anlık itmeyi dene
+            if (!task.firebaseDocId.isNullOrEmpty()) {
+                try {
+                    val exercisesList = mutableListOf<com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem>()
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        exercisesList.add(
+                            com.example.exerciseformanalyzer.model.firestore.FirestoreExerciseItem(
+                                exerciseType          = obj.optString("exerciseType"),
+                                targetType            = obj.optString("targetType"),
+                                targetReps            = if (obj.has("targetReps")) obj.getInt("targetReps") else null,
+                                targetDurationSeconds = if (obj.has("targetDurationSeconds")) obj.getInt("targetDurationSeconds") else null,
+                                actualReps            = if (obj.has("actualReps")) obj.getInt("actualReps") else null,
+                                actualDurationSeconds = if (obj.has("actualDurationSeconds")) obj.getInt("actualDurationSeconds") else null,
+                                sets                  = obj.optInt("sets", 1),
+                                completedSets         = obj.optInt("completedSets", 0),
+                                restTimeSeconds       = if (obj.has("restTimeSeconds") && !obj.isNull("restTimeSeconds")) obj.getInt("restTimeSeconds") else null,
+                                difficulty            = obj.optString("difficulty", "MEDIUM"),
+                                category              = obj.optString("category", "STRENGTH"),
+                                status                = obj.optString("status")
+                            )
+                        )
+                    }
+                    firestoreService.updateTaskStatus(
+                        taskDocId   = task.firebaseDocId,
+                        status      = updatedTask.status,
+                        completedAt = null,
+                        exercises   = exercisesList
+                    )
+                    taskDao.updateTask(updatedTask.copy(isSynced = true))
+                } catch (e: Exception) {
+                    android.util.Log.w("WorkoutRepository",
+                        "Partial progress Firestore sync hatası, SyncWorker deneyecek: ${e.message}")
+                }
+            }
+
+            android.util.Log.d("WorkoutRepository",
+                "Partial progress kaydedildi: taskId=${taskContext.taskId} exerciseIdx=${taskContext.exerciseIndex} " +
+                "reps=${prevActualReps + sessionReps} completedSets=${taskContext.completedSets}")
+        } catch (e: Exception) {
+            android.util.Log.e("WorkoutRepository", "savePartialProgress hatası: ${e.message}")
         }
     }
 

@@ -176,8 +176,8 @@ class DebugViewModel(application: Application) : AndroidViewModel(application) {
                 exerciseType = ExerciseType.SQUAT,
                 exerciseId = 1,
                 score = 99,
-                reps = 15,
-                durationSeconds = 60,
+                sessionNewReps = 15,
+                sessionNewDurationSec = 60,
                 feedback = "Offline Test"
             )
             appendLog("Offline Save Success!\nisSynced=false eklendi. SyncWorker'ı bekliyor.")

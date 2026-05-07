@@ -83,6 +83,10 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     
     private var defaultRestSeconds = 90
     private var initialRepsDone = 0
+    private var initialDurDone = 0L
+
+    private var accumulatedNewReps = 0
+    private var accumulatedNewDurSec = 0L
 
     init {
         initPoseLandmarker()
@@ -212,6 +216,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         if (type != null) {
             analysisPipeline.reset()
             initialRepsDone = taskContext?.repsDoneInCurrentSet ?: 0
+            initialDurDone = (taskContext?.durDoneInCurrentSet ?: 0).toLong()
             maxRepCount = initialRepsDone
             lastProcessedTimestamp = -1L
             lastChannelTimestamp = -1L
@@ -221,11 +226,13 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
             _isPaused.value = false
             _isResting.value = false
             _restTimeLeft.value = 0
-            _sessionDurationSec.value = (taskContext?.durDoneInCurrentSet ?: 0).toLong()
+            _sessionDurationSec.value = initialDurDone
             _workoutSummary.value = null
             totalAnalysisSamples = 0
             correctAnalysisSamples = 0
             errorFrequency.clear()
+            accumulatedNewReps = 0
+            accumulatedNewDurSec = 0L
 
             startTimer()
         }
@@ -269,6 +276,10 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         }
 
         if (setCompleted) {
+            // Set bittiğinde, o setin net tekrar/süresini genel toplama ekle
+            accumulatedNewReps += maxOf(0, maxRepCount - initialRepsDone)
+            accumulatedNewDurSec += maxOf(0, _sessionDurationSec.value - initialDurDone)
+
             val newCompletedSets = ctx.completedSets + 1
             val updatedCtx = ctx.copy(
                 completedSets = newCompletedSets,
@@ -302,8 +313,14 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         _isResting.value = false
         _sessionDurationSec.value = 0
         initialRepsDone = 0
+        initialDurDone = 0L
         maxRepCount = 0
         analysisPipeline.reset()
+        // Yeni setin başlangıcını TaskContext'e yansıt
+        _activeTaskContext.value = _activeTaskContext.value?.copy(
+            repsDoneInCurrentSet = 0,
+            durDoneInCurrentSet  = 0
+        )
         speak(if (currentLanguage == "tr") "Yeni sete başlayın." else "Start the next set.")
     }
 
@@ -311,9 +328,19 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         _isSessionActive.value = false
         sessionTimerJob?.cancel()
 
+        // Eğer set tamamlanmadan direkt endWorkout çağrıldıysa (örn. süre bitti set tamamlandı)
+        // checkSetCompletion zaten accumulated değerlere ekleme yaptı.
+        // Ama eğer manuel olarak erken bitirildiyse: (şu an uygulamada erken bitirme butonu yok)
+        // Genel toplamları hesaplayalım (eğer dinlenmede değilsek o anki setin değerlerini de ekle)
+        val finalNewReps = if (!_isResting.value) maxOf(0, maxRepCount - initialRepsDone) else 0
+        val finalNewDur = if (!_isResting.value) maxOf(0, _sessionDurationSec.value - initialDurDone) else 0L
+        val totalSessionNewReps = accumulatedNewReps + finalNewReps
+        val totalSessionNewDurSec = accumulatedNewDurSec + finalNewDur
+
         val finalResult = analysisPipeline.lastAnalysisResult
         val exercise = analysisPipeline.targetExercise ?: finalResult?.exerciseType ?: ExerciseType.UNKNOWN
-        val reps = maxRepCount
+        val reps = totalSessionNewReps
+        val duration = totalSessionNewDurSec
         val accuracy = if (totalAnalysisSamples > 0) ((correctAnalysisSamples.toFloat() / totalAnalysisSamples) * 100).toInt() else 0
         val commonErr = errorFrequency.maxByOrNull { it.value }?.key
 
@@ -331,14 +358,14 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                 val calories = com.example.exerciseformanalyzer.domain.CalorieCalculator.calculateForSession(
                     exerciseType = exercise,
                     weightKg = weightKg,
-                    durationSeconds = _sessionDurationSec.value,
+                    durationSeconds = duration,
                     reps = reps
                 )
 
                 val summary = WorkoutSummary(
                     exercise = exercise,
                     totalReps = reps,
-                    durationSeconds = _sessionDurationSec.value,
+                    durationSeconds = duration,
                     accuracyPercentage = accuracy,
                     mostCommonError = commonErr,
                     caloriesBurned = calories
@@ -351,8 +378,8 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                     exerciseType = exercise,
                     exerciseId = 1,
                     score = accuracy,
-                    reps = reps,
-                    durationSeconds = _sessionDurationSec.value,
+                    sessionNewReps = reps,
+                    sessionNewDurationSec = duration,
                     feedback = commonErr ?: getApplication<Application>().getString(R.string.perfect_form),
                     taskContext = _activeTaskContext.value
                 )
@@ -372,6 +399,41 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Kullanıcı egzersiz ekranından geri çıktığında çağrılır.
+     * Görev bağlamlı bir seans aktifse o anki kısmi ilerlemeyi (tekrar / süre)
+     * Room + Firestore'a kaydeder, ardından session state'ini temizler.
+     * Serbest egzersizde (taskContext == null) yalnızca session sıfırlanır.
+     */
+    fun savePartialProgressAndReset() {
+        val ctx = _activeTaskContext.value
+        val finalNewReps = if (!_isResting.value) maxOf(0, maxRepCount - initialRepsDone) else 0
+        val finalNewDur = if (!_isResting.value) maxOf(0, _sessionDurationSec.value - initialDurDone) else 0L
+        val totalSessionNewReps = accumulatedNewReps + finalNewReps
+        val totalSessionNewDurSec = accumulatedNewDurSec + finalNewDur
+
+        if (ctx != null && _isSessionActive.value) {
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val firebaseUid = (getApplication<MainApplication>())
+                        .authRepository.currentUid ?: ""
+                    workoutRepository.savePartialProgress(
+                        userUid      = firebaseUid,
+                        taskContext  = ctx,
+                        sessionNewReps  = totalSessionNewReps,
+                        sessionNewDurSec = totalSessionNewDurSec
+                    )
+                    Log.d(TAG, "Partial progress kaydedildi: newReps=$totalSessionNewReps newDur=$totalSessionNewDurSec completedSets=${ctx.completedSets}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "savePartialProgressAndReset hatası: ${e.message}")
+                }
+            }
+        }
+
+        // State'i her durumda temizle
+        resetSession()
+    }
+
     fun resetSession() {
         analysisPipeline.reset()
         _workoutSummary.value = null
@@ -382,6 +444,9 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         _uiState.value = ExerciseUiState.Ready
         _activeTaskContext.value = null
         initialRepsDone = 0
+        initialDurDone = 0L
+        accumulatedNewReps = 0
+        accumulatedNewDurSec = 0L
         maxRepCount = 0
         lastProcessedTimestamp = -1L
         lastChannelTimestamp = -1L

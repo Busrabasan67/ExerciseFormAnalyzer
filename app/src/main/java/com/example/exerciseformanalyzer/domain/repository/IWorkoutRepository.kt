@@ -25,8 +25,8 @@ interface IWorkoutRepository {
         exerciseType: ExerciseType,
         exerciseId: Int,
         score: Int,
-        reps: Int,
-        durationSeconds: Long,
+        sessionNewReps: Int,
+        sessionNewDurationSec: Long,
         feedback: String?,
         taskContext: TaskContext? = null
     )
@@ -36,6 +36,23 @@ interface IWorkoutRepository {
 
     /** Lokal ID bazlı geçmiş sorgusu (geriye uyumluluk). */
     suspend fun getPatientHistory(userId: Int): List<WorkoutReportEntity>
+
+    /**
+     * Egzersiz seti yarıda bırakıldığında (kullanıcı geri çıkınca) çağrılır.
+     * Tam workout raporu yazmadan yalnızca görevin exercisesJson içindeki
+     * actualReps / actualDurationSeconds alanlarını günceller.
+     * Böylece bir sonraki girişte kaldığı yerden devam edilebilir.
+     *
+     * @param taskContext    Mevcut görev bağlamı (taskId, exerciseIndex, completedSets vb.)
+     * @param sessionNewReps    Bu seansa ait toplam yeni tekrar sayısı (delta)
+     * @param sessionNewDurSec  Bu seansa ait toplam yeni süre (delta saniye)
+     */
+    suspend fun savePartialProgress(
+        userUid: String,
+        taskContext: TaskContext,
+        sessionNewReps: Int,
+        sessionNewDurSec: Long
+    )
 
     /** Egzersiz kurallarını getirmek için kullanılır (AI motoru). */
     suspend fun getExerciseRules(exerciseId: Int): ExerciseEntity?

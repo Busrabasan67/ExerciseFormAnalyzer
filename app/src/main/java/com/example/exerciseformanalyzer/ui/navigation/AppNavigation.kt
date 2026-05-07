@@ -406,7 +406,7 @@ fun AppNavigation(
             CameraPreviewScreen(
                 viewModel = workoutViewModel,
                 onNavigateBack = {
-                    workoutViewModel.resetSession()
+                    workoutViewModel.savePartialProgressAndReset()
                     navController.popBackStack()
                 }
             )
