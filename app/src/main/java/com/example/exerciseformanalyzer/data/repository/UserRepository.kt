@@ -64,8 +64,8 @@ class UserRepository(
                     ?.split(",")
                     ?.filter { it.isNotBlank() }
                     ?: emptyList(),
-                isSmoker = updatedUser.isSmoker,
-                isDrinker = updatedUser.isDrinker,
+                smoker = updatedUser.isSmoker,
+                drinker = updatedUser.isDrinker,
                 expertId = updatedUser.expertUid ?: "",
                 status = updatedUser.status,
                 profileImageUrl = updatedUser.profileImageUrl,
@@ -124,8 +124,8 @@ class UserRepository(
                     painAreasJson = org.json.JSONArray(patientProfile.painAreas).toString(),
                     exerciseLevel = patientProfile.exerciseLevel,
                     diseasesJson = patientProfile.diseases.joinToString(","),
-                    isSmoker = patientProfile.isSmoker,
-                    isDrinker = patientProfile.isDrinker,
+                    isSmoker = patientProfile.smoker,
+                    isDrinker = patientProfile.drinker,
                     expertUid = expertUid,
                     isSynced = true,
                     status = patientProfile.status
@@ -314,8 +314,8 @@ class UserRepository(
             painAreasJson = org.json.JSONArray(profile.painAreas).toString(),
             exerciseLevel = profile.exerciseLevel,
             diseasesJson = profile.diseases.joinToString(","),
-            isSmoker = profile.isSmoker,
-            isDrinker = profile.isDrinker,
+            isSmoker = profile.smoker,
+            isDrinker = profile.drinker,
             expertUid = profile.expertId,
             isSynced = true,
             status = profile.status,
@@ -354,8 +354,8 @@ class UserRepository(
                     painAreasJson = org.json.JSONArray(profile.painAreas).toString(),
                     exerciseLevel = profile.exerciseLevel,
                     diseasesJson = profile.diseases.joinToString(","),
-                    isSmoker = profile.isSmoker,
-                    isDrinker = profile.isDrinker,
+                    isSmoker = profile.smoker,
+                    isDrinker = profile.drinker,
                     expertUid = profile.expertId, // = expertUid
                     isSynced = true,
                     status = profile.status,

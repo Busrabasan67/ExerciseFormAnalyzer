@@ -46,7 +46,16 @@ class AuthRepository(
     override suspend fun loginWithEmail(email: String, password: String): AuthResult<FirebaseUser> {
         return try {
             val firebaseUser = authService.loginWithEmail(email, password)
-            syncUserProfileFromFirestore(firebaseUser.uid)
+            val profile = firestoreService.getUserProfile(firebaseUser.uid)
+            
+            if (profile != null && profile.status == "PASSIVE") {
+                authService.signOut()
+                return AuthResult.Error("Hesabınız yönetici tarafından askıya alınmıştır.")
+            }
+            
+            if (profile != null) {
+                cacheUserLocally(firebaseUser.uid, profile)
+            }
             AuthResult.Success(firebaseUser)
         } catch (e: Exception) {
             AuthResult.Error(e.message ?: "Giris sirasinda bilinmeyen hata olustu.")
@@ -57,6 +66,12 @@ class AuthRepository(
         return try {
             val firebaseUser = authService.loginWithGoogle(idToken)
             val existingProfile = firestoreService.getUserProfile(firebaseUser.uid)
+            
+            if (existingProfile != null && existingProfile.status == "PASSIVE") {
+                authService.signOut()
+                return GoogleAuthResult.Error("Hesabınız yönetici tarafından askıya alınmıştır.")
+            }
+            
             if (existingProfile == null) {
                 GoogleAuthResult.RequiresRoleSelection(
                     uid = firebaseUser.uid,
@@ -156,8 +171,8 @@ class AuthRepository(
             painAreasJson = org.json.JSONArray(profile.painAreas).toString(),
             exerciseLevel = profile.exerciseLevel,
             diseasesJson = profile.diseases.joinToString(","),
-            isSmoker = profile.isSmoker,
-            isDrinker = profile.isDrinker,
+            isSmoker = profile.smoker,
+            isDrinker = profile.drinker,
             expertUid = profile.expertId,
             isSynced = true,
             defaultRestSeconds = profile.defaultRestSeconds,

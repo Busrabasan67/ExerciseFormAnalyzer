@@ -231,7 +231,7 @@ class WorkoutRepository(
             }
         }
 
-        // 5. Raporu Firestore'a anlık yükle
+        // 5. Raporu Firestore'a anlık yükle (BAĞIMSIZ — badge değerlendirmesini ENGELLEMEZ)
         if (userUid.isNotEmpty()) {
             try {
                 val firestoreReport = FirestoreWorkoutReport(
@@ -259,27 +259,45 @@ class WorkoutRepository(
                     )
                 )
                 firestoreService.createActivity(activity)
+            } catch (e: Exception) {
+                android.util.Log.w("WorkoutRepository", "Anlık rapor sync başarısız, SyncWorker bekliyor: ${e.message}")
+            }
+        }
 
-                // 7. Rozet İlerlemesini Güncelle
-                // Gerçek uygulamada BadgeManager.evaluate(userId, exerciseType, reps) çağrılır.
-                // Prototip: Antrenman sayacı rozeti için basit bir stub ilerleme kaydedelim
-                if (userUid.isNotEmpty()) {
-                    val progress = badgeDao.getProgress(userUid, "first_workout")
-                    if (progress == null) {
-                        badgeDao.updateProgress(
-                            com.example.exerciseformanalyzer.data.local.entity.UserBadgeProgressEntity(
-                                userId = userUid,
-                                badgeId = "first_workout",
-                                currentProgress = 1,
-                                targetValue = 1,
-                                isUnlocked = true,
-                                unlockedAt = System.currentTimeMillis()
-                            )
-                        )
+        // 7. Rozet İlerlemesini Güncelle — BAĞIMSIZ try-catch (rapor yükleme başarısız olsa bile çalışır!)
+        if (userUid.isNotEmpty()) {
+            try {
+                val definitions = firestoreService.getBadgeDefinitions()
+                android.util.Log.d("BadgeEval", "=== Rozet Değerlendirme Başladı ===")
+                android.util.Log.d("BadgeEval", "Kullanıcı: $userUid | Egzersiz: ${exerciseType.name} | Tekrar: $sessionNewReps | Kalori: ${calories.toInt()} | XP: $earnedXp")
+                android.util.Log.d("BadgeEval", "Bulunan rozet tanımı sayısı: ${definitions.size}")
+
+                val squatTypes = setOf("SQUAT", "HALF_SQUAT", "JUMP_SQUAT", "BULGARIAN_SPLIT_SQUAT")
+
+                for ((badgeId, def) in definitions) {
+                    val cat = def.category.trim().uppercase()
+                    val exName = exerciseType.name.trim().uppercase()
+
+                    val increment = when {
+                        cat == exName              -> sessionNewReps
+                        cat == "SQUAT_ALL" && squatTypes.contains(exName) -> sessionNewReps
+                        cat == "CALORIES"          -> calories.toInt()
+                        cat == "XP"                -> earnedXp
+                        else                       -> 0
+                    }
+
+                    android.util.Log.d("BadgeEval", "  Rozet '$badgeId' | category=$cat | exName=$exName | increment=$increment | target=${def.targetValue}")
+
+                    if (increment > 0) {
+                        firestoreService.incrementBadgeProgress(userUid, badgeId, increment, def.targetValue, def.xpReward)
+                        android.util.Log.d("BadgeEval", "  ✅ Güncellendi: $badgeId +$increment")
+                    } else {
+                        android.util.Log.d("BadgeEval", "  ⏭ Atlandı (increment=0)")
                     }
                 }
+                android.util.Log.d("BadgeEval", "=== Rozet Değerlendirme Bitti ===")
             } catch (e: Exception) {
-                android.util.Log.w("WorkoutRepository", "Anlık sync başarısız, SyncWorker bekliyor: ${e.message}")
+                android.util.Log.e("BadgeEval", "❌ Rozet değerlendirme hatası: ${e.message}", e)
             }
         }
     }

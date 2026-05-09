@@ -83,6 +83,7 @@ fun ProfileScreen(
     }
 
     val permissionState = rememberPermissionState(permission)
+    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
     var showImageSourceDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
@@ -325,9 +326,13 @@ fun ProfileScreen(
                 Surface(
                     onClick = {
                         showImageSourceDialog = false
-                        val uri = createTempUri()
-                        tempPhotoUri = uri
-                        cameraLauncher.launch(uri)
+                        if (cameraPermissionState.status.isGranted) {
+                            val uri = createTempUri()
+                            tempPhotoUri = uri
+                            cameraLauncher.launch(uri)
+                        } else {
+                            cameraPermissionState.launchPermissionRequest()
+                        }
                     },
                     shape = RoundedCornerShape(16.dp),
                     color = Color.Transparent,

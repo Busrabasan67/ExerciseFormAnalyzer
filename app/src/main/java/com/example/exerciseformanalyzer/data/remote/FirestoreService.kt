@@ -12,6 +12,7 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.firestore.AggregateSource
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.channels.awaitClose
+import android.util.Log
 
 class FirestoreService {
 
@@ -23,7 +24,7 @@ class FirestoreService {
         const val PLANS           = "plans"
         const val TASK_ASSIGNMENTS= "task_assignments"
         const val GROUPS          = "groups"
-        const val GROUP_MEMBERS   = "group_members"
+        const val GROUP_MEMBERS   = "groupMembers"
         const val GROUP_INVITES   = "group_invites"
         const val PATIENT_REQUESTS = "patient_requests"
         const val GROUP_JOIN_REQUESTS = "group_join_requests"
@@ -42,6 +43,25 @@ class FirestoreService {
     /** Yeni profil yaz veya mevcut üzerine güncelle (merge ile güvenli). */
     suspend fun saveUserProfile(uid: String, profile: FirestoreUser) {
         db.collection(USERS).document(uid).set(profile).await()
+    }
+
+    suspend fun incrementUserXp(userId: String, amount: Int) {
+        if (amount <= 0) return
+        val userRef = db.collection(USERS).document(userId)
+        db.runTransaction { transaction ->
+            val snapshot = transaction.get(userRef)
+            val currentXp = snapshot.getLong("xp")?.toInt() ?: 0
+            val currentLevel = snapshot.getLong("level")?.toInt() ?: 1
+            
+            val newXp = currentXp + amount
+            // Basit seviye mantığı: her 1000 XP'de bir seviye
+            val newLevel = (newXp / 1000) + 1
+            
+            transaction.update(userRef, "xp", newXp)
+            if (newLevel > currentLevel) {
+                transaction.update(userRef, "level", newLevel)
+            }
+        }.await()
     }
 
     /** Firestore'dan kullanıcı profilini getir; yoksa null döner. */
@@ -439,10 +459,11 @@ class FirestoreService {
     }
 
     /** Görev durumunu günceller (IN_PROGRESS, DONE veya MISSED). */
-    suspend fun updateTaskStatus(taskDocId: String, status: String, completedAt: Long? = null, exercises: List<FirestoreExerciseItem>? = null) {
+    suspend fun updateTaskStatus(taskDocId: String, status: String, completedAt: Long? = null, exercises: List<FirestoreExerciseItem>? = null, expertNote: String? = null) {
         val updates = mutableMapOf<String, Any>("status" to status)
         completedAt?.let { updates["completedAt"] = it }
         exercises?.let { updates["exercises"] = it }
+        expertNote?.let { updates["expertNote"] = it }
         db.collection(TASK_ASSIGNMENTS).document(taskDocId).update(updates).await()
     }
 
@@ -756,6 +777,174 @@ class FirestoreService {
             .documents.mapNotNull { it.toObject<FirestoreUserBadgeProgress>() }
     }
 
+    suspend fun incrementBadgeProgress(userId: String, badgeId: String, increment: Int, target: Int, xpReward: Int = 0) {
+        val docRef = db.collection("user_badges").document("${userId}_${badgeId}")
+        
+        // Önce mevcut durumu oku
+        val snapshot = docRef.get().await()
+        
+        if (snapshot.exists()) {
+            val current = snapshot.getLong("currentProgress")?.toInt() ?: 0
+            val isAlreadyUnlocked = snapshot.getBoolean("isUnlocked") ?: false
+            
+            if (!isAlreadyUnlocked) {
+                val newProgress = current + increment
+                val willUnlock = newProgress >= target
+                
+                val updates = mutableMapOf<String, Any>(
+                    "currentProgress" to newProgress
+                )
+                if (willUnlock) {
+                    updates["isUnlocked"] = true
+                    updates["unlockedAt"] = System.currentTimeMillis()
+                    // Rozet XP'sini ver
+                    incrementUserXp(userId, xpReward)
+                    android.util.Log.d("BadgeSystem", "🏆 Rozet açıldı! +$xpReward XP eklendi.")
+                }
+                docRef.update(updates).await()
+                android.util.Log.d("BadgeEval", "Belge güncellendi: $badgeId progress=$newProgress unlocked=$willUnlock")
+            }
+        } else {
+            val willUnlock = increment >= target
+            val progressData = mapOf(
+                "userId" to userId,
+                "badgeId" to badgeId,
+                "currentProgress" to increment,
+                "targetValue" to target,
+                "isUnlocked" to willUnlock,
+                "unlockedAt" to if (willUnlock) System.currentTimeMillis() else null
+            )
+            if (willUnlock) {
+                incrementUserXp(userId, xpReward)
+            }
+            docRef.set(progressData).await()
+            android.util.Log.d("BadgeEval", "Yeni belge oluşturuldu: $badgeId progress=$increment unlocked=$willUnlock")
+        }
+    }
+
+    /** Sistemdeki tüm rozet tanımlarını getirir. */
+    suspend fun getBadgeDefinitions(): List<Pair<String, FirestoreBadgeDefinition>> {
+        return db.collection("badges")
+            .get().await()
+            .documents.mapNotNull { doc ->
+                val model = doc.toObject<FirestoreBadgeDefinition>() ?: return@mapNotNull null
+                Pair(doc.id, model)
+            }
+    }
+
+    /**
+     * Yeni rozet tanımlandığında (veya kategori değiştirildiğinde) çağrılır.
+     * Geçmiş workout_reports verilerine bakarak zaten hak etmiş tüm kullanıcılara rozeti verir.
+     * Admin'in bir rozeti sonradan tanımlaması halinde kullanıcıların egzersizi yeniden yapmasına
+     * gerek kalmaz.
+     */
+    suspend fun evaluateBadgeRetroactively(badgeId: String, badge: FirestoreBadgeDefinition) {
+        android.util.Log.d("BadgeRetro", "=== Retroaktif Değlendirme Başladı: badge=$badgeId category=${badge.category} target=${badge.targetValue} ===")
+
+        val cat = badge.category.trim().uppercase()
+        val squatTypes = setOf("SQUAT", "HALF_SQUAT", "JUMP_SQUAT", "BULGARIAN_SPLIT_SQUAT")
+
+        // ÖNEMLİ: document.id kullanılıyor (getString("uid") değil!)
+        val patientDocs = db.collection(USERS)
+            .whereEqualTo("role", "PATIENT")
+            .get().await()
+            .documents
+
+        android.util.Log.d("BadgeRetro", "Bulunan hasta doküman sayısı: ${patientDocs.size}")
+
+        for (doc in patientDocs) {
+            val userId = doc.id  // ✅ Doküman ID'si = Firebase UID
+            android.util.Log.d("BadgeRetro", "Hasta taranıyor: $userId")
+
+            try {
+                val reportDocs = db.collection(WORKOUT_REPORTS)
+                    .whereEqualTo("userId", userId)
+                    .get().await()
+                    .documents
+
+                android.util.Log.d("BadgeRetro", "  Rapor sayısı: ${reportDocs.size}")
+
+                var totalProgress = 0
+                for (rDoc in reportDocs) {
+                    val report = rDoc.toObject<FirestoreWorkoutReport>() ?: continue
+                    // exerciseName = displayName (örn. "Squat"), uppercase + normalize et
+                    val rawName = report.exerciseName.trim().uppercase()
+                        .replace("-", "_").replace(" ", "_")
+                    android.util.Log.d("BadgeRetro", "    Rapor: exerciseName='${report.exerciseName}' -> normalized='$rawName' reps=${report.reps} cal=${report.caloriesBurned}")
+
+                    val contribution = when {
+                        cat == rawName -> report.reps
+                        cat == "SQUAT_ALL" && squatTypes.contains(rawName) -> report.reps
+                        cat == "CALORIES" -> report.caloriesBurned.toInt()
+                        else -> 0
+                    }
+                    if (contribution > 0) {
+                        android.util.Log.d("BadgeRetro", "    ✅ Katkı: +$contribution (cat=$cat == rawName=$rawName)")
+                    } else {
+                        android.util.Log.d("BadgeRetro", "    ⏭ Katkı yok (cat=$cat != rawName=$rawName)")
+                    }
+                    totalProgress += contribution
+                }
+
+                android.util.Log.d("BadgeRetro", "  Toplam ilerleme: $totalProgress / Hedef: ${badge.targetValue}")
+
+                if (totalProgress > 0) {
+                    val docRef = db.collection("user_badges").document("${userId}_${badgeId}")
+                    val existing = docRef.get().await()
+                    val alreadyUnlocked = existing.getBoolean("isUnlocked") ?: false
+
+                    if (!alreadyUnlocked) {
+                        val willUnlock = totalProgress >= badge.targetValue
+                        val data = mapOf(
+                            "userId" to userId,
+                            "badgeId" to badgeId,
+                            "currentProgress" to totalProgress,
+                            "targetValue" to badge.targetValue,
+                            "isUnlocked" to willUnlock,
+                            "unlockedAt" to if (willUnlock) System.currentTimeMillis() else null
+                        )
+                        if (willUnlock) {
+                            // Eğer daha önce açılmamışsa XP ver (tekrar XP vermemek için kontrol)
+                            val existingProgress = db.collection(USERS).document(userId)
+                                .collection("user_badges").document(badgeId)
+                                .get().await().toObject<FirestoreUserBadgeProgress>()
+                                
+                            if (existingProgress == null || !existingProgress.isUnlocked) {
+                                incrementUserXp(userId, badge.xpReward)
+                                android.util.Log.d("BadgeRetro", "User $userId earned retroactive badge: ${badge.name}. Awarded ${badge.xpReward} XP.")
+                            }
+                        }
+                        
+                        docRef.set(data).await()
+                        android.util.Log.d("BadgeRetro", if (willUnlock) "  🏆 ROZET VERİLDİ: $userId" else "  📊 İlerleme kaydedildi: $totalProgress")
+                    } else {
+                        android.util.Log.d("BadgeRetro", "  ⏭ Zaten açık, atlandı")
+                    }
+                } else {
+                    android.util.Log.d("BadgeRetro", "  ⏭ Sıfır ilerleme, kayıt yapılmadı")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("BadgeRetro", "  HATA (userId=$userId): ${e.message}", e)
+            }
+        }
+        android.util.Log.d("BadgeRetro", "=== Retroaktif Değlendirme TAMAMLANDI ===")
+    }
+
+    /** Yeni bir rozet tanımı oluşturur. */
+    suspend fun createBadgeDefinition(badge: FirestoreBadgeDefinition): String {
+        return db.collection("badges").add(badge).await().id
+    }
+
+    /** Bir rozet tanımını siler. */
+    suspend fun deleteBadgeDefinition(badgeId: String) {
+        db.collection("badges").document(badgeId).delete().await()
+    }
+
+    /** Rozet tanımını günceller. */
+    suspend fun updateBadgeDefinition(badgeId: String, updates: Map<String, Any>) {
+        db.collection("badges").document(badgeId).update(updates).await()
+    }
+
     // =====================================================================
     // ADMIN FONKSİYONLARI (AGREGASYON)
     // =====================================================================
@@ -780,12 +969,44 @@ class FirestoreService {
             .count().get(AggregateSource.SERVER).await().count.toInt()
     }
 
+    /** Uzman için hastanın detaylı egzersiz analizini getir. */
+    suspend fun getPatientDetailedAnalysis(patientId: String): Map<String, Any?> {
+        val reports = db.collection(WORKOUT_REPORTS)
+            .whereEqualTo("userId", patientId)
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestoreWorkoutReport>() }
+
+        val exerciseStats = reports.groupBy { it.exerciseName }
+            .mapValues { entry ->
+                val avgScore = entry.value.map { it.score }.average()
+                val totalReps = entry.value.sumOf { it.reps }
+                val totalDuration = entry.value.sumOf { it.durationSeconds }
+                mapOf(
+                    "avgScore" to avgScore,
+                    "totalReps" to totalReps,
+                    "totalDuration" to totalDuration,
+                    "sessionCount" to entry.value.size
+                )
+            }
+
+        return mapOf(
+            "exerciseStats" to exerciseStats,
+            "totalWorkouts" to reports.size,
+            "lastActive" to (reports.maxByOrNull { it.timestamp?.time ?: 0 }?.timestamp)
+        )
+    }
+
+    /** Görev durumunu detaylı olarak güncelle (Partial Progress dahil). */
+    suspend fun updateTaskStatusWithNote(taskId: String, status: String, expertNote: String? = null) {
+        val updates = mutableMapOf<String, Any>("status" to status)
+        expertNote?.let { updates["expertNote"] = it }
+        updates["updatedAt"] = System.currentTimeMillis()
+        
+        db.collection(TASK_ASSIGNMENTS).document(taskId)
+            .update(updates).await()
+    }
     /** Toplam yakılan kalori miktarını (tüm zamanlar) topla. */
     suspend fun getTotalCaloriesBurned(): Float {
-        // Firestore aggregate sum() şu an için sınırlı veya yeni.
-        // Prototip için tüm workout'ları çekmek pahalı olabilir ama örnek veri azsa sorun değil.
-        // Optimizasyon: Cloud Functions ile bir sayaç tutulabilir.
-        // Şimdilik basitleştirmek için son 1000 kaydı toplayalım.
         return db.collection(WORKOUT_REPORTS)
             .limit(1000)
             .get().await()
@@ -799,7 +1020,6 @@ class FirestoreService {
             .count().get(AggregateSource.SERVER).await().count.toInt()
     }
 
-    /** Sistemdeki tüm kullanıcıları listele (limitli). */
     suspend fun getAllUsers(limit: Long = 100): List<FirestoreUser> {
         return db.collection(USERS)
             .limit(limit)
@@ -807,7 +1027,112 @@ class FirestoreService {
             .documents.mapNotNull { it.toObject<FirestoreUser>() }
     }
 
+    /** Kullanıcının rolünü günceller (Örn: PATIENT -> EXPERT) */
+    suspend fun updateUserRole(uid: String, newRole: String) {
+        db.collection(USERS).document(uid).update("role", newRole).await()
+    }
+
+    /** Kullanıcının durumunu günceller (ACTIVE, PASSIVE, DELETED vb.) */
+    suspend fun updateUserStatus(uid: String, newStatus: String) {
+        db.collection(USERS).document(uid).update("status", newStatus).await()
+    }
+
     suspend fun updateGroupSettings(groupId: String, settings: Map<String, Any>) {
         db.collection(GROUPS).document(groupId).update(settings).await()
+    }
+
+    /** Sistemdeki tüm grupları getir (Admin için). */
+    suspend fun getAllGroupsAdmin(): List<com.example.exerciseformanalyzer.model.firestore.FirestoreGroup> {
+        return db.collection(GROUPS)
+            .get().await()
+            .documents.mapNotNull { it.toObject<com.example.exerciseformanalyzer.model.firestore.FirestoreGroup>() }
+    }
+
+    /** Bir grubu ve tüm alt koleksiyonlarını (istatistikler vb.) temizle. */
+    suspend fun deleteGroupAdmin(groupId: String) {
+        // Not: Gerçek bir uygulamada üye listesi vb. alt koleksiyonlar da temizlenmeli.
+        db.collection(GROUPS).document(groupId).delete().await()
+    }
+
+    /** Gruba doğrudan üye ekle (Üst seviye koleksiyona). */
+    suspend fun addMemberToGroup(groupId: String, userId: String, role: String = "member") {
+        val userProfile = getUserProfile(userId)
+        val member = com.example.exerciseformanalyzer.model.firestore.FirestoreGroupMember(
+            groupId = groupId,
+            userId = userId,
+            userName = userProfile?.fullName ?: "Bilinmeyen",
+            userEmail = userProfile?.email ?: "",
+            role = role,
+            joinedAt = System.currentTimeMillis(),
+            status = "active"
+        )
+        // CommunityFirestoreService ile uyumlu ID formatı: groupId_userId
+        db.collection(GROUP_MEMBERS).document("${groupId}_${userId}").set(member).await()
+    }
+
+    /** Üyeyi gruptan tamamen çıkar. */
+    suspend fun removeMemberFromGroup(groupId: String, userId: String) {
+        db.collection(GROUP_MEMBERS).document("${groupId}_${userId}").delete().await()
+    }
+
+    /** Gruptaki üyenin yetkisini (Moderator/Member) güncelle. */
+    suspend fun updateMemberRole(groupId: String, userId: String, newRole: String) {
+        db.collection(GROUP_MEMBERS).document("${groupId}_${userId}").update("role", newRole).await()
+    }
+
+    /** Grubun yöneticisini (Kurucu) değiştir. Eski yöneticiyi üyeye düşürür. */
+    suspend fun changeGroupCreator(groupId: String, newCreatorId: String) {
+        db.runTransaction { transaction ->
+            val groupRef = db.collection(GROUPS).document(groupId)
+            val oldCreatorId = transaction.get(groupRef).getString("creatorId") ?: ""
+            
+            // 1. Eski yöneticinin rolünü "member" yap
+            if (oldCreatorId.isNotEmpty()) {
+                val oldMemberRef = db.collection(GROUP_MEMBERS).document("${groupId}_${oldCreatorId}")
+                transaction.update(oldMemberRef, "role", "member")
+            }
+            
+            // 2. Yeni yöneticinin (Kurucu) mülkiyetini ve rolünü güncelle
+            val newMemberRef = db.collection(GROUP_MEMBERS).document("${groupId}_${newCreatorId}")
+            transaction.update(groupRef, "creatorId", newCreatorId)
+            transaction.update(newMemberRef, "role", "admin")
+        }.await()
+    }
+
+    /** Admin için sistem geneli detaylı analiz verilerini getir. */
+    suspend fun getAdminDetailedStats(): Map<String, Any> {
+        val allReports = db.collection(WORKOUT_REPORTS)
+            .limit(2000) // Performans için limitli
+            .get().await()
+            .documents.mapNotNull { it.toObject<FirestoreWorkoutReport>() }
+
+        val allUsers = db.collection(USERS).get().await()
+            .documents.mapNotNull { it.toObject<FirestoreUser>() }
+
+        // 1. Rol Dağılımı (PATIENT, EXPERT, ADMIN)
+        val roleDistribution = allUsers.groupBy { it.role }.mapValues { it.value.size }
+
+        // 2. Antrenman Trendi (Son 7 gün)
+        val sdf = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
+        val sevenDaysAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L)
+        val workoutTrend = allReports
+            .filter { (it.timestamp?.time ?: 0) >= sevenDaysAgo }
+            .groupBy { it.timestamp?.let { d -> sdf.format(d) } ?: "???" }
+            .mapValues { it.value.size }
+            .toList()
+            .sortedBy { it.first }
+
+        // 3. Egzersiz Popülerliği
+        val exercisePopularity = allReports.groupBy { it.exerciseName }
+            .mapValues { it.value.size }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(5)
+
+        return mapOf(
+            "roleDistribution" to roleDistribution,
+            "workoutTrend" to workoutTrend,
+            "exercisePopularity" to exercisePopularity
+        )
     }
 }

@@ -8,6 +8,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
+import coil.compose.rememberAsyncImagePainter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -78,6 +82,7 @@ fun PatientDashboardScreen(
     val hasCommunityNotifications by viewModel.hasCommunityNotifications.collectAsState()
     val expertNotes by viewModel.expertNotes.collectAsState()
     val pendingExpertSwitch by viewModel.pendingExpertSwitch.collectAsState()
+    val expertProfile by viewModel.observeExpertProfile(currentUser?.expertUid ?: "").collectAsState(initial = null)
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -108,38 +113,74 @@ fun PatientDashboardScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { /* Title removed */ },
+                    title = {},
                     actions = {
                         val expertUid = currentUser?.expertUid
                         if (!expertUid.isNullOrEmpty()) {
-                            IconButton(onClick = { onNavigateToChat(expertUid, "Uzmanınız") }) {
-                                Icon(imageVector = Icons.Default.Chat, contentDescription = "Uzmanya Mesaj Gönder")
+                            IconButton(onClick = { onNavigateToChat(expertUid, expertProfile?.fullName ?: "Uzmanınız") }) {
+                                Icon(imageVector = Icons.Default.ChatBubbleOutline, contentDescription = "Mesaj Gönder", tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp))
                             }
                         }
                         IconButton(onClick = onNavigateToLeaderboard) { 
-                            Icon(imageVector = Icons.Default.EmojiEvents, contentDescription = "Sıralama") 
+                            Icon(imageVector = Icons.Default.EmojiEvents, contentDescription = "Sıralama", tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp)) 
                         }
 
-                        TextButton(onClick = onNavigateToGroups) {
-                            BadgedBox(
-                                badge = {
-                                    if (hasCommunityNotifications) {
-                                        Badge()
+                        TextButton(
+                            onClick = onNavigateToGroups,
+                            modifier = Modifier.padding(end = 4.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                BadgedBox(
+                                    badge = {
+                                        if (hasCommunityNotifications) {
+                                            Badge(containerColor = MaterialTheme.colorScheme.error)
+                                        }
                                     }
+                                ) {
+                                    Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(22.dp), tint = Color(0xFF2E7D32))
                                 }
-                            ) {
-                                Text(
-                                    stringResource(R.string.groups_title),
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.groups_title), style = MaterialTheme.typography.labelLarge, color = Color(0xFF2E7D32))
                             }
                         }
-                        TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
-                        TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 
-                            Text(stringResource(R.string.logout), color = MaterialTheme.colorScheme.error) 
+
+                        // Profil / Baş Harfler Butonu
+                        IconButton(onClick = onNavigateToProfile) {
+                            val initials = (currentUser?.fullName ?: "").split(" ")
+                                .filter { it.isNotEmpty() }
+                                .take(2)
+                                .map { it.first().uppercase() }
+                                .joinToString("")
+
+                            Surface(
+                                modifier = Modifier.size(36.dp),
+                                shape = CircleShape,
+                                color = Color(0xFFE8F5E9)
+                            ) {
+                                if (!currentUser?.profileImageUrl.isNullOrEmpty()) {
+                                    Image(
+                                        painter = rememberAsyncImagePainter(currentUser?.profileImageUrl),
+                                        contentDescription = "Profil",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = initials.ifEmpty { "?" },
+                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                            color = Color(0xFF1B5E20)
+                                        )
+                                    }
+                                }
+                            }
                         }
-                    }
+
+                        IconButton(onClick = { viewModel.setShowLogoutDialog(true) }) {
+                            Icon(Icons.Default.Logout, contentDescription = stringResource(R.string.logout), tint = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
                 )
                 
                 // --- EMAIL VERIFICATION BANNER ---
@@ -310,7 +351,7 @@ fun PatientDashboardScreen(
                         if (incomingRequests.isNotEmpty()) {
                             Text("Bağlantı İstekleri", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(8.dp))
-                            incomingRequests.forEach { req ->
+                            for (req in incomingRequests) {
                                 Card(
                                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                                     elevation = CardDefaults.cardElevation(4.dp)
@@ -332,32 +373,42 @@ fun PatientDashboardScreen(
                         }
 
                         if (!currentUser?.expertUid.isNullOrEmpty()) {
-                            Card(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                                Text(
-                                    text = "Bağlı Uzmanınız Tarafından Takip Ediliyorsunuz",
-                                    modifier = Modifier.padding(16.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-
-                        if (!currentUser?.expertUid.isNullOrEmpty()) {
-                            OutlinedButton(
-                                onClick = { showUnlinkExpertDialog = true },
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                                border = BorderStroke(1.dp, Color(0xFF00C853).copy(alpha = 0.2f))
                             ) {
-                                Icon(Icons.Default.LinkOff, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("İlişkiyi Kes")
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(
+                                            text = if (expertProfile != null) "Uzman ${expertProfile?.fullName} Tarafından Takip Ediliyorsunuz" else "Bağlı Uzmanınız Tarafından Takip Ediliyorsunuz",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = Color(0xFF1B5E20)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    OutlinedButton(
+                                        onClick = { showUnlinkExpertDialog = true },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                    ) {
+                                        Icon(Icons.Default.LinkOff, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("İlişkiyi Kes", style = MaterialTheme.typography.labelLarge)
+                                    }
+                                }
                             }
                         }
 
                         if (expertNotes.isNotEmpty()) {
                             Text("Uzman Notları", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(8.dp))
-                            expertNotes.forEach { note ->
+                            for (note in expertNotes) {
                                 Card(
                                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))

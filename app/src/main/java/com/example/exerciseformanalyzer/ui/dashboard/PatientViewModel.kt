@@ -111,6 +111,11 @@ class PatientViewModel(application: Application) : AndroidViewModel(application)
         return userRepo.observeCurrentUser(uid)
     }
 
+    fun observeExpertProfile(expertUid: String): Flow<UserEntity?> {
+        if (expertUid.isEmpty()) return emptyFlow()
+        return userRepo.observeCurrentUser(expertUid)
+    }
+
     /**
      * HASTA ANA EKRANI — observeTasksForPatientHome kullanır.
      * doctorId ile ASLA filtrelemez. ExpertViewModel ile state paylaşılmaz.

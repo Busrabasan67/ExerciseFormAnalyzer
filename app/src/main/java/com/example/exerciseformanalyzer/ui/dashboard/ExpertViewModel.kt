@@ -360,6 +360,30 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    private val _detailedAnalysis = MutableStateFlow<Map<String, Any?>>(emptyMap())
+    val detailedAnalysis: StateFlow<Map<String, Any?>> = _detailedAnalysis.asStateFlow()
+
+    fun loadDetailedAnalysis(patientId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                _detailedAnalysis.value = firestoreService.getPatientDetailedAnalysis(patientId)
+            } catch (e: Exception) {
+                android.util.Log.e("ExpertViewModel", "Detaylı analiz hatası: ${e.message}")
+            }
+        }
+    }
+
+    fun updateTaskNote(taskId: String, status: String, note: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                firestoreService.updateTaskStatusWithNote(taskId, status, note)
+                // Görevleri yenilemek için sync tetiklenebilir
+            } catch (e: Exception) {
+                android.util.Log.e("ExpertViewModel", "Görev notu güncelleme hatası: ${e.message}")
+            }
+        }
+    }
+
     data class TaskExerciseInput(
         var exerciseType: ExerciseType = ExerciseType.SQUAT,
         var isDurationBased: Boolean = false,

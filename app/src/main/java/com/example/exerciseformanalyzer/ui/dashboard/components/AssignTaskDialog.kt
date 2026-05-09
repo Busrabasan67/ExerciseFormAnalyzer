@@ -15,6 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -77,59 +80,82 @@ fun AssignTaskDialog(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
                 .fillMaxHeight(0.9f)
-                .clip(RoundedCornerShape(16.dp)),
-            color = MaterialTheme.colorScheme.surface
+                .clip(RoundedCornerShape(28.dp)),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .padding(16.dp)
+                        .background(
+                            brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                listOf(Color(0xFF1B5E20), Color(0xFF00C853))
+                            )
+                        )
+                        .padding(24.dp)
                 ) {
                     Text(
                         dialogTitle,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
+                        color = Color.White
                     )
                 }
 
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(16.dp)
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
                 ) {
                     item {
                         OutlinedTextField(
                             value = title,
                             onValueChange = { title = it },
                             label = { Text("Görev Başlığı") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                                focusedBorderColor = Color(0xFF00C853)
+                            )
                         )
                         OutlinedTextField(
                             value = note,
                             onValueChange = { note = it },
-                            label = { Text("Özel Notlar") },
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                            label = { Text("Özel Notlar (Opsiyonel)") },
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                                focusedBorderColor = Color(0xFF00C853)
+                            )
                         )
                     }
 
                     // Zamanlama Bölümü
                     item {
-                        Text("Zamanlama", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            listOf("DAILY" to "Her Gün", "WEEKLY" to "Haftalık", "CUSTOM" to "Özel Günler").forEach { (type, label) ->
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { sched = type }) {
-                                    RadioButton(selected = sched == type, onClick = { sched = type })
+                        Text("Planlama", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(), 
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            listOf("DAILY" to "Her Gün", "WEEKLY" to "Haftalık", "CUSTOM" to "Özel").forEach { (type, label) ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically, 
+                                    modifier = Modifier.clickable { sched = type }
+                                ) {
+                                    RadioButton(
+                                        selected = sched == type, 
+                                        onClick = { sched = type },
+                                        colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF00C853))
+                                    )
                                     Text(label, style = MaterialTheme.typography.bodyMedium)
                                 }
                             }
                         }
 
                         if (sched == "CUSTOM") {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
                             val dayNames = listOf(
                                 2 to "Pzt", 3 to "Sal", 4 to "Çar", 5 to "Per", 6 to "Cum", 7 to "Cmt", 1 to "Paz"
                             )
@@ -137,7 +163,7 @@ fun AssignTaskDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 dayNames.forEach { (calDay, label) ->
                                     val isSelected = days.contains(calDay)
@@ -146,106 +172,138 @@ fun AssignTaskDialog(
                                         onClick = {
                                             if (isSelected) days.remove(calDay) else days.add(calDay)
                                         },
-                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Color(0xFF00C853),
+                                            selectedLabelColor = Color.White
+                                        )
                                     )
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = auto, onCheckedChange = { auto = it })
-                            Text("Otomatik Tekrarla")
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Surface(
+                            color = Color(0xFF00C853).copy(alpha = 0.05f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Checkbox(
+                                    checked = auto, 
+                                    onCheckedChange = { auto = it },
+                                    colors = CheckboxDefaults.colors(checkedColor = Color(0xFF00C853))
+                                )
+                                Text("Otomatik Tekrarla (Haftalık Bazda)", style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
 
                         if (auto) {
+                            Spacer(modifier = Modifier.height(12.dp))
                             NumericTextField(
                                 value = weeksStr,
                                 onValueChange = { weeksStr = it },
-                                label = "Süre (Hafta)",
+                                label = "Süre (Kaç Hafta?)",
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                             )
                         }
                         
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 20.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     }
 
                     // Egzersiz İçeriği Bölümü
                     item {
-                        Text("Egzersiz İçeriği", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Egzersiz Programı", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
 
                     itemsIndexed(exercises) { index, item ->
                         ExerciseAdvancedCard(
                             item = item,
                             onUpdate = { exercises[index] = it },
-                            onRemove = { exercises.removeAt(index) }
+                            onRemove = { if (exercises.size > 1) exercises.removeAt(index) }
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
 
                     item {
-                        Button(
+                        OutlinedButton(
                             onClick = { exercises.add(TaskExerciseInput()) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFF00C853)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF00C853))
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Ekle")
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Egzersiz Ekle")
+                            Icon(Icons.Default.Add, contentDescription = "Ekle", modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Yeni Egzersiz Ekle", style = MaterialTheme.typography.labelLarge)
                         }
                         
                         if (showError.isNotEmpty()) {
-                            Text(showError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.padding(top = 16.dp).fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = showError, 
+                                    color = MaterialTheme.colorScheme.error, 
+                                    style = MaterialTheme.typography.bodySmall, 
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
                         }
                     }
                 }
 
                 // Action Buttons
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalArrangement = Arrangement.End
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    TextButton(onClick = onDismissRequest) {
-                        Text("İptal")
+                    TextButton(
+                        onClick = onDismissRequest,
+                        modifier = Modifier.weight(1f).height(48.dp)
+                    ) {
+                        Text("İptal", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = {
-                        val c = Calendar.getInstance()
-                        c.add(Calendar.DAY_OF_YEAR, 1) 
-                        
-                        // Parse weeks with default 4 if empty and auto is on
-                        val finalWeeks = if (auto) {
-                            weeksStr.toIntOrNull() ?: 4
-                        } else {
-                            null
-                        }
-                        
-                        // Validate exercises and handle empty strings
-                        val validatedExercises = exercises.map { ex ->
-                            ex.copy(
-                                targetValue = ex.targetValue.ifEmpty { "1" },
-                                sets = ex.sets.ifEmpty { "1" },
-                                restTimeSeconds = ex.restTimeSeconds
-                            )
-                        }
-                        
-                        when {
-                            exercises.isEmpty() -> showError = "En az 1 egzersiz eklemelisiniz."
-                            validatedExercises.any { it.targetValue.toIntOrNull() == null || (it.targetValue.toIntOrNull() ?: 0) <= 0 } -> 
-                                showError = "Tüm hedefler (Tekrar/Süre) 0'dan büyük olmalıdır."
-                            validatedExercises.any { it.sets.toIntOrNull() == null || (it.sets.toIntOrNull() ?: 0) <= 0 } -> 
-                                showError = "Set sayısı 0'dan büyük olmalıdır."
-                            sched == "CUSTOM" && days.isEmpty() -> showError = "Özel günler için en az bir gün seçmelisiniz."
-                            else -> {
-                                // Sort days chronologically before assigning (Monday=2 to Sunday=1)
-                                val sortedDays = days.sortedWith(compareBy { if (it == 1) 8 else it })
-                                onAssignTask(title, note, c.timeInMillis, validatedExercises, sched, sortedDays, auto, finalWeeks)
+                    Button(
+                        onClick = {
+                            // ... existing validation logic ...
+                            val c = Calendar.getInstance()
+                            c.add(Calendar.DAY_OF_YEAR, 1) 
+                            
+                            val finalWeeks = if (auto) weeksStr.toIntOrNull() ?: 4 else null
+                            val validatedExercises = exercises.map { ex ->
+                                ex.copy(
+                                    targetValue = ex.targetValue.ifEmpty { "1" },
+                                    sets = ex.sets.ifEmpty { "1" },
+                                    restTimeSeconds = ex.restTimeSeconds
+                                )
                             }
-                        }
-                    }) {
-                        Text(submitText)
+                            
+                            when {
+                                exercises.isEmpty() -> showError = "En az 1 egzersiz eklemelisiniz."
+                                validatedExercises.any { it.targetValue.toIntOrNull() == null || (it.targetValue.toIntOrNull() ?: 0) <= 0 } -> 
+                                    showError = "Tüm hedefler (Tekrar/Süre) 0'dan büyük olmalıdır."
+                                validatedExercises.any { it.sets.toIntOrNull() == null || (it.sets.toIntOrNull() ?: 0) <= 0 } -> 
+                                    showError = "Set sayısı 0'dan büyük olmalıdır."
+                                sched == "CUSTOM" && days.isEmpty() -> showError = "Özel günler için en az bir gün seçmelisiniz."
+                                else -> {
+                                    val sortedDays = days.sortedWith(compareBy { if (it == 1) 8 else it })
+                                    onAssignTask(title, note, c.timeInMillis, validatedExercises, sched, sortedDays, auto, finalWeeks)
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1.5f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00C853))
+                    ) {
+                        Text(submitText, style = MaterialTheme.typography.titleSmall)
                     }
                 }
             }
@@ -262,9 +320,12 @@ fun ExerciseAdvancedCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 // Egzersiz Dropdown
                 var expandedEx by remember { mutableStateOf(false) }
@@ -277,9 +338,10 @@ fun ExerciseAdvancedCard(
                         readOnly = true,
                         value = item.exerciseType.displayName,
                         onValueChange = { },
-                        label = { Text("Egzersiz") },
+                        label = { Text("Egzersiz Tipi") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedEx) },
-                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = Color(0xFF00C853)),
+                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.menuAnchor().fillMaxWidth()
                     )
                     ExposedDropdownMenu(
@@ -300,33 +362,33 @@ fun ExerciseAdvancedCard(
                 }
                 
                 IconButton(onClick = onRemove, modifier = Modifier.padding(start = 8.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Default.Delete, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
                 }
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 NumericTextField(
                     value = item.targetValue,
                     onValueChange = { onUpdate(item.copy(targetValue = it)) },
                     label = if (item.isDurationBased) "Süre (Sn)" else "Tekrar",
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).height(64.dp)
                 )
                 NumericTextField(
                     value = item.sets,
                     onValueChange = { onUpdate(item.copy(sets = it)) },
-                    label = "Set",
-                    modifier = Modifier.weight(1f)
+                    label = "Set Sayısı",
+                    modifier = Modifier.weight(1f).height(64.dp)
                 )
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 NumericTextField(
                     value = item.restTimeSeconds,
                     onValueChange = { onUpdate(item.copy(restTimeSeconds = it)) },
                     label = "Dinlenme (Sn)",
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).height(64.dp)
                 )
                 
                 // Zorluk Dropdown
@@ -343,8 +405,9 @@ fun ExerciseAdvancedCard(
                         onValueChange = { },
                         label = { Text("Zorluk") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDiff) },
-                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = Color(0xFF00C853)),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.menuAnchor().fillMaxWidth().height(64.dp)
                     )
                     ExposedDropdownMenu(
                         expanded = expandedDiff,
@@ -363,7 +426,7 @@ fun ExerciseAdvancedCard(
                 }
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             // Kategori Dropdown
             var expandedCat by remember { mutableStateOf(false) }
             val cats = listOf("STRENGTH" to "Güç", "CARDIO" to "Kardiyo", "FLEXIBILITY" to "Esneklik", "BALANCE" to "Denge", "REHAB" to "Rehabilitasyon")
@@ -378,7 +441,8 @@ fun ExerciseAdvancedCard(
                     onValueChange = { },
                     label = { Text("Kategori") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCat) },
-                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = Color(0xFF00C853)),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.menuAnchor().fillMaxWidth()
                 )
                 ExposedDropdownMenu(
@@ -400,6 +464,7 @@ fun ExerciseAdvancedCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NumericTextField(
     value: String,
@@ -423,6 +488,8 @@ fun NumericTextField(
         },
         label = { Text(label) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        shape = RoundedCornerShape(14.dp),
+        colors = TextFieldDefaults.outlinedTextFieldColors(focusedBorderColor = Color(0xFF00C853)),
         modifier = modifier.onFocusChanged { 
             if (it.isFocused) {
                 textFieldValue = textFieldValue.copy(selection = TextRange(0, textFieldValue.text.length))

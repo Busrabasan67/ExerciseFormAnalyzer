@@ -636,7 +636,7 @@ private fun GroupInfoCard(
                 if (group.creatorName.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Yönetici: ${group.creatorName}",
+                        text = "Kuran kişi: ${group.creatorName}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )

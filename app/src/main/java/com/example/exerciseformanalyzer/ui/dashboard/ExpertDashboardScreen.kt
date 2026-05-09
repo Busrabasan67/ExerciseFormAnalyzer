@@ -16,8 +16,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.rememberAsyncImagePainter
 import com.example.exerciseformanalyzer.R
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +51,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -78,6 +84,7 @@ fun ExpertDashboardScreen(
     val isEmailVerified by viewModel.isEmailVerified.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = androidx.compose.ui.platform.LocalContext.current
+    val currentUser by viewModel.observeCurrentUser().collectAsState(initial = null)
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Hastalarım", "Görev Ata", "Takip", "Sohbet", "Bildirimler")
@@ -117,25 +124,66 @@ fun ExpertDashboardScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { /* Title removed as requested */ },
+                    title = {},
                     actions = {
-
-                        TextButton(onClick = onNavigateToGroups) {
-                            BadgedBox(
-                                badge = {
-                                    if (hasCommunityNotifications) {
-                                        Badge()
+                        TextButton(
+                            onClick = onNavigateToGroups,
+                            modifier = Modifier.padding(end = 4.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                BadgedBox(
+                                    badge = {
+                                        if (hasCommunityNotifications) {
+                                            Badge(containerColor = MaterialTheme.colorScheme.error)
+                                        }
                                     }
+                                ) {
+                                    Icon(Icons.Default.Groups, contentDescription = null, modifier = Modifier.size(22.dp), tint = Color(0xFF2E7D32))
                                 }
-                            ) {
-                                Text(stringResource(R.string.groups_title))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.groups_title), style = MaterialTheme.typography.labelLarge, color = Color(0xFF2E7D32))
                             }
                         }
-                        TextButton(onClick = onNavigateToProfile) { Text(stringResource(R.string.profile_title)) }
-                        TextButton(onClick = { viewModel.setShowLogoutDialog(true) }) { 
-                            Text(stringResource(R.string.logout), color = MaterialTheme.colorScheme.error)
+
+                        // Profil / Baş Harfler Butonu
+                        IconButton(onClick = onNavigateToProfile) {
+                            val initials = (currentUser?.fullName ?: "").split(" ")
+                                .filter { it.isNotEmpty() }
+                                .take(2)
+                                .map { it.first().uppercase() }
+                                .joinToString("")
+
+                            Surface(
+                                modifier = Modifier.size(36.dp),
+                                shape = CircleShape,
+                                color = Color(0xFFE8F5E9)
+                            ) {
+                                if (!currentUser?.profileImageUrl.isNullOrEmpty()) {
+                                    androidx.compose.foundation.Image(
+                                        painter = coil.compose.rememberAsyncImagePainter(currentUser?.profileImageUrl),
+                                        contentDescription = "Profil",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = initials.ifEmpty { "?" },
+                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                            color = Color(0xFF1B5E20)
+                                        )
+                                    }
+                                }
+                            }
                         }
-                    }
+
+                        IconButton(onClick = { viewModel.setShowLogoutDialog(true) }) {
+                            Icon(Icons.Default.Logout, contentDescription = stringResource(R.string.logout), tint = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.Transparent
+                    )
                 )
                 
                 // --- EMAIL VERIFICATION BANNER ---
@@ -225,23 +273,40 @@ fun ExpertDashboardScreen(
         }
     ) { paddingVals ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingVals)) {
-            ScrollableTabRow(selectedTabIndex = selectedTab) {
+            ScrollableTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = Color.Transparent,
+                contentColor = Color(0xFF00C853),
+                indicator = { tabPositions ->
+                    TabRowDefaults.Indicator(
+                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                        height = 3.dp,
+                        color = Color(0xFF00C853)
+                    )
+                },
+                divider = {},
+                edgePadding = 16.dp
+            ) {
                 tabs.forEachIndexed { index, title ->
                     val showBadge = when (index) {
                         3 -> unreadChatPartnerIds.isNotEmpty()
                         4 -> relationshipNotifications.isNotEmpty()
                         else -> false
                     }
+                    val isSelected = selectedTab == index
                     Tab(
-                        selected = selectedTab == index,
+                        selected = isSelected,
                         onClick = { selectedTab = index },
                         text = {
                             BadgedBox(
-                                badge = {
-                                    if (showBadge) Badge()
-                                }
+                                badge = { if (showBadge) Badge(containerColor = MaterialTheme.colorScheme.error) }
                             ) {
-                                Text(title)
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                )
                             }
                         }
                     )
@@ -278,39 +343,76 @@ fun ExpertDashboardScreen(
                                     searchQuery = it
                                     viewModel.searchPatients(it)
                                 },
-                                label = { Text("Hasta E-posta Ara") },
-                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("Hasta E-posta Ara...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
                                 singleLine = true,
+                                shape = RoundedCornerShape(20.dp),
+                                colors = TextFieldDefaults.outlinedTextFieldColors(
+                                    focusedBorderColor = Color(0xFF00C853),
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                ),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 keyboardActions = KeyboardActions(onSearch = { viewModel.searchPatients(searchQuery) }),
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF00C853)) },
                                 trailingIcon = {
-                                    IconButton(onClick = { viewModel.searchPatients(searchQuery) }) {
-                                        Icon(Icons.Default.Search, contentDescription = "Ara")
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = ""; viewModel.searchPatients("") }) {
+                                            Icon(Icons.Default.Close, contentDescription = "Temizle")
+                                        }
                                     }
                                 }
                             )
+                            
                             if (!searchError.isNullOrEmpty()) {
-                                Text(text = searchError ?: "", color = MaterialTheme.colorScheme.error)
+                                Text(
+                                    text = searchError ?: "", 
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(start = 12.dp)
+                                )
                             }
                             
                             // Arama Sonuçları (Autocomplete)
                             if (searchQuery.length >= 2 && searchResults.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("Arama Sonuçları", style = MaterialTheme.typography.labelMedium)
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("Arama Sonuçları", style = MaterialTheme.typography.titleSmall.copy(color = Color(0xFF2E7D32)))
                                 searchResults.forEach { user ->
                                     val isPending = sentRequests.any { it.patientId == user.uid && it.status == "pending" }
-                                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                                        Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 6.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        elevation = CardDefaults.cardElevation(2.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(16.dp).fillMaxWidth(), 
+                                            horizontalArrangement = Arrangement.SpaceBetween, 
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
                                             Column(modifier = Modifier.weight(1f)) {
-                                                Text(user.fullName, style = MaterialTheme.typography.titleSmall)
-                                                Text(user.email, style = MaterialTheme.typography.bodySmall)
+                                                Text(user.fullName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                                Text(user.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                             Button(
                                                 onClick = { viewModel.sendConnectionRequest(user) },
                                                 enabled = !isPending,
-                                                colors = if (isPending) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant) else ButtonDefaults.buttonColors()
+                                                shape = RoundedCornerShape(12.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = if (isPending) MaterialTheme.colorScheme.surfaceVariant else Color(0xFF00C853)
+                                                ),
+                                                contentPadding = PaddingValues(horizontal = 16.dp)
                                             ) {
-                                                Text(if (isPending) "Beklemede" else "İstek Gönder")
+                                                if (isPending) {
+                                                    Icon(Icons.Default.HourglassEmpty, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text("Beklemede")
+                                                } else {
+                                                    Text("İstek Gönder")
+                                                }
                                             }
                                         }
                                     }
@@ -366,43 +468,91 @@ fun ExpertDashboardScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
 
-                            Text(stringResource(R.string.patients_label), style = MaterialTheme.typography.titleLarge)
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                stringResource(R.string.patients_label), 
+                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
                         items(patients) { patient ->
-                            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                shape = RoundedCornerShape(24.dp),
+                                elevation = CardDefaults.cardElevation(2.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(modifier = Modifier.padding(20.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(), 
+                                        horizontalArrangement = Arrangement.SpaceBetween, 
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(patient.fullName, style = MaterialTheme.typography.titleMedium)
-                                            Text(patient.email, style = MaterialTheme.typography.bodyMedium)
+                                            Text(
+                                                text = patient.fullName, 
+                                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+                                            )
+                                            Text(
+                                                text = patient.email, 
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
-                                        IconButton(onClick = { patientIdToRemove = patient.uid }) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Kaldır", tint = MaterialTheme.colorScheme.error)
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f),
+                                            shape = CircleShape,
+                                            modifier = Modifier.size(40.dp)
+                                        ) {
+                                            IconButton(onClick = { patientIdToRemove = patient.uid }) {
+                                                Icon(Icons.Default.PersonRemove, contentDescription = "Kaldır", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                            }
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Button(onClick = { 
-                                            assignmentPatientId = patient.uid
-                                            selectedTab = 1 
-                                        }, modifier = Modifier.weight(1f)) {
-                                            Text("Görev Ata")
+                                    
+                                    Spacer(modifier = Modifier.height(20.dp))
+                                    
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { 
+                                                assignmentPatientId = patient.uid
+                                                selectedTab = 1 
+                                            }, 
+                                            modifier = Modifier.weight(1.3f),
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00C853)),
+                                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Görev Ata", style = MaterialTheme.typography.labelLarge)
                                         }
-                                        OutlinedButton(onClick = { onNavigateToPatientDetail(patient.uid) }, modifier = Modifier.weight(1f)) {
-                                            Text("Detay")
+                                        
+                                        OutlinedButton(
+                                            onClick = { onNavigateToPatientDetail(patient.uid) }, 
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(14.dp),
+                                            border = BorderStroke(1.dp, Color(0xFF00C853).copy(alpha = 0.5f))
+                                        ) {
+                                            Text("Detay", color = Color(0xFF00C853))
                                         }
-                                        OutlinedButton(onClick = { onNavigateToChat(patient.uid, patient.fullName) }, modifier = Modifier.weight(1f)) {
+                                        
+                                        IconButton(
+                                            onClick = { onNavigateToChat(patient.uid, patient.fullName) },
+                                            modifier = Modifier
+                                                .background(Color(0xFFE8F5E9), CircleShape)
+                                                .size(44.dp)
+                                        ) {
                                             BadgedBox(
                                                 badge = {
-                                                    if (patient.uid in unreadChatPartnerIds) Badge()
+                                                    if (patient.uid in unreadChatPartnerIds) Badge(containerColor = MaterialTheme.colorScheme.error)
                                                 }
                                             ) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    Text("Sohbet")
-                                                }
+                                                Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Sohbet", tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp))
                                             }
                                         }
                                     }
@@ -717,23 +867,38 @@ fun TaskFilterChips(
     onFilterSelected: (TaskFilter) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         TaskFilter.values().forEach { filter ->
+            val isSelected = selectedFilter == filter
             FilterChip(
-                selected = selectedFilter == filter,
+                selected = isSelected,
                 onClick = { onFilterSelected(filter) },
                 label = {
                     val label = when(filter) {
                         TaskFilter.ALL -> "Hepsi"
                         TaskFilter.PENDING -> "Bekleyenler"
-                        TaskFilter.IN_PROGRESS -> "Devam Edenler"
-                        TaskFilter.COMPLETED -> "Tamamlananlar"
-                        TaskFilter.INACTIVE -> "Pasifler"
+                        TaskFilter.IN_PROGRESS -> "Devam Eden"
+                        TaskFilter.COMPLETED -> "Tamamlanan"
+                        TaskFilter.INACTIVE -> "Pasif"
                     }
-                    Text(label)
-                }
+                    Text(label, style = MaterialTheme.typography.labelLarge)
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color(0xFF00C853),
+                    selectedLabelColor = Color.White,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                border = if (!isSelected) FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = false,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant
+                ) else null
             )
         }
     }
@@ -767,48 +932,50 @@ fun TaskTrackingCard(
     val progress = if (totalSets > 0) completedSets.toFloat() / totalSets else 0f
     
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(4.dp)
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             // Header
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Hasta: $patientName",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
+                        text = patientName,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFF00796B)
                     )
                     Text(
                         text = task.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                        modifier = Modifier.padding(top = 2.dp)
                     )
                 }
                 TaskStatusBadge(task.status)
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (isDisconnected) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
-                    shape = RoundedCornerShape(8.dp)
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
                 ) {
                     Row(
-                        modifier = Modifier.padding(10.dp),
+                        modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(Icons.Default.LinkOff, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Bu hastayı artık takip etmiyorsunuz.",
+                            text = "Bağlantı kesildi.",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
@@ -818,106 +985,97 @@ fun TaskTrackingCard(
             if (task.note.isNotBlank()) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
-                    shape = RoundedCornerShape(8.dp)
+                    color = Color(0xFFF1F8E9),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
-                        Text("Özel Not", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.StickyNote2, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF388E3C))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Not", style = MaterialTheme.typography.labelMedium, color = Color(0xFF388E3C), fontWeight = FontWeight.Bold)
+                        }
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(task.note, style = MaterialTheme.typography.bodySmall)
+                        Text(task.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
             
-            // Info Rows
-            val createdAtText = if (task.createdAt > 0L) sdf.format(Date(task.createdAt)) else "Belirtilmedi"
-            TaskInfoRow(Icons.Default.Event, "Verildi: $createdAtText")
-            
-            val updatedAtText = if (task.updatedAt > task.createdAt && (task.updatedAt - task.createdAt) > 5000) {
-                sdf.format(Date(task.updatedAt))
-            } else null
-            
-            if (updatedAtText != null) {
-                TaskInfoRow(Icons.Default.Edit, "Güncellendi: $updatedAtText")
-            }
-            
-            val planText = when(task.scheduleType) {
-                "DAILY" -> "Her Gün"
-                "WEEKLY" -> "Haftalık"
-                "CUSTOM" -> {
-                    val daysText = try {
-                        val arr = JSONArray(task.daysOfWeekJson)
-                        val dayMap = mapOf(
-                            2 to "Pzt", 3 to "Sal", 4 to "Çar", 5 to "Per", 6 to "Cum", 7 to "Cmt", 1 to "Paz"
-                        )
-                        val list = mutableListOf<Int>()
-                        for (i in 0 until arr.length()) {
-                            list.add(arr.getInt(i))
-                        }
-                        // Sort: Monday(2) to Sunday(1)
-                        list.sortedWith(compareBy { if (it == 1) 8 else it })
-                            .mapNotNull { dayMap[it] }
-                            .joinToString(", ")
-                    } catch (e: Exception) { "Belirtilmedi" }
-                    "Özel Günler • $daysText"
+            // Info Grid (Simplified)
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    val createdAtText = if (task.createdAt > 0L) sdf.format(Date(task.createdAt)) else "-"
+                    TaskInfoRow(Icons.Default.CalendarToday, "Başlangıç: $createdAtText")
+                    
+                    val planText = when(task.scheduleType) {
+                        "DAILY" -> "Her Gün"
+                        "WEEKLY" -> "Haftalık"
+                        "CUSTOM" -> "Özel Günler"
+                        else -> task.scheduleType
+                    }
+                    TaskInfoRow(Icons.Default.Update, "Plan: $planText")
                 }
-                else -> task.scheduleType
-            }
-            TaskInfoRow(Icons.Default.Repeat, "Plan: $planText")
-            
-            if (task.repeatDurationWeeks != null) {
-                TaskInfoRow(Icons.Default.Timer, "Süre: ${task.repeatDurationWeeks} hafta")
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Progress Section
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Egzersiz: ${exercises.size}", style = MaterialTheme.typography.bodySmall)
-                Text("Set: $completedSets / $totalSets", style = MaterialTheme.typography.bodySmall)
+                Column(modifier = Modifier.weight(1f)) {
+                    if (task.repeatDurationWeeks != null) {
+                        TaskInfoRow(Icons.Default.HourglassBottom, "Süre: ${task.repeatDurationWeeks} Hafta")
+                    }
+                    val statusColor = if (progress >= 1f) Color(0xFF43A047) else Color(0xFF00C853)
+                    TaskInfoRow(Icons.Default.DonutLarge, "Gelişim: %${(progress * 100).toInt()}", color = statusColor)
+                }
             }
             
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Progress Bar
             TaskProgressBar(progress)
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
-            // Expand Toggle
-            TextButton(
-                onClick = { expanded = !expanded },
-                modifier = Modifier.align(Alignment.End),
-                contentPadding = PaddingValues(0.dp)
+            // Action Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(if (expanded) "Özeti Kapat" else "Detay")
-                Icon(
-                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null
-                )
+                TextButton(
+                    onClick = { expanded = !expanded },
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Text(
+                        if (expanded) "Egzersizleri Gizle" else "Egzersizleri Göster (${exercises.size})",
+                        color = Color(0xFF2E7D32),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    Icon(
+                        if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Color(0xFF2E7D32)
+                    )
+                }
+                
+                Row {
+                    IconButton(onClick = { onEdit(task) }) {
+                        Icon(Icons.Default.ModeEditOutline, contentDescription = "Düzenle", tint = Color(0xFF00C853), modifier = Modifier.size(20.dp))
+                    }
+                    IconButton(onClick = { onDelete(task) }) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                    }
+                }
             }
 
             AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = 8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        IconButton(onClick = { onEdit(task) }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Düzenle", tint = MaterialTheme.colorScheme.primary)
-                        }
-                        IconButton(onClick = { onDelete(task) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                Column(modifier = Modifier.padding(top = 16.dp)) {
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(12.dp))
                     exercises.forEachIndexed { index, ex ->
                         ExerciseDetailRow(
-                            ex = ex,
-                            onDelete = {
-                                val name = ex.optString("exerciseType", "Egzersiz")
-                                onDeleteExercise(task, index, name)
-                            }
+                            ex = ex, 
+                            onDelete = { onDeleteExercise(task, index, ex.optString("exerciseType", "Egzersiz")) }
                         )
+                        if (index < exercises.size - 1) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                     }
                 }
             }
@@ -940,11 +1098,11 @@ private fun ExpertChatListTab(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
         item {
-            Text("Hasta Sohbetleri", style = MaterialTheme.typography.titleLarge)
+            Text("Sohbetlerim", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
             Spacer(modifier = Modifier.height(8.dp))
         }
         items(patients) { patient ->
@@ -953,43 +1111,40 @@ private fun ExpertChatListTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onNavigateToChat(patient.uid, patient.fullName) },
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (hasUnread) {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    }
-                )
+                    containerColor = if (hasUnread) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(if (hasUnread) 4.dp else 1.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        modifier = Modifier.size(42.dp),
-                        shape = RoundedCornerShape(21.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        color = Color(0xFF00C853).copy(alpha = 0.1f)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
                                 text = patient.fullName.take(1).uppercase(),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(patient.fullName, style = MaterialTheme.typography.titleMedium)
+                            Text(patient.fullName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                             if (hasUnread) {
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Badge { Text("Yeni") }
+                                Badge(containerColor = Color(0xFF00C853)) { Text("Yeni", color = Color.White) }
                             }
                         }
                         Text(patient.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
@@ -1003,38 +1158,60 @@ private fun ExpertNotificationsTab(
 ) {
     if (notifications.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Yeni bildiriminiz yok.")
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = Icons.Default.NotificationsNone, 
+                    contentDescription = null, 
+                    modifier = Modifier.size(64.dp), 
+                    tint = MaterialTheme.colorScheme.outlineVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Yeni bildiriminiz yok.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         return
     }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
         item {
-            Text("Bildirimler", style = MaterialTheme.typography.titleLarge)
+            Text("Bildirimler", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
             Spacer(modifier = Modifier.height(8.dp))
         }
         items(notifications) { notification ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f))
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9).copy(alpha = 0.8f)),
+                elevation = CardDefaults.cardElevation(1.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Notifications, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Surface(
+                        color = Color(0xFF43A047).copy(alpha = 0.1f),
+                        shape = CircleShape,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = Color(0xFF43A047), modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(notification.message, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Text(notification.message, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                         if (notification.patientName.isNotBlank()) {
                             Text(notification.patientName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    TextButton(onClick = { onDismiss(notification.id) }) {
+                    TextButton(
+                        onClick = { onDismiss(notification.id) },
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.Gray)
+                    ) {
                         Text("Kapat")
                     }
                 }
@@ -1044,11 +1221,11 @@ private fun ExpertNotificationsTab(
 }
 
 @Composable
-fun TaskInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(text, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+fun TaskInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, color: Color = Color.Gray) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = color.copy(alpha = 0.7f))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = color.copy(alpha = 0.8f))
     }
 }
 
@@ -1056,24 +1233,23 @@ fun TaskInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: Str
 fun TaskStatusBadge(status: String?) {
     val safeStatus = status?.lowercase() ?: "pending"
     val (text, color) = when (safeStatus) {
-        "pending" -> "Bekliyor" to Color(0xFFFBC02D) // Sarımsı
-        "in_progress" -> "Devam Ediyor" to Color(0xFF2196F3) // Mavi
-        "completed", "done" -> "Tamamlandı" to Color(0xFF4CAF50) // Yeşil
-        "missed" -> "Kaçırıldı" to Color(0xFFF44336) // Kırmızı
+        "pending" -> "Bekliyor" to Color(0xFFFFB300)
+        "in_progress" -> "Devam Ediyor" to Color(0xFF039BE5)
+        "completed", "done" -> "Tamamlandı" to Color(0xFF43A047)
+        "missed" -> "Kaçırıldı" to Color(0xFFE53935)
         "inactive", "removed" -> "Pasif" to Color.Gray
         else -> (status ?: "Bekliyor") to Color.Gray
     }
     
     Surface(
-        color = color.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(8.dp)
+        color = color.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(10.dp)
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            fontWeight = FontWeight.Bold
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+            color = color
         )
     }
 }
@@ -1083,15 +1259,19 @@ fun TaskProgressBar(progress: Float) {
     Column {
         LinearProgressIndicator(
             progress = progress,
-            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .clip(CircleShape),
+            color = if (progress >= 1f) Color(0xFF43A047) else Color(0xFF00C853),
+            trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
         )
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "%${(progress * 100).toInt()}",
-            style = MaterialTheme.typography.labelSmall,
+            text = "Tamamlanma: %${(progress * 100).toInt()}",
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.align(Alignment.End),
-            color = MaterialTheme.colorScheme.primary
+            color = if (progress >= 1f) Color(0xFF43A047) else Color(0xFF1B5E20)
         )
     }
 }
@@ -1105,25 +1285,43 @@ fun ExerciseDetailRow(ex: org.json.JSONObject, onDelete: () -> Unit) {
     val dur = ex.optInt("targetDurationSeconds", 0)
     val targetStr = if (reps > 0) "$reps Tekrar" else "$dur Sn"
     
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Text("$comp / $sets Set", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-            IconButton(onClick = onDelete, modifier = Modifier.size(24.dp).padding(start = 4.dp)) {
-                Icon(Icons.Default.Close, contentDescription = "Egzersizi Sil", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(name, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
+                Surface(
+                    color = Color(0xFF00C853).copy(alpha = 0.1f),
+                    shape = CircleShape
+                ) {
+                    Text(
+                        text = "$comp / $sets Set", 
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), 
+                        color = Color(0xFF2E7D32),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp).padding(start = 8.dp)) {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = "Egzersizi Sil", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                }
             }
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(targetStr, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                val rtStr = if (ex.has("restTimeSeconds") && !ex.isNull("restTimeSeconds")) ex.optString("restTimeSeconds") else null
-                val restTime = rtStr?.toIntOrNull()
-                val restTimeStr = if (restTime != null && restTime > 0) "Din: $restTime Sn" else "Din: Oto"
-                Text("•", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                Text(restTimeStr, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CheckCircleOutline, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color.Gray)
+                    Text(targetStr, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text("•", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    val rtStr = if (ex.has("restTimeSeconds") && !ex.isNull("restTimeSeconds")) ex.optString("restTimeSeconds") else null
+                    val restTime = rtStr?.toIntOrNull()
+                    val restTimeStr = if (restTime != null && restTime > 0) "Dinlenme: $restTime Sn" else "Dinlenme: Oto"
+                    Text(restTimeStr, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
+                val difficulty = ex.optString("difficulty", "MEDIUM")
+                Text(difficulty.lowercase().capitalize(), style = MaterialTheme.typography.labelSmall, color = Color.Gray)
             }
-            val difficulty = ex.optString("difficulty", "MEDIUM")
-            Text(difficulty, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
         }
     }
 }

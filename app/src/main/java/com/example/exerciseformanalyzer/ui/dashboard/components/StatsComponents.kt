@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -21,7 +22,7 @@ fun FormScoreLineChart(
     modifier: Modifier = Modifier.fillMaxWidth().height(250.dp)
 ) {
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
-    val primaryColor = MaterialTheme.colorScheme.primary.toArgb()
+    val primaryColor = Color(0xFF00C853).toArgb() // Green
 
     AndroidView(
         factory = { context ->
@@ -58,7 +59,7 @@ fun CalorieBarChart(
     modifier: Modifier = Modifier.fillMaxWidth().height(250.dp)
 ) {
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
-    val primaryColor = MaterialTheme.colorScheme.secondary.toArgb()
+    val primaryColor = Color(0xFF2E7D32).toArgb() // Deep Green
 
     AndroidView(
         factory = { context ->
@@ -97,9 +98,10 @@ fun TaskPieChart(
     modifier: Modifier = Modifier.fillMaxWidth().height(250.dp)
 ) {
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
-    val primary = MaterialTheme.colorScheme.primary.toArgb()
-    val error = MaterialTheme.colorScheme.error.toArgb()
-    val tertiary = MaterialTheme.colorScheme.tertiary.toArgb()
+    val green = Color(0xFF00C853).toArgb()
+    val amber = Color(0xFFFFB300).toArgb()
+    val red = Color(0xFFE53935).toArgb()
+    val gray = Color.Gray.toArgb()
 
     AndroidView(
         factory = { context ->
@@ -124,9 +126,9 @@ fun TaskPieChart(
             }
             
             val dataSet = PieDataSet(entries, "Görev Dağılımı").apply {
-                colors = listOf(primary, error, tertiary)
+                colors = listOf(green, amber, red, gray)
                 valueTextColor = textColor
-                valueTextSize = 12f
+                valueTextSize = 13f
             }
             
             chart.data = PieData(dataSet)

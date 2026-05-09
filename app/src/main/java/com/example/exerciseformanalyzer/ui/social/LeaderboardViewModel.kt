@@ -88,4 +88,25 @@ class LeaderboardViewModel(application: Application) : AndroidViewModel(applicat
             }
         }
     }
+
+    private val _myBadgeProgress = MutableStateFlow<List<com.example.exerciseformanalyzer.model.firestore.FirestoreUserBadgeProgress>>(emptyList())
+    val myBadgeProgress: StateFlow<List<com.example.exerciseformanalyzer.model.firestore.FirestoreUserBadgeProgress>> = _myBadgeProgress.asStateFlow()
+
+    private val _badgeDefinitions = MutableStateFlow<List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreBadgeDefinition>>>(emptyList())
+    val badgeDefinitions: StateFlow<List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreBadgeDefinition>>> = _badgeDefinitions.asStateFlow()
+
+    fun fetchMyBadges() {
+        val uid = authRepo.currentUid ?: return
+        viewModelScope.launch {
+            try {
+                val defs = leaderboardRepo.getBadgeDefinitions()
+                _badgeDefinitions.value = defs
+                
+                val progress = leaderboardRepo.getUserBadges(uid)
+                _myBadgeProgress.value = progress
+            } catch (e: Exception) {
+                // handle error
+            }
+        }
+    }
 }

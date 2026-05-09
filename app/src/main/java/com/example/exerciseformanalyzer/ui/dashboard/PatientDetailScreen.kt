@@ -10,8 +10,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,14 +38,13 @@ fun PatientDetailScreen(
     var showDateRangePicker by remember { mutableStateOf(false) }
 
     val stats by viewModel.observePatientStats(patientUid, startDate, endDate).collectAsState(initial = com.example.exerciseformanalyzer.model.WorkoutStats())
-    val expertNotes by viewModel.expertNotes.collectAsState()
-
+    val detailedAnalysis by viewModel.detailedAnalysis.collectAsState()
+    
     LaunchedEffect(patientUid) {
-        viewModel.loadExpertNotes(patientUid)
+        viewModel.loadDetailedAnalysis(patientUid)
     }
-
+    
     val sdf = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
-    var noteText by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -84,7 +85,7 @@ fun PatientDetailScreen(
                 .padding(16.dp)
         ) {
             var selectedTab by remember { mutableIntStateOf(0) }
-            val tabs = listOf("Profil", "Kalori", "Performans", "Görevler", "Geçmiş", "Analiz & Notlar")
+            val tabs = listOf("Profil", "Kalori", "Performans", "Görevler", "Geçmiş", "Analiz")
 
             ScrollableTabRow(
                 selectedTabIndex = selectedTab,
@@ -139,37 +140,92 @@ fun PatientDetailScreen(
                     }
                 }
                 4 -> {
-                    Text("Son Antrenmanlar", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Son Antrenmanlar", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("${stats.recentReports.size} Kayıt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
+                    
                     if (stats.recentReports.isNotEmpty()) {
                         stats.recentReports.forEach { report ->
                             Card(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                elevation = CardDefaults.cardElevation(2.dp),
+                                border = BorderStroke(1.dp, Color(0xFFF0F0F0))
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     val reportDate = report.timestamp?.let { java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault()).format(it) } ?: "Bilinmeyen Tarih"
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Column {
-                                            Text(report.exerciseName, fontWeight = FontWeight.Bold)
-                                            Text(reportDate, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                    
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                            Surface(
+                                                color = if (report.score >= 80) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                                                shape = RoundedCornerShape(8.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (report.score >= 80) Icons.Default.CheckCircle else Icons.Default.Error,
+                                                    contentDescription = null,
+                                                    tint = if (report.score >= 80) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                                    modifier = Modifier.padding(6.dp).size(20.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column {
+                                                Text(
+                                                    text = report.exerciseName.ifEmpty { "Egzersiz" }.uppercase(),
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = Color(0xFF1B5E20)
+                                                )
+                                                Text(reportDate, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                            }
                                         }
-                                        Text("${report.score} Puan", color = if (report.score >= 80) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error)
+                                        
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = "${report.score}",
+                                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                                                color = if (report.score >= 80) Color(0xFF2E7D32) else Color(0xFFC62828)
+                                            )
+                                            Text("Puan", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                        }
                                     }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text("${report.reps} Tekrar • ${report.durationSeconds / 60} dk ${report.durationSeconds % 60} sn", style = MaterialTheme.typography.bodySmall)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    if (!report.feedback.isNullOrBlank() && report.feedback != "Mükemmel Form") {
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Divider(thickness = 0.5.dp, color = Color(0xFFF0F0F0))
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text(report.feedback, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                                            Text("${report.reps} Tekrar", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
                                         }
-                                    } else {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Mükemmel Form", style = MaterialTheme.typography.bodySmall, color = Color(0xFF4CAF50))
+                                            Text("${report.durationSeconds / 60}dk ${report.durationSeconds % 60}sn", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
+                                        }
+                                    }
+                                    
+                                    if (!report.feedback.isNullOrBlank() && report.feedback != "Mükemmel Form") {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Surface(
+                                            color = Color(0xFFFFFBFA),
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = BorderStroke(0.5.dp, Color(0xFFFFDAD6))
+                                        ) {
+                                            Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFBA1A1A), modifier = Modifier.size(14.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(report.feedback, style = MaterialTheme.typography.labelSmall, color = Color(0xFFBA1A1A))
+                                            }
                                         }
                                     }
                                 }
@@ -180,96 +236,78 @@ fun PatientDetailScreen(
                     }
                 }
                 5 -> {
-                    Text("Gelişim & Risk Analizi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(16.dp))
+                    val exerciseStats = detailedAnalysis["exerciseStats"] as? Map<String, Map<String, Any>> ?: emptyMap()
                     
-                    if (stats.progressDelta != null) {
-                        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = if (stats.progressDelta!! >= 0) Color(0xFFE8F5E9) else Color(0xFFFFEBEE))) {
-                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(if (stats.progressDelta!! >= 0) Icons.Default.TrendingUp else Icons.Default.TrendingDown, contentDescription = null, tint = if (stats.progressDelta!! >= 0) Color(0xFF4CAF50) else Color(0xFFF44336))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (stats.progressDelta!! >= 0) "Gelişim Trendi: +%${String.format("%.1f", stats.progressDelta)}" else "Düşüş Trendi: %${String.format("%.1f", stats.progressDelta)}",
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (stats.progressDelta!! >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    if (stats.riskWarnings.isNotEmpty()) {
-                        Text("Risk Analizi & Uyarılar", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        stats.riskWarnings.forEach { warning ->
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
-                                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-
-                    if (stats.exerciseAnalysis.isNotEmpty()) {
-                        Text("Egzersiz Bazlı Form", fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        stats.exerciseAnalysis.forEach { ex ->
-                            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(ex.exerciseName, style = MaterialTheme.typography.bodyMedium)
-                                Text("Ort. %${ex.avgScore.toInt()} (${ex.totalReps} tekrar)", style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(24.dp))
-                    }
-
-                    Text("Klinik Notlar (Uzman Görüşü)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Klinik Egzersiz Analizi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Egzersiz bazlı performans ve form puanı ortalamaları", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value = noteText,
-                            onValueChange = { noteText = it },
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text("Hasta hakkında not ekle...") },
-                            singleLine = true
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(onClick = {
-                            if (noteText.isNotBlank()) {
-                                viewModel.addExpertNote(patientUid, noteText)
-                                noteText = ""
-                            }
-                        }) {
-                            Text("Ekle")
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(20.dp))
                     
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    if (expertNotes.isNotEmpty()) {
-                        expertNotes.forEach { note ->
+                    if (exerciseStats.isNotEmpty()) {
+                        exerciseStats.forEach { (exerciseName, data) ->
+                            val avgScore = (data["avgScore"] as? Double) ?: 0.0
+                            val totalReps = (data["totalReps"] as? Number)?.toInt() ?: 0
+                            val sessionCount = (data["sessionCount"] as? Int) ?: 0
+                            
                             Card(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    val noteDate = note.createdAt?.let { sdf.format(it) } ?: "Şimdi"
-                                    Text(noteDate, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(note.note, style = MaterialTheme.typography.bodyMedium)
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = exerciseName.uppercase(),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Surface(
+                                            color = if (avgScore >= 80) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "AVG: ${String.format("%.1f", avgScore)}",
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (avgScore >= 80) Color(0xFF2E7D32) else Color(0xFFE65100)
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    LinearProgressIndicator(
+                                        progress = (avgScore / 100).toFloat(),
+                                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
+                                        color = if (avgScore >= 80) Color(0xFF4CAF50) else Color(0xFFFFA000)
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        AnalysisMiniStat("Toplam Tekrar", "$totalReps")
+                                        AnalysisMiniStat("Seans Sayısı", "$sessionCount")
+                                        AnalysisMiniStat("Verimlilik", "%${String.format("%.0f", avgScore)}")
+                                    }
                                 }
                             }
                         }
                     } else {
-                        Text("Henüz not eklenmemiş.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        EmptyDataState("Detaylı analiz verisi henüz hazır değil.")
                     }
                 }
-            }
-            
+            } // when(selectedTab) ends
+
             if (selectedTab != 0) {
                 Spacer(modifier = Modifier.height(24.dp))
-                // Summary Info
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -287,6 +325,8 @@ fun PatientDetailScreen(
                     }
                 }
             }
+            
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 
@@ -409,6 +449,14 @@ private fun SummaryItem(icon: ImageVector, label: String, value: String) {
         Spacer(modifier = Modifier.width(8.dp))
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun AnalysisMiniStat(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 

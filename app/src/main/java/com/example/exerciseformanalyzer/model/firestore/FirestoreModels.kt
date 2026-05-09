@@ -12,6 +12,7 @@ package com.example.exerciseformanalyzer.model.firestore
 // FirestoreService içinde document.id olarak ayrıca okunur ve Room'a yazılır.
 
 import com.google.firebase.firestore.ServerTimestamp
+import com.google.firebase.firestore.PropertyName
 import java.util.Date
 
 // =========================================================
@@ -35,8 +36,12 @@ data class FirestoreUser(
     val painAreas: List<String> = emptyList(),
     val exerciseLevel: String = "beginner",
     val diseases: List<String> = emptyList(),  // ["meniscus", "hernia"]
-    val isSmoker: Boolean = false,
-    val isDrinker: Boolean = false,
+    @get:PropertyName("smoker")
+    @set:PropertyName("smoker")
+    var smoker: Boolean = false,
+    @get:PropertyName("drinker")
+    @set:PropertyName("drinker")
+    var drinker: Boolean = false,
     val expertId: String = "",     // Hastanın bağlı olduğu uzmanın UID'si
     val status: String = "ACTIVE", // "ACTIVE" | "PASSIVE" | "DELETED"
     
@@ -103,7 +108,9 @@ data class FirestoreTaskAssignment(
     val repeatDurationWeeks: Int? = null,
     val status: String = "PENDING", // "PENDING" | "COMPLETED" | "MISSED"
     val exercises: List<FirestoreExerciseItem> = emptyList(),
+    val expertNote: String? = null,
     @ServerTimestamp val createdAt: Date? = null,
+    val completedAt: Long? = null,
     val updatedAt: Long? = null
 )
 
@@ -111,13 +118,14 @@ data class FirestoreTaskAssignment(
 // GRUP — groups/{docId}
 // =========================================================
 data class FirestoreGroup(
+    @com.google.firebase.firestore.DocumentId val id: String = "",
     val name: String = "",
     val description: String = "",
     val creatorId: String = "",
     val isPrivate: Boolean = false,
     val coverImageUrl: String? = null,
     val allowMemberPhotoUpload: Boolean = false,
-    @ServerTimestamp val createdAt: Date? = null
+    @com.google.firebase.firestore.ServerTimestamp val createdAt: java.util.Date? = null
 )
 
 // =========================================================
@@ -127,14 +135,13 @@ data class FirestoreGroupMember(
     val groupId: String = "",
     val userId: String = "",
     val userName: String = "",
-    val role: String = "MEMBER",   // "ADMIN" | "MEMBER"
-    
-    // --- LİDERLİK TABLOSU İÇİN (FAZ 4) ---
+    val userEmail: String = "",
+    val role: String = "member",
+    val joinedAt: Long = 0L,
+    val status: String = "active",
     val totalScore: Int = 0,
     val totalCalories: Float = 0f,
-    val workoutCount: Int = 0,
-
-    @ServerTimestamp val joinedAt: Date? = null
+    val workoutCount: Int = 0
 )
 
 // =========================================================
@@ -156,7 +163,9 @@ data class FirestoreActivity(
 // =========================================================
 data class FirestoreBadgeDefinition(
     val name: String = "",
+    val nameEn: String = "",
     val description: String = "",
+    val descriptionEn: String = "",
     val iconUrl: String = "",
     val type: String = "SYSTEM", // "SYSTEM" | "QUEST" | "DOCTOR"
     val category: String = "SQUAT", // ROZETİN İLGİLİ OLDUĞU ALAN
@@ -173,7 +182,9 @@ data class FirestoreUserBadgeProgress(
     val badgeId: String = "",
     val currentProgress: Int = 0,
     val targetValue: Int = 100,
-    val isUnlocked: Boolean = false,
+    @get:PropertyName("isUnlocked")
+    @set:PropertyName("isUnlocked")
+    var isUnlocked: Boolean = false,
     val unlockedAt: Long? = null
 )
 

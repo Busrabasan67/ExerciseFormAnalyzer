@@ -55,12 +55,12 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) : IL
                         // veya Users tablosundan çekip bellekte filtreleyelim.
                         val snapshot = db.collection("users")
                             .whereEqualTo("role", "PATIENT")
-                            .orderBy("xp", Query.Direction.DESCENDING)
                             .get().await()
                         
                         snapshot.documents
                             .mapNotNull { it.toObject(FirestoreUser::class.java) }
                             .filter { it.uid in groupMemberIds }
+                            .sortedByDescending { it.xp } // Eksik olan sıralama eklendi
                             .mapIndexed { index, user ->
                                 LeaderboardEntry(
                                     userId = user.uid,
@@ -72,22 +72,25 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) : IL
                             }
                     } else {
                         // Global XP sıralaması
+                        // Not: İndeks hatasını (FAILED_PRECONDITION) aşmak için 
+                        // filtrelemeyi Firestore'da, sıralamayı bellekte yapıyoruz.
                         val query = db.collection("users")
                             .whereEqualTo("role", "PATIENT")
-                            .orderBy("xp", Query.Direction.DESCENDING)
-                            .limit(50)
                         
                         val snapshot = query.get().await()
-                        snapshot.documents.mapIndexed { index, doc ->
-                            val user = doc.toObject(FirestoreUser::class.java)
-                            LeaderboardEntry(
-                                userId = user?.uid ?: "",
-                                fullName = user?.fullName ?: "Adsız",
-                                value = user?.xp?.toFloat() ?: 0f,
-                                rank = index + 1,
-                                isMe = user?.uid == currentUid
-                            )
-                        }
+                        snapshot.documents
+                            .mapNotNull { it.toObject(FirestoreUser::class.java) }
+                            .sortedByDescending { it.xp } // Bellekte sırala
+                            .take(50) // İlk 50'yi al
+                            .mapIndexed { index, user ->
+                                LeaderboardEntry(
+                                    userId = user.uid,
+                                    fullName = user.fullName,
+                                    value = user.xp.toFloat(),
+                                    rank = index + 1,
+                                    isMe = user.uid == currentUid
+                                )
+                            }
                     }
                 } else {
                     // Kalori bazlı tüm zamanlar (veya diğer metrikler) için Workout raporlarını topla
@@ -216,7 +219,12 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) : IL
             val ts = report.timestamp ?: return@filter false
             (ts.after(finalStartDate) || isSameDay(ts, finalStartDate)) && 
             (ts.before(finalEndDate) || isSameDay(ts, finalEndDate))
-        }.sortedBy { it.timestamp }
+        }.sortedBy { it.timestamp }.map { report ->
+            if (report.exerciseName.isNullOrBlank() || report.exerciseName == "Bilinmeyen") {
+                val formattedId = report.exerciseId.lowercase().replaceFirstChar { it.uppercase() }
+                report.copy(exerciseName = formattedId)
+            } else report
+        }
 
         // 2. Görevleri çek (Tüm zamanlar veya bu aralıkta bitenler?)
         // Şimdilik genel durum için hepsini çekiyoruz, ama isterseniz bu da tarihe göre filtrelenebilir.
@@ -285,8 +293,14 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) : IL
                 val totalReps = exReports.sumOf { it.reps }
                 val avgScore = if (exReports.isNotEmpty()) exReports.map { it.score }.average().toFloat() else 0f
                 val mistakes = exReports.mapNotNull { it.feedback }.filter { it.isNotBlank() && it.length > 5 }.distinct().take(3)
+                
+                val finalName = if (name.isNullOrBlank() || name == "Bilinmeyen") {
+                    val firstId = exReports.firstOrNull()?.exerciseId?.lowercase()?.replaceFirstChar { it.uppercase() }
+                    firstId ?: "Egzersiz"
+                } else name
+
                 com.example.exerciseformanalyzer.model.ExerciseAnalysis(
-                    exerciseName = name.ifEmpty { "Bilinmeyen" },
+                    exerciseName = finalName,
                     totalReps = totalReps,
                     avgScore = avgScore,
                     commonMistakes = mistakes
@@ -338,5 +352,9 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) : IL
 
     override suspend fun getUserBadges(userId: String): List<FirestoreUserBadgeProgress> {
         return firestoreService.getUserBadges(userId)
+    }
+
+    override suspend fun getBadgeDefinitions(): List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreBadgeDefinition>> {
+        return firestoreService.getBadgeDefinitions()
     }
 }

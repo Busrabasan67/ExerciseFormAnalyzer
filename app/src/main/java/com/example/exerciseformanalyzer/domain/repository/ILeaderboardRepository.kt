@@ -43,4 +43,6 @@ interface ILeaderboardRepository {
     suspend fun getGlobalLeaderboard(limit: Long = 50): List<FirestoreUser>
     
     suspend fun getUserBadges(userId: String): List<FirestoreUserBadgeProgress>
+
+    suspend fun getBadgeDefinitions(): List<Pair<String, com.example.exerciseformanalyzer.model.firestore.FirestoreBadgeDefinition>>
 }

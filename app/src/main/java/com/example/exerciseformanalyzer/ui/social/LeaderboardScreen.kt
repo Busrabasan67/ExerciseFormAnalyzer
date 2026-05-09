@@ -6,7 +6,12 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,6 +23,9 @@ import com.example.exerciseformanalyzer.model.LeaderboardMetric
 import com.example.exerciseformanalyzer.model.LeaderboardPeriod
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.foundation.border
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +41,13 @@ fun LeaderboardScreen(
 
     val dateRangePickerState = rememberDateRangePickerState()
     var showDatePicker by remember { mutableStateOf(false) }
+
+    val badgeDefinitions by viewModel.badgeDefinitions.collectAsState()
+    val myBadgeProgress by viewModel.myBadgeProgress.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.fetchMyBadges()
+    }
 
     val periods = LeaderboardPeriod.values()
     val metrics = LeaderboardMetric.values()
@@ -145,6 +160,64 @@ fun LeaderboardScreen(
                     )
                 }
             }
+            
+            // Sadece kazanılmış olan rozetleri filtrele
+            val earnedBadges = badgeDefinitions.filter { (id, _) ->
+                myBadgeProgress.any { it.badgeId == id && it.isUnlocked }
+            }
+            
+            // Rozetlerim (My Badges) Vitrini
+            if (earnedBadges.isNotEmpty()) {
+                Text(
+                    text = "Rozetlerim",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(earnedBadges) { (id, def) ->
+                        val isUnlocked = true // Çünkü filtreledik
+                        
+                        val colors = listOf(
+                            Color(0xFFE53935), Color(0xFFD81B60), Color(0xFF8E24AA),
+                            Color(0xFF5E35B1), Color(0xFF3949AB), Color(0xFF1E88E5),
+                            Color(0xFF039BE5), Color(0xFF00ACC1), Color(0xFF00897B),
+                            Color(0xFF43A047), Color(0xFFF4511E)
+                        )
+                        val badgeColor = colors[kotlin.math.abs(id.hashCode()) % colors.size]
+
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.width(80.dp)
+                        ) {
+                            RosetteBadge(
+                                iconVector = if (isUnlocked) Icons.Default.EmojiEvents else Icons.Default.Lock,
+                                baseColor = badgeColor,
+                                isUnlocked = isUnlocked,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            
+                            val currentLang = java.util.Locale.getDefault().language
+                            val isEn = currentLang == "en"
+                            val displayTitle = if (isEn && def.nameEn.isNotBlank()) def.nameEn else def.name
+                            
+                            Text(
+                                text = displayTitle,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isUnlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                maxLines = 2,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+            }
 
             if (isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -224,6 +297,63 @@ fun LeaderboardItem(rank: Int, name: String, value: String, isMe: Boolean) {
                     text = value,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable
+fun RosetteBadge(
+    iconVector: androidx.compose.ui.graphics.vector.ImageVector,
+    baseColor: Color,
+    isUnlocked: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val displayColor = if (isUnlocked) baseColor else baseColor.copy(alpha = 0.3f)
+    val contentColor = if (isUnlocked) baseColor else baseColor.copy(alpha = 0.5f)
+    
+    Box(modifier = modifier, contentAlignment = Alignment.TopCenter) {
+        // Kurdele Kuyrukları (Ribbon tails)
+        Canvas(modifier = Modifier.size(50.dp, 70.dp).offset(y = 20.dp)) {
+            val path = Path().apply {
+                // Sol kuyruk
+                moveTo(size.width * 0.15f, 0f)
+                lineTo(size.width * 0.15f, size.height)
+                lineTo(size.width * 0.35f, size.height * 0.8f) // Kesik uç
+                lineTo(size.width * 0.5f, size.height)
+                lineTo(size.width * 0.5f, 0f)
+                close()
+                // Sağ kuyruk
+                moveTo(size.width * 0.5f, 0f)
+                lineTo(size.width * 0.5f, size.height)
+                lineTo(size.width * 0.65f, size.height * 0.8f) // Kesik uç
+                lineTo(size.width * 0.85f, size.height)
+                lineTo(size.width * 0.85f, 0f)
+                close()
+            }
+            drawPath(path, color = displayColor)
+        }
+        
+        // Ortadaki Yuvarlak (Rosette center)
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .background(displayColor, androidx.compose.foundation.shape.CircleShape)
+                .border(2.dp, Color.White, androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(Color.White, androidx.compose.foundation.shape.CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = iconVector,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }

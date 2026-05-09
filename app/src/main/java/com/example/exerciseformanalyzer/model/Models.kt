@@ -273,5 +273,8 @@ data class AdminSystemStats(
     val totalExperts: Int = 0,
     val dailyWorkouts: Int = 0,
     val totalCalories: Float = 0f,
-    val activeGroups: Int = 0
+    val activeGroups: Int = 0,
+    val roleDistribution: Map<String, Int> = emptyMap(),
+    val workoutTrend: List<Pair<String, Int>> = emptyList(),
+    val exercisePopularity: List<Pair<String, Int>> = emptyList()
 )
