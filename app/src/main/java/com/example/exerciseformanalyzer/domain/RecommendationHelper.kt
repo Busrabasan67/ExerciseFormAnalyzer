@@ -69,6 +69,13 @@ object RecommendationHelper {
         // 4. Core
         exercises.add(createExercise(ExerciseType.SIT_UP, targetSets, targetReps, 0, restTime, "MEDIUM"))
         exercises.add(createExercise(ExerciseType.PLANK, 3, 0, targetSeconds, restTime, "MEDIUM"))
+        
+        if (exerciseLevel != "beginner") {
+            exercises.add(createExercise(ExerciseType.RUSSIAN_TWIST, targetSets, targetReps, 0, restTime, "MEDIUM"))
+            exercises.add(createExercise(ExerciseType.BICYCLE_CRUNCH, targetSets, targetReps, 0, restTime, "HARD"))
+        } else {
+            exercises.add(createExercise(ExerciseType.HEEL_TAP, targetSets, targetReps, 0, restTime, "EASY"))
+        }
 
         // Adjust based on exerciseLevel
         if (exerciseLevel == "beginner") {

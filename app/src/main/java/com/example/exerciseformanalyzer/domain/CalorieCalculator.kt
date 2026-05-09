@@ -72,6 +72,12 @@ object CalorieCalculator {
             ExerciseType.BURPEE           -> 8.0f
             ExerciseType.TRICEPS_KICKBACK -> 3.0f
             ExerciseType.BENT_OVER_RAISE  -> 4.0f
+            
+            ExerciseType.CROSSBODY_MOUNTAIN_CLIMBER -> 9.0f
+            ExerciseType.HEEL_TAP         -> 3.0f
+            ExerciseType.BICYCLE_CRUNCH   -> 5.0f
+            ExerciseType.REVERSE_CRUNCH   -> 4.5f
+            ExerciseType.STRAIGHT_LEG_CRUNCH -> 4.5f
 
             ExerciseType.UNKNOWN          -> 3.0f // Varsayılan orta yoğunluk
         }

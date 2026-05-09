@@ -33,7 +33,14 @@ class AnalysisPipeline {
         ExerciseType.TRICEPS_EXTENSION to TricepsExtensionEvaluator(),
         ExerciseType.TRICEPS_KICKBACK to TricepsKickbackEvaluator(),
         ExerciseType.BENT_OVER_ROW to BentOverRowEvaluator(),
-        ExerciseType.BENT_OVER_RAISE to BentOverRaiseEvaluator()
+        ExerciseType.BENT_OVER_RAISE to BentOverRaiseEvaluator(),
+        ExerciseType.CROSSBODY_MOUNTAIN_CLIMBER to MountainClimberEvaluator(),
+        ExerciseType.MOUNTAIN_CLIMBER to MountainClimberEvaluator(),
+        ExerciseType.RUSSIAN_TWIST to RussianTwistEvaluator(),
+        ExerciseType.HEEL_TAP to HeelTapEvaluator(),
+        ExerciseType.BICYCLE_CRUNCH to BicycleCrunchEvaluator(),
+        ExerciseType.REVERSE_CRUNCH to ReverseCrunchEvaluator(),
+        ExerciseType.STRAIGHT_LEG_CRUNCH to StraightLegCrunchEvaluator()
     )
 
     private var currentExerciseType: ExerciseType = ExerciseType.UNKNOWN
@@ -161,12 +168,19 @@ class AnalysisPipeline {
         ExerciseType.PUSH_UP,
         ExerciseType.KNEE_PUSH_UP,
         ExerciseType.PLANK,
-        ExerciseType.MOUNTAIN_CLIMBER,
         ExerciseType.BURPEE -> PoseLandmarkIndex.PUSH_UP_CRITICAL
+
+        ExerciseType.MOUNTAIN_CLIMBER,
+        ExerciseType.CROSSBODY_MOUNTAIN_CLIMBER -> PoseLandmarkIndex.MOUNTAIN_CLIMBER_CRITICAL
 
         ExerciseType.SIT_UP,
         ExerciseType.CRUNCH,
-        ExerciseType.RUSSIAN_TWIST -> PoseLandmarkIndex.SIT_UP_CRITICAL
+        ExerciseType.HEEL_TAP,
+        ExerciseType.BICYCLE_CRUNCH,
+        ExerciseType.REVERSE_CRUNCH,
+        ExerciseType.STRAIGHT_LEG_CRUNCH -> PoseLandmarkIndex.CORE_CRITICAL
+
+        ExerciseType.RUSSIAN_TWIST -> PoseLandmarkIndex.RUSSIAN_TWIST_CRITICAL
 
         ExerciseType.DUMBBELL_ROW,
         ExerciseType.BENT_OVER_ROW,

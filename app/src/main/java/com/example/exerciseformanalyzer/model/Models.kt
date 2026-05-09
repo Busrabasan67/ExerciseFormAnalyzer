@@ -89,7 +89,14 @@ enum class ExerciseType(val displayName: String) {
     RUSSIAN_TWIST("Russian Twist"),
     BURPEE("Burpee"),
     TRICEPS_KICKBACK("Triceps Kickback"),
-    BENT_OVER_RAISE("Bent-over Raise");
+    BENT_OVER_RAISE("Bent-over Raise"),
+    
+    // Yeni Eklenenler (Karın ve Stabilite)
+    CROSSBODY_MOUNTAIN_CLIMBER("Crossbody Mountain Climber"),
+    HEEL_TAP("Heel Tap"),
+    BICYCLE_CRUNCH("Bicycle Crunch"),
+    REVERSE_CRUNCH("Reverse Crunch"),
+    STRAIGHT_LEG_CRUNCH("Straight Leg Crunch");
 
     fun getMetadata(): ExerciseMetadata {
         return when (this) {
@@ -177,7 +184,49 @@ enum class ExerciseType(val displayName: String) {
                 correctFormRules = listOf("Gövde öne eğik", "Kollar yana genişçe açılmalı", "Kürek kemikleri sıkıştırılmalı"),
                 commonMistakes = listOf("Momentum kullanmak", "Dirsekleri aşırı bükmek", "Sırt pozisyonunu bozmak")
             )
-            // Diğerleri için örnek default yapı (Kısaltmak için default verildi, her hareket özel ayarlarına göre genişletilebilir)
+            CROSSBODY_MOUNTAIN_CLIMBER -> ExerciseMetadata(
+                description = "Gövde stabilitesini ve oblikleri (yan karın) hedefleyen dinamik hareket.",
+                preferredAngle = CameraAngle.SIDE,
+                correctFormRules = listOf("Eller omuz hizasında", "Vücut dümdüz bir tahta gibi", "Dizler çapraz dirseğe çekilmeli"),
+                commonMistakes = listOf("Kalçayı yukarı kaldırmak", "Belin aşağı çökmesi", "Hızlı ve kontrolsüz hareket")
+            )
+            RUSSIAN_TWIST -> ExerciseMetadata(
+                description = "Gövde rotasyonu ile oblikleri çalıştıran etkili core hareketi.",
+                preferredAngle = CameraAngle.FRONT,
+                correctFormRules = listOf("Sırt dik tutulmalı", "Gövde omuzlarla birlikte dönmeli", "Ayaklar dengeli"),
+                commonMistakes = listOf("Sırtın kamburlaşması", "Sadece kolların hareket etmesi", "Boyun zorlanması")
+            )
+            HEEL_TAP -> ExerciseMetadata(
+                description = "Yan karın (oblik) kaslarını izole eden bir hareket.",
+                preferredAngle = CameraAngle.FRONT,
+                correctFormRules = listOf("Kürek kemikleri hafif havada", "Sadece yanlara esneyerek topuklara dokunulmalı", "Boyun serbest"),
+                commonMistakes = listOf("Boynun kasılması", "Yeterince yana esnememek", "Sırtın tamamen yere yapışık olması")
+            )
+            BICYCLE_CRUNCH -> ExerciseMetadata(
+                description = "Karın bölgesinin tamamını ve çapraz kasları çalıştırır.",
+                preferredAngle = CameraAngle.SIDE,
+                correctFormRules = listOf("Omuz çapraz dize yaklaşmalı", "Uzatılan bacak yere yakın ve gergin", "Yavaş ve kontrollü"),
+                commonMistakes = listOf("Bacağın yere değmesi", "Dirsekleri çekiştirmek", "Boynu zorlamak")
+            )
+            REVERSE_CRUNCH -> ExerciseMetadata(
+                description = "Alt karın kaslarını hedefleyen etkili bir hareket.",
+                preferredAngle = CameraAngle.SIDE,
+                correctFormRules = listOf("Kalça karın kaslarıyla yerden kalkmalı", "Ayaklar momentumla savrulmamalı", "İnişte bel yerde kalmalı"),
+                commonMistakes = listOf("Momentum (savurma) kullanmak", "Beli yerden kaldırmak", "Boyundan destek almak")
+            )
+            STRAIGHT_LEG_CRUNCH -> ExerciseMetadata(
+                description = "Üst karın ve bacak esnekliğini birleştiren hareket.",
+                preferredAngle = CameraAngle.SIDE,
+                correctFormRules = listOf("Bacaklar 90 derece dik", "Sadece üst gövde parmak uçlarına yükselmeli", "Bacaklar sabit"),
+                commonMistakes = listOf("Bacakların sallanması", "Boynu çekiştirmek", "Yetersiz yükselme")
+            )
+            MOUNTAIN_CLIMBER -> ExerciseMetadata(
+                description = "Tüm vücudu çalıştıran yüksek yoğunluklu core hareketi.",
+                preferredAngle = CameraAngle.SIDE,
+                correctFormRules = listOf("Eller omuz altında", "Sırt düz", "Dizler göğse çekilmeli"),
+                commonMistakes = listOf("Kalçayı havaya dikmek", "Omuzların öne kayması")
+            )
+            // Diğerleri için örnek default yapı
             else -> ExerciseMetadata(
                 description = "$displayName egzersizi.",
                 preferredAngle = CameraAngle.ANGLED,

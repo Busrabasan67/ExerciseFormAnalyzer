@@ -90,6 +90,14 @@
     <string name="ex_triceps_kickback">Triceps Kickback</string>
     <string name="ex_bent_over_row">Bent Over Row</string>
     <string name="ex_bent_over_raise">Bent Over Raise</string>
+    <string name="ex_mountain_climber">Mountain Climber</string>
+    <string name="ex_crossbody_mountain_climber">Crossbody Mountain Climber</string>
+    <string name="ex_russian_twist">Russian Twist</string>
+    <string name="ex_heel_tap">Heel Tap</string>
+    <string name="ex_bicycle_crunch">Bicycle Crunch</string>
+    <string name="ex_reverse_crunch">Reverse Crunch</string>
+    <string name="ex_leg_extension_ab">Leg Extension (Karın)</string>
+    <string name="ex_straight_leg_crunch">Straight Leg Crunch</string>
 
     <!-- Workout Feedback -->
     <string name="perfect_form">Mükemmel Form</string>

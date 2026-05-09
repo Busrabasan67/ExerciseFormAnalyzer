@@ -48,8 +48,26 @@ class ExerciseClassifier {
             // Şınav pozisyonu: gövde yatay (~80-90°) + dirsek aktif + ayakların yerde olması
             isPushUpPosition(frame, angles, torso) -> ExerciseType.PUSH_UP
 
+            // Heel Tap: gövde yatay + omuzlar hafif kalkık + yanlara esneme
+            isHeelTapPosition(frame, angles, torso) -> ExerciseType.HEEL_TAP
+
+            // Bicycle Crunch: gövde yatay + dizler aktif makas hareketi
+            isBicycleCrunchPosition(frame, angles, torso) -> ExerciseType.BICYCLE_CRUNCH
+
+            // Reverse Crunch: gövde yatay + bacaklar göğse çekiliyor
+            isReverseCrunchPosition(frame, angles, torso) -> ExerciseType.REVERSE_CRUNCH
+
+            // Straight Leg Crunch: gövde yatay + bacaklar 90 derece dik
+            isStraightLegCrunchPosition(frame, angles, torso) -> ExerciseType.STRAIGHT_LEG_CRUNCH
+
             // Mekik pozisyonu: gövde yatay veya kalkıyor + kalça açısı değişiyor
             isSitUpPosition(frame, angles, torso) -> ExerciseType.SIT_UP
+
+            // Russian Twist: gövde hafif eğik + omuzlar rotasyonda
+            isRussianTwistPosition(frame, angles, torso) -> ExerciseType.RUSSIAN_TWIST
+
+            // Mountain Climber: şınav pozisyonu + dizlerin aktif hareketi
+            isMountainClimberPosition(frame, angles, torso) -> ExerciseType.MOUNTAIN_CLIMBER
 
             // Dumbbell row: gövde 45° eğik + tek kol hareketi
             isDumbbellRowPosition(frame, angles, torso) -> ExerciseType.DUMBBELL_ROW
@@ -167,6 +185,37 @@ class ExerciseClassifier {
         val kneeAngle = angles.leftKneeAngle ?: angles.rightKneeAngle ?: return false
         // Diz bükülü (60-120°) + gövde neredeyse yatay veya kalkıyor
         return kneeAngle in 50f..130f && torso > 30f
+    }
+
+    /**
+     * Russian Twist tespiti:
+     * - Gövde ~30-60° eğik (oturma pozisyonu)
+     * - Dizler bükülü
+     * - Omuzlar birbirine yakın (rotasyon perspektifi)
+     */
+    private fun isRussianTwistPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        if (torso < 20f || torso > 65f) return false
+        val kneeAngle = angles.leftKneeAngle ?: angles.rightKneeAngle ?: return false
+        return kneeAngle < 140f
+    }
+
+    /**
+     * Mountain Climber tespiti:
+     * - Şınav pozisyonuna benzer gövde açısı
+     * - Dizlerden biri kalçaya çok yakın (çekilmiş)
+     */
+    private fun isMountainClimberPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        if (torso < 65f) return false
+        val lKnee = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_KNEE)
+        val lHip = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_HIP)
+        val rKnee = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_KNEE)
+        val rHip = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_HIP)
+        
+        // En az bir diz kalçaya yakınsa (y ekseninde veya x ekseninde çekilmişse)
+        val lDist = if (lKnee != null && lHip != null) Math.abs(lKnee.x - lHip.x) else 1.0f
+        val rDist = if (rKnee != null && rHip != null) Math.abs(rKnee.x - rHip.x) else 1.0f
+        
+        return lDist < 0.25f || rDist < 0.25f
     }
 
     /**
@@ -341,6 +390,32 @@ class ExerciseClassifier {
     private fun isTricepsKickbackMovement(frame: PoseFrame, angles: JointAngles): Boolean {
         val shoulderAngle = angles.leftShoulderAngle ?: angles.rightShoulderAngle ?: return false
         return shoulderAngle < 35f // Kol vücuda yakın
+    }
+
+    private fun isHeelTapPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        // Gövde yataya yakın (30-80°) ve dizler bükülü (ayaklar yere yakın)
+        val kneeAngle = angles.leftKneeAngle ?: angles.rightKneeAngle ?: return false
+        return torso > 30f && kneeAngle < 120f
+    }
+
+    private fun isBicycleCrunchPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        // Gövde yataya yakın ve dizlerden biri çekili diğeri uzatılmış (asimetrik kalça açısı)
+        val lHip = angles.leftHipAngle ?: 180f
+        val rHip = angles.rightHipAngle ?: 180f
+        return torso > 30f && Math.abs(lHip - rHip) > 30f
+    }
+
+    private fun isReverseCrunchPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        // Gövde yatay ve en az bir bacak göğse çekilmiş (dar kalça açısı)
+        val minHip = minOf(angles.leftHipAngle ?: 180f, angles.rightHipAngle ?: 180f)
+        return torso > 40f && minHip < 90f
+    }
+
+    private fun isStraightLegCrunchPosition(frame: PoseFrame, angles: JointAngles, torso: Float): Boolean {
+        // Gövde yatay ve bacaklar dik (kalça açısı ~90°)
+        val lHip = angles.leftHipAngle ?: 180f
+        val rHip = angles.rightHipAngle ?: 180f
+        return torso > 30f && (lHip in 70f..110f || rHip in 70f..110f)
     }
 
     private fun isBentOverRaiseMovement(frame: PoseFrame, angles: JointAngles): Boolean {

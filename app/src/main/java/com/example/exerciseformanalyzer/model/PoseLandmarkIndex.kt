@@ -80,4 +80,27 @@ object PoseLandmarkIndex {
         LEFT_WRIST, RIGHT_WRIST,
         LEFT_HIP, RIGHT_HIP // Gövde eğimini ölçmek için kalça da lazım
     )
+
+    /** Core (Karın) egzersizleri için gereken kritik landmarklar */
+    val CORE_CRITICAL = setOf(
+        LEFT_SHOULDER, RIGHT_SHOULDER,
+        LEFT_HIP, RIGHT_HIP,
+        LEFT_KNEE, RIGHT_KNEE,
+        LEFT_ANKLE, RIGHT_ANKLE
+    )
+
+    /** Russian Twist için gereken kritik landmarklar (Ayaklar opsiyonel) */
+    val RUSSIAN_TWIST_CRITICAL = setOf(
+        LEFT_SHOULDER, RIGHT_SHOULDER,
+        LEFT_HIP, RIGHT_HIP,
+        LEFT_KNEE, RIGHT_KNEE
+    )
+
+    /** Mountain Climber için gereken kritik landmarklar */
+    val MOUNTAIN_CLIMBER_CRITICAL = setOf(
+        LEFT_SHOULDER, RIGHT_SHOULDER,
+        LEFT_ELBOW, RIGHT_ELBOW,
+        LEFT_HIP, RIGHT_HIP,
+        LEFT_KNEE, RIGHT_KNEE
+    )
 }

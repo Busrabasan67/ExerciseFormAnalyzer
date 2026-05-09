@@ -130,4 +130,30 @@ object AnalysisConstants {
 
     /** Küçük form bozuklukları için puan cezası */
     const val SCORE_PENALTY_MINOR = 10
+
+    // ─── Mountain Climber Eşikleri ───────────────────────────────────────────
+    const val MOUNTAIN_CLIMBER_HIP_MAX_SAG = 0.12f
+    const val MOUNTAIN_CLIMBER_HIP_MAX_RISE = 0.12f
+    
+    // ─── Russian Twist Eşikleri ──────────────────────────────────────────────
+    const val RUSSIAN_TWIST_MIN_ROTATION = 35f // Minimum omuz rotasyon açısı
+    const val RUSSIAN_TWIST_MAX_BACK_LEAN = 60f // Sırtın geriye eğim açısı
+    const val RUSSIAN_TWIST_MIN_BACK_ANGLE = 20f // Sırtın diklik açısı
+    
+    // ─── Heel Tap Eşikleri ───────────────────────────────────────────────────
+    const val HEEL_TAP_LATERAL_REACH_THRESHOLD = 0.05f
+    
+    // ─── Bicycle Crunch Eşikleri ─────────────────────────────────────────────
+    const val BICYCLE_CRUNCH_LEG_ANGLE_MIN = 15f
+    const val BICYCLE_CRUNCH_LEG_ANGLE_MAX = 45f // 30 ideal ama 45'e kadar tolerans
+    
+    // ─── Reverse Crunch Eşikleri ─────────────────────────────────────────────
+    const val REVERSE_CRUNCH_HIP_LIFT_MIN = 0.05f
+    
+    // ─── Leg Extension Eşikleri ──────────────────────────────────────────────
+    const val LEG_EXTENSION_KNEE_ANGLE_MAX = 170f
+    
+    // ─── Straight Leg Crunch Eşikleri ────────────────────────────────────────
+    const val STRAIGHT_LEG_CRUNCH_LEG_ANGLE_MIN = 75f
+    const val STRAIGHT_LEG_CRUNCH_LEG_ANGLE_MAX = 105f
 }

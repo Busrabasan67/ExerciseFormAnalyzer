@@ -38,7 +38,14 @@ fun ExerciseSelectionScreen(
         Pair(ExerciseType.TRICEPS_EXTENSION, R.string.ex_triceps_extension),
         Pair(ExerciseType.TRICEPS_KICKBACK, R.string.ex_triceps_kickback),
         Pair(ExerciseType.BENT_OVER_ROW, R.string.ex_bent_over_row),
-        Pair(ExerciseType.BENT_OVER_RAISE, R.string.ex_bent_over_raise)
+        Pair(ExerciseType.BENT_OVER_RAISE, R.string.ex_bent_over_raise),
+        Pair(ExerciseType.MOUNTAIN_CLIMBER, R.string.ex_mountain_climber),
+        Pair(ExerciseType.CROSSBODY_MOUNTAIN_CLIMBER, R.string.ex_crossbody_mountain_climber),
+        Pair(ExerciseType.RUSSIAN_TWIST, R.string.ex_russian_twist),
+        Pair(ExerciseType.HEEL_TAP, R.string.ex_heel_tap),
+        Pair(ExerciseType.BICYCLE_CRUNCH, R.string.ex_bicycle_crunch),
+        Pair(ExerciseType.REVERSE_CRUNCH, R.string.ex_reverse_crunch),
+        Pair(ExerciseType.STRAIGHT_LEG_CRUNCH, R.string.ex_straight_leg_crunch)
     )
 
     Scaffold(
