@@ -21,6 +21,7 @@ class PushUpEvaluator : ExerciseEvaluator {
 
     private var repState = RepetitionState()
     private var smoothedElbowAngle: Float? = null
+    private var isCurrentRepValid = true
 
     override fun evaluate(
         frame: PoseFrame,
@@ -44,31 +45,44 @@ class PushUpEvaluator : ExerciseEvaluator {
         val errors = mutableListOf<String>()
         var score = 100
 
-        // 1. Derinlik kontrolü
+        // 1. Derinlik kontrolü (Range of Motion)
         if (repState.phase == RepetitionPhase.BOTTOM || repState.phase == RepetitionPhase.GOING_UP) {
             if (elbowAngle > AnalysisConstants.PUSH_UP_ELBOW_ANGLE_DOWN_MAX + 15f) {
-                errors.add("Biraz daha aşağı in")
+                errors.add("Daha derine in, göğsün yere yaklaşsın")
                 score -= AnalysisConstants.SCORE_PENALTY_DEPTH
             }
         }
 
-        // 2. Kalça sarkma / yükselme kontrolü
+        // 2. Vücut Hattı (Kalça sarkma / yükselme)
         val hipDeviation = calculateHipDeviation(frame)
         if (hipDeviation != null) {
             when {
                 hipDeviation > AnalysisConstants.PUSH_UP_HIP_SAG_THRESHOLD -> {
-                    errors.add("Kalçanı düşürme")
+                    errors.add("Belini düz tut, karnını sık!")
                     score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
                 }
                 hipDeviation < -AnalysisConstants.PUSH_UP_HIP_RISE_THRESHOLD -> {
-                    errors.add("Vücudunu düz tut")
+                    errors.add("Kalçanı çok kaldırma, vücudun düz olsun")
                     score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
                 }
             }
         }
 
+        // 3. Dirsek Açısı (Omuz Abduksiyonu) — Arrowhead Shape
+        // En iyi önden veya açılı görünümlerde fark edilir.
+        val shoulderAngle = AngleUtils.dominantShoulderAngle(angles, frame)
+        if (shoulderAngle != null && shoulderAngle > 75f) {
+            errors.add("Dirseklerini vücuduna yaklaştır (Ok ucu formu)")
+            score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
+        }
+
         val primaryError = errors.firstOrNull()
         val isCorrect = errors.isEmpty()
+
+        // Eğer tekrar sırasında hata yapıldıysa, bu tekrarı geçersiz say
+        if (!isCorrect && repState.phase != RepetitionPhase.IDLE && repState.phase != RepetitionPhase.TOP) {
+            isCurrentRepValid = false
+        }
 
         return FormFeedback(
             isCorrect = isCorrect,
@@ -86,9 +100,10 @@ class PushUpEvaluator : ExerciseEvaluator {
 
         val newPhase = when (repState.phase) {
             RepetitionPhase.IDLE, RepetitionPhase.TOP -> {
-                if (elbowAngle < AnalysisConstants.PUSH_UP_ELBOW_ANGLE_UP_MIN - 20f)
+                if (elbowAngle < AnalysisConstants.PUSH_UP_ELBOW_ANGLE_UP_MIN - 20f) {
+                    isCurrentRepValid = true // Yeni tekrara başlarken sıfırla
                     RepetitionPhase.GOING_DOWN
-                else repState.phase
+                } else repState.phase
             }
             RepetitionPhase.GOING_DOWN -> {
                 if (elbowAngle <= AnalysisConstants.PUSH_UP_ELBOW_ANGLE_DOWN_MAX)
@@ -102,11 +117,13 @@ class PushUpEvaluator : ExerciseEvaluator {
             }
             RepetitionPhase.GOING_UP -> {
                 if (elbowAngle >= AnalysisConstants.PUSH_UP_ELBOW_ANGLE_UP_MIN) {
+                    val newCount = if (isCurrentRepValid) repState.count + 1 else repState.count
                     repState = RepetitionState(
-                        count = repState.count + 1,
+                        count = newCount,
                         phase = RepetitionPhase.TOP,
                         lastPhaseChangeMs = currentTimeMs
                     )
+                    isCurrentRepValid = true
                     return
                 } else repState.phase
             }
@@ -160,5 +177,6 @@ class PushUpEvaluator : ExerciseEvaluator {
     override fun reset() {
         repState = RepetitionState()
         smoothedElbowAngle = null
+        isCurrentRepValid = true
     }
 }

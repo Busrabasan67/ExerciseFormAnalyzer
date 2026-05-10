@@ -62,7 +62,6 @@ enum class ExerciseType(val displayName: String) {
     SQUAT("Squat"),
     HALF_SQUAT("Half Squat"),
     JUMP_SQUAT("Jump Squat"),
-    LUNGE("Lunge"),
     REVERSE_LUNGE("Reverse Lunge"),
     BULGARIAN_SPLIT_SQUAT("Bulgarian Split Squat"),
     CALF_RAISE("Calf Raise"),
@@ -92,7 +91,6 @@ enum class ExerciseType(val displayName: String) {
     BENT_OVER_RAISE("Bent-over Raise"),
     
     // Yeni Eklenenler (Karın ve Stabilite)
-    CROSSBODY_MOUNTAIN_CLIMBER("Crossbody Mountain Climber"),
     HEEL_TAP("Heel Tap"),
     BICYCLE_CRUNCH("Bicycle Crunch"),
     REVERSE_CRUNCH("Reverse Crunch"),
@@ -129,12 +127,6 @@ enum class ExerciseType(val displayName: String) {
                 preferredAngle = CameraAngle.FRONT,
                 correctFormRules = listOf("Dik durun", "Üst kollar vücuda yapışık ve sabit", "Kontrollü çekiş ve iniş"),
                 commonMistakes = listOf("Belden ivme/momentum almak", "Dirsekleri öne doğru savurmak", "Hızlıca aşağı bırakmak")
-            )
-            LUNGE -> ExerciseMetadata(
-                description = "Bacak ve kalça kaslarını izole eder.",
-                preferredAngle = CameraAngle.SIDE,
-                correctFormRules = listOf("Dik durun", "Öndeki diz ayak ucunu geçmemeli", "Arkadaki diz yere yaklaşmalı"),
-                commonMistakes = listOf("Öne doğru aşırı eğilmek", "Dengesiz adım atmak")
             )
             PLANK -> ExerciseMetadata(
                 description = "Tüm core bölgesini statik çalıştırır.",
@@ -183,12 +175,6 @@ enum class ExerciseType(val displayName: String) {
                 preferredAngle = CameraAngle.SIDE,
                 correctFormRules = listOf("Gövde öne eğik", "Kollar yana genişçe açılmalı", "Kürek kemikleri sıkıştırılmalı"),
                 commonMistakes = listOf("Momentum kullanmak", "Dirsekleri aşırı bükmek", "Sırt pozisyonunu bozmak")
-            )
-            CROSSBODY_MOUNTAIN_CLIMBER -> ExerciseMetadata(
-                description = "Gövde stabilitesini ve oblikleri (yan karın) hedefleyen dinamik hareket.",
-                preferredAngle = CameraAngle.SIDE,
-                correctFormRules = listOf("Eller omuz hizasında", "Vücut dümdüz bir tahta gibi", "Dizler çapraz dirseğe çekilmeli"),
-                commonMistakes = listOf("Kalçayı yukarı kaldırmak", "Belin aşağı çökmesi", "Hızlı ve kontrolsüz hareket")
             )
             RUSSIAN_TWIST -> ExerciseMetadata(
                 description = "Gövde rotasyonu ile oblikleri çalıştıran etkili core hareketi.",

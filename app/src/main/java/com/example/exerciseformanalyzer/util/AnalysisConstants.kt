@@ -84,10 +84,10 @@ object AnalysisConstants {
 
     /** Sit-up'ın "yukarı" fazında gövde-bacak açısının maksimum değeri (derece)
      *  Tam oturma pozisyonunda bu açı ~45-60° olur */
-    const val SIT_UP_TOP_ANGLE_MAX = 80f
+    const val SIT_UP_TOP_ANGLE_MAX = 50f
 
     /** Sit-up'ın "aşağı" fazında gövde-bacak açısının minimum değeri (derece) */
-    const val SIT_UP_BOTTOM_ANGLE_MIN = 130f
+    const val SIT_UP_BOTTOM_ANGLE_MIN = 75f
 
     // ─── Dumbbell Row Eşikleri ───────────────────────────────────────────────
 

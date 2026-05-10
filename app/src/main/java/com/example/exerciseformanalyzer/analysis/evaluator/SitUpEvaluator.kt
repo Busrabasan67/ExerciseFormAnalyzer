@@ -22,7 +22,8 @@ class SitUpEvaluator : ExerciseEvaluator {
     override val exerciseType = ExerciseType.SIT_UP
 
     private var repState = RepetitionState()
-    private var smoothedHipAngle: Float? = null
+    private var smoothedTorsoAngle: Float? = null
+    private var isCurrentRepValid = true
 
     override fun evaluate(
         frame: PoseFrame,
@@ -33,23 +34,23 @@ class SitUpEvaluator : ExerciseEvaluator {
             return poorTrackingFeedback()
         }
 
-        // Sol veya sağ kalça açısını kullan
-        val rawHipAngle = angles.leftHipAngle ?: angles.rightHipAngle
-            ?: return poorTrackingFeedback()
+        // Kalça açısı yerine gövde eğimini (torso inclination) kullanmak mekik için çok daha stabildir
+        // Çünkü dizlerin bükülme açısına bağlı değildir. Sadece sırtın yerden ne kadar kalktığını ölçer.
+        val rawTorsoAngle = angles.torsoInclination ?: return poorTrackingFeedback()
 
-        smoothedHipAngle = smoothedHipAngle?.let {
-            AngleUtils.smoothAngle(rawHipAngle, it, AnalysisConstants.ANGLE_SMOOTHING_ALPHA)
-        } ?: rawHipAngle
+        smoothedTorsoAngle = smoothedTorsoAngle?.let {
+            AngleUtils.smoothAngle(rawTorsoAngle, it, AnalysisConstants.ANGLE_SMOOTHING_ALPHA)
+        } ?: rawTorsoAngle
 
-        val hipAngle = smoothedHipAngle!!
-        updateFSM(hipAngle, frame.timestampMs)
+        val torsoAngle = smoothedTorsoAngle!!
+        updateFSM(torsoAngle, frame.timestampMs)
 
         val errors = mutableListOf<String>()
         var score = 100
 
         // 1. Hareket tamamlanma kontrolü
         if (repState.phase == RepetitionPhase.TOP) {
-            if (hipAngle > AnalysisConstants.SIT_UP_TOP_ANGLE_MAX + 20f) {
+            if (torsoAngle > AnalysisConstants.SIT_UP_TOP_ANGLE_MAX + 15f) {
                 errors.add("Hareketi tamamla")
                 score -= AnalysisConstants.SCORE_PENALTY_DEPTH
             }
@@ -65,6 +66,11 @@ class SitUpEvaluator : ExerciseEvaluator {
         val primaryError = errors.firstOrNull()
         val isCorrect = errors.isEmpty()
 
+        // Eğer hareket sırasında form bozulduysa tekrarı geçersiz say
+        if (!isCorrect && repState.phase != RepetitionPhase.IDLE && repState.phase != RepetitionPhase.BOTTOM) {
+            isCurrentRepValid = false
+        }
+
         return FormFeedback(
             isCorrect = isCorrect,
             score = score.coerceAtLeast(0),
@@ -75,32 +81,39 @@ class SitUpEvaluator : ExerciseEvaluator {
         )
     }
 
-    private fun updateFSM(hipAngle: Float, currentTimeMs: Long) {
+    private fun updateFSM(torsoAngle: Float, currentTimeMs: Long) {
         if (currentTimeMs - repState.lastPhaseChangeMs < AnalysisConstants.MIN_PHASE_DURATION_MS) return
 
         val newPhase = when (repState.phase) {
             RepetitionPhase.IDLE, RepetitionPhase.BOTTOM -> {
-                if (hipAngle < AnalysisConstants.SIT_UP_BOTTOM_ANGLE_MIN - 20f)
+                // Yerde yatarken açı 90'a yakındır. Kalkmaya başlarsa açı küçülür.
+                if (torsoAngle < AnalysisConstants.SIT_UP_BOTTOM_ANGLE_MIN - 10f) {
+                    isCurrentRepValid = true
                     RepetitionPhase.GOING_UP
-                else repState.phase
+                } else repState.phase
             }
             RepetitionPhase.GOING_UP -> {
-                if (hipAngle <= AnalysisConstants.SIT_UP_TOP_ANGLE_MAX)
+                // Açı küçülerek hedefe ulaştığında TOP olur (Sırt yerden kalktı)
+                if (torsoAngle <= AnalysisConstants.SIT_UP_TOP_ANGLE_MAX)
                     RepetitionPhase.TOP
                 else repState.phase
             }
             RepetitionPhase.TOP -> {
-                if (hipAngle > AnalysisConstants.SIT_UP_TOP_ANGLE_MAX + 20f)
+                // Açı tekrar büyümeye başladığında (Geri yatarken)
+                if (torsoAngle > AnalysisConstants.SIT_UP_TOP_ANGLE_MAX + 10f)
                     RepetitionPhase.GOING_DOWN
                 else repState.phase
             }
             RepetitionPhase.GOING_DOWN -> {
-                if (hipAngle >= AnalysisConstants.SIT_UP_BOTTOM_ANGLE_MIN) {
+                // Açı başlangıç değerine (yatay konuma) ulaştığında sayacı artır
+                if (torsoAngle >= AnalysisConstants.SIT_UP_BOTTOM_ANGLE_MIN) {
+                    val newCount = if (isCurrentRepValid) repState.count + 1 else repState.count
                     repState = RepetitionState(
-                        count = repState.count + 1,
+                        count = newCount,
                         phase = RepetitionPhase.BOTTOM,
                         lastPhaseChangeMs = currentTimeMs
                     )
+                    isCurrentRepValid = true
                     return
                 } else repState.phase
             }
@@ -147,6 +160,7 @@ class SitUpEvaluator : ExerciseEvaluator {
 
     override fun reset() {
         repState = RepetitionState()
-        smoothedHipAngle = null
+        smoothedTorsoAngle = null
+        isCurrentRepValid = true
     }
 }

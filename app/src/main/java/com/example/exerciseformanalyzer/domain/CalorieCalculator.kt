@@ -44,7 +44,6 @@ object CalorieCalculator {
             ExerciseType.SQUAT            -> 5.0f
             ExerciseType.HALF_SQUAT       -> 3.5f
             ExerciseType.JUMP_SQUAT       -> 8.0f
-            ExerciseType.LUNGE            -> 4.0f
             ExerciseType.REVERSE_LUNGE    -> 4.0f
             ExerciseType.BULGARIAN_SPLIT_SQUAT -> 5.0f
             ExerciseType.CALF_RAISE       -> 2.5f
@@ -73,7 +72,6 @@ object CalorieCalculator {
             ExerciseType.TRICEPS_KICKBACK -> 3.0f
             ExerciseType.BENT_OVER_RAISE  -> 4.0f
             
-            ExerciseType.CROSSBODY_MOUNTAIN_CLIMBER -> 9.0f
             ExerciseType.HEEL_TAP         -> 3.0f
             ExerciseType.BICYCLE_CRUNCH   -> 5.0f
             ExerciseType.REVERSE_CRUNCH   -> 4.5f

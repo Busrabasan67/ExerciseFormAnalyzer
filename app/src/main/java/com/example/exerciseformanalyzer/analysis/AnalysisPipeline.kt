@@ -34,7 +34,6 @@ class AnalysisPipeline {
         ExerciseType.TRICEPS_KICKBACK to TricepsKickbackEvaluator(),
         ExerciseType.BENT_OVER_ROW to BentOverRowEvaluator(),
         ExerciseType.BENT_OVER_RAISE to BentOverRaiseEvaluator(),
-        ExerciseType.CROSSBODY_MOUNTAIN_CLIMBER to MountainClimberEvaluator(),
         ExerciseType.MOUNTAIN_CLIMBER to MountainClimberEvaluator(),
         ExerciseType.RUSSIAN_TWIST to RussianTwistEvaluator(),
         ExerciseType.HEEL_TAP to HeelTapEvaluator(),
@@ -159,7 +158,6 @@ class AnalysisPipeline {
         ExerciseType.SQUAT,
         ExerciseType.HALF_SQUAT,
         ExerciseType.JUMP_SQUAT,
-        ExerciseType.LUNGE,
         ExerciseType.REVERSE_LUNGE,
         ExerciseType.BULGARIAN_SPLIT_SQUAT,
         ExerciseType.CALF_RAISE,
@@ -170,8 +168,7 @@ class AnalysisPipeline {
         ExerciseType.PLANK,
         ExerciseType.BURPEE -> PoseLandmarkIndex.PUSH_UP_CRITICAL
 
-        ExerciseType.MOUNTAIN_CLIMBER,
-        ExerciseType.CROSSBODY_MOUNTAIN_CLIMBER -> PoseLandmarkIndex.MOUNTAIN_CLIMBER_CRITICAL
+        ExerciseType.MOUNTAIN_CLIMBER -> PoseLandmarkIndex.MOUNTAIN_CLIMBER_CRITICAL
 
         ExerciseType.SIT_UP,
         ExerciseType.CRUNCH,

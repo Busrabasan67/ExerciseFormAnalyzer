@@ -348,7 +348,16 @@ fun ExerciseAdvancedCard(
                         expanded = expandedEx,
                         onDismissRequest = { expandedEx = false }
                     ) {
-                        ExerciseType.values().filter { it != ExerciseType.UNKNOWN }.forEach { selectionOption ->
+                        val implementedExercises = listOf(
+                            ExerciseType.SQUAT, ExerciseType.PUSH_UP, ExerciseType.SIT_UP,
+                            ExerciseType.DUMBBELL_ROW, ExerciseType.BICEPS_CURL, ExerciseType.PLANK,
+                            ExerciseType.SHOULDER_PRESS, ExerciseType.LATERAL_RAISE, ExerciseType.HAMMER_CURL,
+                            ExerciseType.TRICEPS_EXTENSION, ExerciseType.TRICEPS_KICKBACK, ExerciseType.BENT_OVER_ROW,
+                            ExerciseType.BENT_OVER_RAISE, ExerciseType.MOUNTAIN_CLIMBER, ExerciseType.RUSSIAN_TWIST,
+                            ExerciseType.HEEL_TAP, ExerciseType.BICYCLE_CRUNCH, ExerciseType.REVERSE_CRUNCH,
+                            ExerciseType.STRAIGHT_LEG_CRUNCH
+                        )
+                        implementedExercises.forEach { selectionOption ->
                             DropdownMenuItem(
                                 text = { Text(selectionOption.displayName) },
                                 onClick = {

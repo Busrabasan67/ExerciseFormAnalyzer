@@ -537,14 +537,11 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
     if (showDialog) {
         // Enum isimleriyle birebir eşleşmeli (ExerciseType.name)
         val categories = listOf(
-            "SQUAT", "HALF_SQUAT", "JUMP_SQUAT",
-            "LUNGE", "REVERSE_LUNGE",
-            "PUSH_UP", "KNEE_PUSH_UP",
-            "PLANK", "MOUNTAIN_CLIMBER",
-            "SIT_UP", "CRUNCH", "BURPEE",
-            "BICEPS_CURL", "HAMMER_CURL",
-            "SHOULDER_PRESS", "LATERAL_RAISE",
-            "SQUAT_ALL", // Tüm squat varyantları
+            "SQUAT", "PUSH_UP", "SIT_UP", "DUMBBELL_ROW", 
+            "BICEPS_CURL", "PLANK", "SHOULDER_PRESS", "LATERAL_RAISE", 
+            "HAMMER_CURL", "TRICEPS_EXTENSION", "TRICEPS_KICKBACK", "BENT_OVER_ROW", 
+            "BENT_OVER_RAISE", "MOUNTAIN_CLIMBER", "RUSSIAN_TWIST", "HEEL_TAP", 
+            "BICYCLE_CRUNCH", "REVERSE_CRUNCH", "STRAIGHT_LEG_CRUNCH",
             "CALORIES",  // Yakılan kalori bazlı
             "XP"         // Kazanılan XP bazlı
         )

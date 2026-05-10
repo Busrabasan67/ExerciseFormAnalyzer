@@ -97,6 +97,8 @@
     <string name="ex_bicycle_crunch">Bicycle Crunch</string>
     <string name="ex_reverse_crunch">Reverse Crunch</string>
     <string name="ex_leg_extension_ab">Leg Extension (Karın)</string>
+    <string name="ex_sit_up">Mekik (Sit-up)</string>
+    <string name="ex_dumbbell_row">Dumbbell Row</string>
     <string name="ex_straight_leg_crunch">Straight Leg Crunch</string>
 
     <!-- Workout Feedback -->

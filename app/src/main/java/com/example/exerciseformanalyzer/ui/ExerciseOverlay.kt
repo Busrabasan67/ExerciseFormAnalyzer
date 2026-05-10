@@ -281,6 +281,7 @@ private fun AnalyzingOverlay(
             onPauseToggle = onPauseToggle,
             onManualRest = onManualRest,
             onEndWorkout = onEndWorkout,
+            activeProfile = result.activeProfile,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(12.dp)
@@ -357,6 +358,7 @@ private fun TopInfoPanel(
     onPauseToggle: () -> Unit,
     onManualRest: () -> Unit,
     onEndWorkout: () -> Unit,
+    activeProfile: BodyProfile,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -420,6 +422,16 @@ private fun TopInfoPanel(
         if (!isInFrame && trackingQuality != TrackingQuality.LOST) {
             Spacer(Modifier.height(4.dp))
             InfoBadge(text = "⚠️ Kadraj dışına çıkıyorsunuz", color = ColorWarning)
+        }
+
+        // Yanlış duruş açısı uyarısı (Örn: Yan durulması gereken yerde önden durulması)
+        val metadata = exerciseType.getMetadata()
+        if (metadata.preferredAngle == CameraAngle.SIDE && activeProfile == BodyProfile.FRONTAL && trackingQuality != TrackingQuality.LOST) {
+            Spacer(Modifier.height(4.dp))
+            InfoBadge(text = "🔄 Yan Dönün (Side Profile)", color = ColorWarning)
+        } else if (metadata.preferredAngle == CameraAngle.FRONT && activeProfile != BodyProfile.FRONTAL && trackingQuality != TrackingQuality.LOST) {
+            Spacer(Modifier.height(4.dp))
+            InfoBadge(text = "🔄 Kameraya Dönün (Front Profile)", color = ColorWarning)
         }
     }
 }

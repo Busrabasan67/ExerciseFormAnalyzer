@@ -3,8 +3,9 @@ package com.example.exerciseformanalyzer.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,7 +30,8 @@ fun ExerciseSelectionScreen(
     val exercises: List<Pair<ExerciseType, Int>> = listOf(
         Pair(ExerciseType.SQUAT, R.string.ex_squat),
         Pair(ExerciseType.PUSH_UP, R.string.ex_pushup),
-        Pair(ExerciseType.LUNGE, R.string.ex_lunge),
+        Pair(ExerciseType.SIT_UP, R.string.ex_sit_up),
+        Pair(ExerciseType.DUMBBELL_ROW, R.string.ex_dumbbell_row),
         Pair(ExerciseType.BICEPS_CURL, R.string.ex_biceps_curl),
         Pair(ExerciseType.SHOULDER_PRESS, R.string.ex_shoulder_press),
         Pair(ExerciseType.PLANK, R.string.ex_plank),
@@ -40,7 +42,6 @@ fun ExerciseSelectionScreen(
         Pair(ExerciseType.BENT_OVER_ROW, R.string.ex_bent_over_row),
         Pair(ExerciseType.BENT_OVER_RAISE, R.string.ex_bent_over_raise),
         Pair(ExerciseType.MOUNTAIN_CLIMBER, R.string.ex_mountain_climber),
-        Pair(ExerciseType.CROSSBODY_MOUNTAIN_CLIMBER, R.string.ex_crossbody_mountain_climber),
         Pair(ExerciseType.RUSSIAN_TWIST, R.string.ex_russian_twist),
         Pair(ExerciseType.HEEL_TAP, R.string.ex_heel_tap),
         Pair(ExerciseType.BICYCLE_CRUNCH, R.string.ex_bicycle_crunch),
@@ -54,7 +55,7 @@ fun ExerciseSelectionScreen(
                 title = { Text(stringResource(R.string.select_exercise_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.back_button))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back_button))
                     }
                 }
             )
@@ -78,6 +79,7 @@ fun ExerciseSelectionScreen(
             items(exercises) { (type, nameRes) ->
                 ExerciseOptionCard(
                     name = stringResource(nameRes),
+                    type = type,
                     onClick = { onExerciseSelected(type) }
                 )
             }
@@ -98,7 +100,8 @@ fun ExerciseSelectionScreen(
 }
 
 @Composable
-private fun ExerciseOptionCard(name: String, onClick: () -> Unit) {
+private fun ExerciseOptionCard(name: String, type: ExerciseType, onClick: () -> Unit) {
+    val preferredAngle = type.getMetadata().preferredAngle
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
@@ -108,19 +111,36 @@ private fun ExerciseOptionCard(name: String, onClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(
-                imageVector = Icons.Filled.FitnessCenter,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                text = name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.FitnessCenter,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            if (preferredAngle == com.example.exerciseformanalyzer.model.CameraAngle.SIDE) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = "Yan Duruş",
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
         }
     }
 }
