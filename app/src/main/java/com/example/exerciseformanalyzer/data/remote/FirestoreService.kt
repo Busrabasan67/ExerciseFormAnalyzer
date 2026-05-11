@@ -1060,7 +1060,7 @@ class FirestoreService {
         val member = com.example.exerciseformanalyzer.model.firestore.FirestoreGroupMember(
             groupId = groupId,
             userId = userId,
-            userName = userProfile?.fullName ?: "Bilinmeyen",
+            userName = userProfile?.fullName.orEmpty(),
             userEmail = userProfile?.email ?: "",
             role = role,
             joinedAt = System.currentTimeMillis(),

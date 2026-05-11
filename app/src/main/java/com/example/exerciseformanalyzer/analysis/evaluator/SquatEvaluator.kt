@@ -4,6 +4,8 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Squat form değerlendirme ve tekrar sayacı.
@@ -26,7 +28,7 @@ import kotlin.math.abs
  *   2. Gövde eğimi (aşırı öne yatma) — görünüme göre uyarlanır
  *   3. Diz valgus (dizlerin içeri kapanması) — yalnızca önden görünümde
  */
-class SquatEvaluator : ExerciseEvaluator {
+class SquatEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.SQUAT
 
@@ -71,7 +73,7 @@ class SquatEvaluator : ExerciseEvaluator {
         // 1. Derinlik kontrolü (sadece BOTTOM veya GOING_UP fazında)
         if (repState.phase == RepetitionPhase.BOTTOM || repState.phase == RepetitionPhase.GOING_UP) {
             if (!didReachDepth) {
-                errors.add("Daha aşağı in")
+                errors.add(stringProvider.getString(R.string.err_go_lower))
                 score -= AnalysisConstants.SCORE_PENALTY_DEPTH
             }
         }
@@ -86,7 +88,7 @@ class SquatEvaluator : ExerciseEvaluator {
         if (isFrontal) {
             val kneeValgus = detectKneeValgus(frame)
             if (kneeValgus) {
-                errors.add("Dizlerini dışarı doğru yönlendir")
+                errors.add(stringProvider.getString(R.string.err_knees_out))
                 score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
             }
         }
@@ -174,7 +176,7 @@ class SquatEvaluator : ExerciseEvaluator {
         } else {
             AnalysisConstants.SQUAT_MAX_TORSO_LEAN
         }
-        return if (torso > threshold) "Göğsünü daha dik tut" else null
+        return if (torso > threshold) stringProvider.getString(R.string.err_chest_up) else null
     }
 
     private fun updateFSM(kneeAngle: Float, currentTimeMs: Long) {
@@ -243,12 +245,12 @@ class SquatEvaluator : ExerciseEvaluator {
     private fun buildMessage(isCorrect: Boolean, primaryError: String?, phase: RepetitionPhase): String {
         if (!isCorrect && primaryError != null) return primaryError
         return when (phase) {
-            RepetitionPhase.IDLE -> "Squat yapmaya başlayın"
-            RepetitionPhase.TOP -> "Hazır pozisyon"
-            RepetitionPhase.GOING_DOWN -> "İniyorsunuz..."
-            RepetitionPhase.BOTTOM -> "Çok iyi! Çıkın"
-            RepetitionPhase.GOING_UP -> "Harika form!"
-            RepetitionPhase.RAISED -> "Yukarıdasınız"
+            RepetitionPhase.IDLE -> stringProvider.getString(R.string.msg_start_squat)
+            RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_ready_position)
+            RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_going_down_you)
+            RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_very_good_up)
+            RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_great_form)
+            RepetitionPhase.RAISED -> stringProvider.getString(R.string.msg_you_are_up)
         }
     }
 
@@ -256,7 +258,7 @@ class SquatEvaluator : ExerciseEvaluator {
         isCorrect = false,
         score = 0,
         primaryError = null,
-        feedbackMessage = "Takip zayıf — kameraya tam görünün",
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking_camera),
         confidence = 0.2f
     )
 

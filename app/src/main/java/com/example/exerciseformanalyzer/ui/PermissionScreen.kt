@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,7 +43,7 @@ fun PermissionScreen(onRequestPermission: () -> Unit) {
             )
             Spacer(Modifier.height(24.dp))
             Text(
-                text = "Egzersiz Form Analizörü",
+                text = stringResource(R.string.ui_app_name),
                 color = Color.White,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
@@ -49,7 +51,7 @@ fun PermissionScreen(onRequestPermission: () -> Unit) {
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "Gerçek zamanlı egzersiz formu analizi için kamera erişimine ihtiyaç var.",
+                text = stringResource(R.string.ui_camera_permission_desc),
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 15.sp,
                 textAlign = TextAlign.Center,
@@ -65,7 +67,7 @@ fun PermissionScreen(onRequestPermission: () -> Unit) {
                     .height(52.dp)
             ) {
                 Text(
-                    text = "Kamera İzni Ver",
+                    text = stringResource(R.string.ui_grant_camera_permission),
                     color = Color.Black,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp

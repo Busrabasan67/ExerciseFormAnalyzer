@@ -65,7 +65,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     private var correctAnalysisSamples = 0
     private val errorFrequency = mutableMapOf<String, Int>()
 
-    private val analysisPipeline = AnalysisPipeline()
+    private val analysisPipeline = AnalysisPipeline(com.example.exerciseformanalyzer.util.AndroidStringProvider(application))
     private var poseLandmarkerHelper: PoseLandmarkerHelper? = null
 
     private var textToSpeech: TextToSpeech? = null
@@ -465,11 +465,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         }
 
         if (currentTime - lastSpeechTime > motivationCooldown) {
-            val phrases = if (currentLanguage == "tr") {
-                listOf("Harika gidiyorsun!", "Böyle devam et!", "Zorlukları aşacaksın!", "Çok iyi form!", "Sıradaki tekrara odaklan!")
-            } else {
-                listOf("Keep going!", "Looking great!", "Excellent form!", "Stay focused!", "You can do this!")
-            }
+            val phrases = getApplication<Application>().resources.getStringArray(R.array.motivational_phrases)
             speak(phrases.random())
         }
     }

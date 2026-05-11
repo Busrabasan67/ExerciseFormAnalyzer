@@ -14,6 +14,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,25 +54,25 @@ fun GoogleRoleSelectionScreen(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = "Google hesabiniz icin rol secin",
+                    text = stringResource(R.string.ui_select_role_google),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Bu secim profilinizi olusturmak icin gereklidir.",
+                    text = stringResource(R.string.ui_role_selection_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(20.dp))
 
                 RoleOption(
-                    label = "Hasta",
+                    label = stringResource(R.string.role_patient),
                     selected = selectedRole == "PATIENT",
                     onClick = { selectedRole = "PATIENT" }
                 )
                 RoleOption(
-                    label = "Uzman / Doktor",
+                    label = stringResource(R.string.role_expert),
                     selected = selectedRole == "EXPERT",
                     onClick = { selectedRole = "EXPERT" }
                 )
@@ -92,7 +94,7 @@ fun GoogleRoleSelectionScreen(
                     if (uiState is AuthUiState.Loading) {
                         CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
                     } else {
-                        Text("Devam Et")
+                        Text(stringResource(R.string.ui_continue))
                     }
                 }
             }

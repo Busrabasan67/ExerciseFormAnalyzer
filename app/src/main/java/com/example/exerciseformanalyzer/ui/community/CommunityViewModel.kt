@@ -1,9 +1,11 @@
 package com.example.exerciseformanalyzer.ui.community
 
 import android.app.Application
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
+import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.data.repository.CommunityRepository
 import com.example.exerciseformanalyzer.model.firestore.FsGroup
 import com.example.exerciseformanalyzer.model.firestore.FsGroupInvite
@@ -56,6 +58,7 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
 
     val currentUid: String get() = authRepo.currentUid ?: ""
     private fun currentEmail(): String = authRepo.currentUserEmail ?: ""
+    private fun s(@StringRes resId: Int, vararg args: Any): String = app.getString(resId, *args)
 
     // ── Olay akışı ────────────────────────────────────────────────────────────
     private val _event = MutableStateFlow<CommunityEvent>(CommunityEvent.Idle)
@@ -193,15 +196,15 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun createGroup(name: String, description: String, isPrivate: Boolean, imageBytes: ByteArray? = null) {
         val uid = currentUid
-        if (uid.isEmpty()) { _event.value = CommunityEvent.Error("Giriş yapmanız gerekiyor."); return }
-        if (name.isBlank()) { _event.value = CommunityEvent.Error("Grup adı boş olamaz."); return }
+        if (uid.isEmpty()) { _event.value = CommunityEvent.Error(s(R.string.ui_login_required)); return }
+        if (name.isBlank()) { _event.value = CommunityEvent.Error(s(R.string.ui_err_group_name_empty)); return }
 
         _event.value = CommunityEvent.Loading
         viewModelScope.launch {
             try {
                 // Kullanıcı profilini al
                 val profile = app.firestoreService.getUserProfile(uid)
-                val creatorName = profile?.fullName ?: "Kullanıcı"
+                val creatorName = profile?.fullName.orEmpty()
                 val creatorEmail = profile?.email ?: currentEmail()
 
                 communityRepo.createGroup(
@@ -230,10 +233,10 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                     }
                     loadAll()
                 }.onFailure {
-                    _event.value = CommunityEvent.Error("Grup oluşturulamadı: ${it.message}")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_group_create_failed, s(R.string.unknown_error)))
                 }
             } catch (e: Exception) {
-                _event.value = CommunityEvent.Error("Grup oluşturulamadı: ${e.message}")
+                _event.value = CommunityEvent.Error(s(R.string.ui_group_create_failed, s(R.string.unknown_error)))
             }
         }
     }
@@ -252,16 +255,16 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                 communityRepo.joinPublicGroup(
                     group = group,
                     userId = uid,
-                    userName = profile?.fullName ?: "Kullanıcı",
+                    userName = profile?.fullName.orEmpty(),
                     userEmail = profile?.email ?: currentEmail()
                 ).onSuccess {
-                    _event.value = CommunityEvent.Success("Topluluğa katıldınız.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_joined_community))
                     loadAll()
                 }.onFailure {
-                    _event.value = CommunityEvent.Error("Katılım başarısız: ${it.message}")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_join_failed, s(R.string.unknown_error)))
                 }
             } catch (e: Exception) {
-                _event.value = CommunityEvent.Error("Katılım başarısız: ${e.message}")
+                _event.value = CommunityEvent.Error(s(R.string.ui_join_failed, s(R.string.unknown_error)))
             }
         }
     }
@@ -281,17 +284,17 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                     groupId = group.groupId,
                     groupName = group.name,
                     fromUserId = uid,
-                    fromUserName = profile?.fullName ?: "Kullanıcı",
+                    fromUserName = profile?.fullName.orEmpty(),
                     fromUserEmail = profile?.email ?: currentEmail(),
                     toAdminId = group.creatorId
                 ).onSuccess {
-                    _event.value = CommunityEvent.Success("Katılma isteği gönderildi.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_join_request_sent))
                     loadExplore()
                 }.onFailure {
-                    _event.value = CommunityEvent.Error(it.message ?: "İstek gönderilemedi.")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_request_send_failed, s(R.string.unknown_error)))
                 }
             } catch (e: Exception) {
-                _event.value = CommunityEvent.Error("İstek gönderilemedi: ${e.message}")
+                _event.value = CommunityEvent.Error(s(R.string.ui_request_send_failed, s(R.string.unknown_error)))
             }
         }
     }
@@ -302,12 +305,12 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             communityRepo.acceptJoinRequest(request)
                 .onSuccess {
-                    _event.value = CommunityEvent.Success("${request.fromUserName} gruba eklendi.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_user_added_to_group, request.fromUserName.ifBlank { s(R.string.ui_unknown_user) }))
                     loadIncomingJoinRequests()
                     loadGroupMembers(request.groupId)
                 }
                 .onFailure {
-                    _event.value = CommunityEvent.Error("Kabul edilemedi: ${it.message}")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_accept_failed, s(R.string.unknown_error)))
                 }
         }
     }
@@ -316,11 +319,11 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             communityRepo.rejectJoinRequest(request.groupId, request.fromUserId)
                 .onSuccess {
-                    _event.value = CommunityEvent.Success("İstek reddedildi.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_request_rejected))
                     loadIncomingJoinRequests()
                 }
                 .onFailure {
-                    _event.value = CommunityEvent.Error("Reddedilemedi: ${it.message}")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_reject_failed, s(R.string.unknown_error)))
                 }
         }
     }
@@ -357,16 +360,16 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                     groupId = group.groupId,
                     groupName = group.name,
                     fromUserId = uid,
-                    fromUserName = profile?.fullName ?: "Yönetici",
+                    fromUserName = profile?.fullName.orEmpty(),
                     toUser = targetUser
                 ).onSuccess {
-                    _event.value = CommunityEvent.Success("${targetUser.fullName} davet edildi.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_user_invited, targetUser.fullName.ifBlank { s(R.string.ui_unknown_user) }))
                     clearSearch()
                 }.onFailure {
-                    _event.value = CommunityEvent.Error(it.message ?: "Davet gönderilemedi.")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_invite_send_failed, s(R.string.unknown_error)))
                 }
             } catch (e: Exception) {
-                _event.value = CommunityEvent.Error("Davet gönderilemedi: ${e.message}")
+                _event.value = CommunityEvent.Error(s(R.string.ui_invite_send_failed, s(R.string.unknown_error)))
             }
         }
     }
@@ -377,12 +380,12 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             communityRepo.acceptGroupInvite(invite)
                 .onSuccess {
-                    _event.value = CommunityEvent.Success("${invite.groupName} grubuna katıldınız.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_joined_group, invite.groupName))
                     loadMyInvites()
                     loadMyGroups()
                 }
                 .onFailure {
-                    _event.value = CommunityEvent.Error("Kabul edilemedi: ${it.message}")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_accept_failed, s(R.string.unknown_error)))
                 }
         }
     }
@@ -391,11 +394,11 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             communityRepo.rejectGroupInvite(invite.groupId, invite.toUserId)
                 .onSuccess {
-                    _event.value = CommunityEvent.Success("Davet reddedildi.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_invite_rejected))
                     loadMyInvites()
                 }
                 .onFailure {
-                    _event.value = CommunityEvent.Error("Reddedilemedi: ${it.message}")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_reject_failed, s(R.string.unknown_error)))
                 }
         }
     }
@@ -463,7 +466,7 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 _groupMembers.value = communityRepo.getGroupMembers(groupId)
             } catch (e: Exception) {
-                _event.value = CommunityEvent.Error("Üyeler yüklenemedi.")
+                _event.value = CommunityEvent.Error(s(R.string.ui_members_load_failed))
             }
         }
     }
@@ -473,9 +476,9 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 communityRepo.removeMember(groupId, userId)
                 loadGroupMembers(groupId)
-                _event.value = CommunityEvent.Success("Üye gruptan çıkarıldı.")
+                _event.value = CommunityEvent.Success(s(R.string.ui_member_removed_from_group))
             } catch (e: Exception) {
-                _event.value = CommunityEvent.Error("Üye çıkarılamadı: ${e.message}")
+                _event.value = CommunityEvent.Error(s(R.string.ui_remove_member_failed_err, s(R.string.unknown_error)))
             }
         }
     }
@@ -494,10 +497,10 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                     _groupMessages.value = emptyList()
                     _groupPrograms.value = emptyList()
                     loadAll()
-                    _event.value = CommunityEvent.Success("Gruptan çıkıldı.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_left_group))
                 }
                 .onFailure {
-                    _event.value = CommunityEvent.Error(it.message ?: "Gruptan çıkılamadı.")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_leave_failed))
                 }
         }
     }
@@ -516,10 +519,10 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                     _groupMessages.value = emptyList()
                     _groupPrograms.value = emptyList()
                     loadAll()
-                    _event.value = CommunityEvent.Success("Grup kapatıldı.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_group_closed))
                 }
                 .onFailure {
-                    _event.value = CommunityEvent.Error(it.message ?: "Grup kapatılamadı.")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_group_close_failed))
                 }
         }
     }
@@ -554,12 +557,12 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                             creatorName = newAdmin?.userName.orEmpty()
                         )
                     }
-                    _event.value = CommunityEvent.Success("Rol güncellendi.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_role_updated))
                     loadGroupMembers(groupId)
                     loadMyGroups()
                 }
                 .onFailure {
-                    _event.value = CommunityEvent.Error(it.message ?: "Rol güncellenemedi.")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_role_update_failed))
                 }
         }
     }
@@ -587,10 +590,10 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                     }
                     loadMyGroups()
                     loadExplore()
-                    _event.value = CommunityEvent.Success("Grup gizliliği güncellendi.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_group_privacy_updated))
                 }
                 .onFailure {
-                    _event.value = CommunityEvent.Error(it.message ?: "Grup gizliliği güncellenemedi.")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_group_privacy_update_failed))
                 }
         }
     }
@@ -604,10 +607,10 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
             communityRepo.sendTextMessage(
                 groupId = group.groupId,
                 senderId = uid,
-                senderName = profile?.fullName ?: "Kullanıcı",
+                senderName = profile?.fullName.orEmpty(),
                 text = text
             ).onFailure {
-                _event.value = CommunityEvent.Error(it.message ?: "Mesaj gönderilemedi.")
+                _event.value = CommunityEvent.Error(s(R.string.ui_message_send_failed))
             }
         }
     }
@@ -631,7 +634,7 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                     messageId = msgId,
                     groupId = group.groupId,
                     senderId = uid,
-                    senderName = profile?.fullName ?: "Kullanıcı",
+                    senderName = profile?.fullName.orEmpty(),
                     type = "image",
                     imageUrl = url,
                     createdAt = System.currentTimeMillis()
@@ -640,7 +643,7 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                 app.communityFirestoreService.sendTextMessage(message) // Reuse service method as it takes FsGroupMessage
                 _event.value = CommunityEvent.Idle
             } catch (e: Exception) {
-                _event.value = CommunityEvent.Error("Resim gönderilemedi: ${e.message}")
+                _event.value = CommunityEvent.Error(s(R.string.ui_image_send_failed, s(R.string.unknown_error)))
             }
         }
     }
@@ -679,7 +682,7 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
             communityRepo.shareProgram(
                 group = group,
                 createdById = uid,
-                createdByName = profile?.fullName ?: "Kullanıcı",
+                createdByName = profile?.fullName.orEmpty(),
                 title = title,
                 note = note,
                 exercises = fsExercises,
@@ -688,9 +691,9 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                 autoRepeat = autoRepeat,
                 repeatDurationWeeks = repeatWeeks
             ).onSuccess {
-                _event.value = CommunityEvent.Success("Program sohbette paylaşıldı.")
+                _event.value = CommunityEvent.Success(s(R.string.ui_program_shared_to_chat))
             }.onFailure {
-                _event.value = CommunityEvent.Error(it.message ?: "Program paylaşılamadı.")
+                _event.value = CommunityEvent.Error(s(R.string.ui_program_share_failed))
             }
         }
     }
@@ -701,7 +704,7 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         if (uid.isEmpty()) return
         viewModelScope.launch {
             communityRepo.deleteMessage(group.groupId, uid, message)
-                .onFailure { _event.value = CommunityEvent.Error(it.message ?: "Mesaj silinemedi.") }
+                .onFailure { _event.value = CommunityEvent.Error(s(R.string.ui_message_delete_failed)) }
         }
     }
 
@@ -712,10 +715,10 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
             communityRepo.applyProgramToUser(program, uid)
                 .onSuccess {
                     planRepo.syncTasksForPatient(uid)
-                    _event.value = CommunityEvent.Success("Program genel bakışınıza eklendi.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_program_added_to_overview))
                 }
                 .onFailure {
-                    _event.value = CommunityEvent.Error(it.message ?: "Program uygulanamadı.")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_program_apply_failed))
                 }
         }
     }
@@ -738,15 +741,15 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                 
                 communityRepo.updateGroupSettings(groupId, uid, mapOf("coverImageUrl" to url))
                     .onSuccess {
-                        _event.value = CommunityEvent.Success("Kapak fotoğrafı güncellendi.")
+                        _event.value = CommunityEvent.Success(s(R.string.ui_cover_photo_updated))
                         loadMyGroups()
                         _selectedGroup.value = _selectedGroup.value?.copy(coverImageUrl = url)
                     }
                     .onFailure {
-                        _event.value = CommunityEvent.Error(it.message ?: "Hata oluştu.")
+                        _event.value = CommunityEvent.Error(s(R.string.ui_error_occurred))
                     }
             } catch (e: Exception) {
-                _event.value = CommunityEvent.Error("Yükleme başarısız: ${e.message}")
+                _event.value = CommunityEvent.Error(s(R.string.ui_upload_failed_with_message, s(R.string.unknown_error)))
             }
         }
     }
@@ -757,11 +760,11 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             communityRepo.updateGroupMemberUploadPermission(groupId, uid, allowed)
                 .onSuccess {
-                    _event.value = CommunityEvent.Success("İzinler güncellendi.")
+                    _event.value = CommunityEvent.Success(s(R.string.ui_permissions_updated))
                     _selectedGroup.value = _selectedGroup.value?.copy(allowMemberPhotoUpload = allowed)
                 }
                 .onFailure {
-                    _event.value = CommunityEvent.Error(it.message ?: "Hata oluştu.")
+                    _event.value = CommunityEvent.Error(s(R.string.ui_error_occurred))
                 }
         }
     }

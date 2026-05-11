@@ -134,7 +134,7 @@ private fun ExerciseOptionCard(name: String, type: ExerciseType, onClick: () -> 
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
-                        text = "Yan Duruş",
+                        text = stringResource(R.string.ui_side_profile),
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer

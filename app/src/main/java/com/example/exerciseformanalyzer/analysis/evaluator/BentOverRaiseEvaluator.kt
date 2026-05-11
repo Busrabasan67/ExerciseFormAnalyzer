@@ -4,11 +4,13 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Bent Over Raise (Rear Delt Fly) form değerlendirici.
  */
-class BentOverRaiseEvaluator : ExerciseEvaluator {
+class BentOverRaiseEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.BENT_OVER_RAISE
 
@@ -33,7 +35,7 @@ class BentOverRaiseEvaluator : ExerciseEvaluator {
 
         // 1. Sırt Bozuluyor mu? (Pozisyonunu koruyor mu?)
         if (torso < 35f || torso > 70f) {
-            errors.add("Pozisyonunu koru")
+            errors.add(stringProvider.getString(R.string.msg_hold_position))
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
         }
 
@@ -44,7 +46,7 @@ class BentOverRaiseEvaluator : ExerciseEvaluator {
         // 3. Omuz yerine kol kullanımı (Dirsek açısı çok bükülü mü?)
         val elbowAngle = AngleUtils.dominantElbowAngle(angles, frame)
         if (elbowAngle != null && elbowAngle < 130f) {
-            errors.add("Omuzdan aç, dirseklerini çok bükme")
+            errors.add(stringProvider.getString(R.string.err_open_from_shoulder))
             score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
         }
 
@@ -56,7 +58,7 @@ class BentOverRaiseEvaluator : ExerciseEvaluator {
             score = score.coerceAtLeast(0),
             primaryError = primaryError,
             secondaryErrors = if (errors.size > 1) errors.drop(1) else emptyList(),
-            feedbackMessage = if (isCorrect) buildPhaseMessage(repState.phase) else primaryError ?: "Formu düzeltin",
+            feedbackMessage = if (isCorrect) buildPhaseMessage(repState.phase) else primaryError ?: stringProvider.getString(R.string.err_fix_form),
             confidence = 0.85f
         )
     }
@@ -91,17 +93,17 @@ class BentOverRaiseEvaluator : ExerciseEvaluator {
     }
 
     private fun buildPhaseMessage(phase: RepetitionPhase) = when (phase) {
-        RepetitionPhase.IDLE -> "Bent Over Raise için hazır"
-        RepetitionPhase.BOTTOM -> "Yana aç"
-        RepetitionPhase.GOING_UP -> "Açılıyor..."
-        RepetitionPhase.TOP -> "Kürek kemiklerini sık"
-        RepetitionPhase.GOING_DOWN -> "Yavaşça indir"
+        RepetitionPhase.IDLE -> stringProvider.getString(R.string.msg_ready_bent_raise)
+        RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_open_side)
+        RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_opening)
+        RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_squeeze_shoulder_blades)
+        RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_lower_slowly)
         else -> ""
     }
 
     private fun poorTrackingFeedback() = FormFeedback(
         isCorrect = false, score = 0, primaryError = null,
-        feedbackMessage = "Takip zayıf", confidence = 0.2f
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking), confidence = 0.2f
     )
 
     override fun getRepetitionState(): RepetitionState = repState

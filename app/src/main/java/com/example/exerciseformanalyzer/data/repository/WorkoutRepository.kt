@@ -97,7 +97,7 @@ class WorkoutRepository(
             userId = localUserId,
             userUid = userUid,
             exerciseId = exerciseId,
-            exerciseName = exerciseType.displayName,
+            exerciseName = exerciseType.takeUnless { it == ExerciseType.UNKNOWN }?.displayName.orEmpty(),
             score = score,
             reps = sessionNewReps,
             totalTimeSeconds = sessionNewDurationSec.toInt(),
@@ -237,7 +237,7 @@ class WorkoutRepository(
                 val firestoreReport = FirestoreWorkoutReport(
                     userId = userUid,
                     exerciseId = exerciseId.toString(),
-                    exerciseName = exerciseType.displayName,
+                    exerciseName = exerciseType.takeUnless { it == ExerciseType.UNKNOWN }?.displayName.orEmpty(),
                     score = score,
                     reps = sessionNewReps,
                     durationSeconds = sessionNewDurationSec.toInt(),
@@ -249,9 +249,11 @@ class WorkoutRepository(
                 // 6. Sosyal Akışa Aktivite Ekle (Faz 4)
                 val activity = com.example.exerciseformanalyzer.model.firestore.FirestoreActivity(
                     userId = userUid,
-                    userName = user?.fullName ?: "Kullanıcı",
+                    userName = user?.fullName.orEmpty(),
                     activityType = "WORKOUT",
-                    description = "${exerciseType.displayName} antrenmanını tamamladı!",
+                    description = exerciseType.takeUnless { it == ExerciseType.UNKNOWN }
+                        ?.let { "${it.displayName} antrenmanını tamamladı!" }
+                        .orEmpty(),
                     statistics = mapOf(
                         "calories" to "${calories.toInt()} kcal",
                         "duration" to "${sessionNewDurationSec / 60}:${sessionNewDurationSec % 60}",
@@ -414,4 +416,4 @@ class WorkoutRepository(
      * AI motoru açılırken egzersiz kurallarını getirmek için kullanılır.
      */
     override suspend fun getExerciseRules(exerciseId: Int) = exerciseDao.getExerciseById(exerciseId)
-}
+}

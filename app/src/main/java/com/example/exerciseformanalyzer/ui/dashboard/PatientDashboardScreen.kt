@@ -90,7 +90,8 @@ fun PatientDashboardScreen(
     var selectedMainTab by remember { mutableIntStateOf(0) }
     var showUnlinkExpertDialog by remember { mutableStateOf(false) }
     var taskToHideFromHistory by remember { mutableStateOf<TaskAssignmentEntity?>(null) }
-    val mainTabs = listOf("Genel Bakış", "İstatistikler")
+    val yourExpertLabel = stringResource(R.string.ui_your_expert)
+    val mainTabs = listOf(stringResource(R.string.ui_overview), stringResource(R.string.ui_statistics))
 
     LaunchedEffect(currentUser?.expertUid) {
         viewModel.syncPatientData(currentUser?.expertUid)
@@ -117,12 +118,12 @@ fun PatientDashboardScreen(
                     actions = {
                         val expertUid = currentUser?.expertUid
                         if (!expertUid.isNullOrEmpty()) {
-                            IconButton(onClick = { onNavigateToChat(expertUid, expertProfile?.fullName ?: "Uzmanınız") }) {
-                                Icon(imageVector = Icons.Default.ChatBubbleOutline, contentDescription = "Mesaj Gönder", tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp))
+                            IconButton(onClick = { onNavigateToChat(expertUid, expertProfile?.fullName ?: yourExpertLabel) }) {
+                                Icon(imageVector = Icons.Default.ChatBubbleOutline, contentDescription = stringResource(R.string.ui_send_message), tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp))
                             }
                         }
                         IconButton(onClick = onNavigateToLeaderboard) { 
-                            Icon(imageVector = Icons.Default.EmojiEvents, contentDescription = "Sıralama", tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp)) 
+                            Icon(imageVector = Icons.Default.EmojiEvents, contentDescription = stringResource(R.string.ui_leaderboard), tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp)) 
                         }
 
                         TextButton(
@@ -160,7 +161,7 @@ fun PatientDashboardScreen(
                                 if (!currentUser?.profileImageUrl.isNullOrEmpty()) {
                                     Image(
                                         painter = rememberAsyncImagePainter(currentUser?.profileImageUrl),
-                                        contentDescription = "Profil",
+                                        contentDescription = stringResource(R.string.profile_title),
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                     )
@@ -216,7 +217,7 @@ fun PatientDashboardScreen(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text("E-posta adresiniz başarıyla doğrulandı!", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.ui_success_email_verified), color = Color.White, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -294,7 +295,7 @@ fun PatientDashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Kalori hesabı için lütfen profil bilgilerinden kilonuzu doldurun.",
+                                text = stringResource(R.string.ui_fill_weight_for_calories),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                                 modifier = Modifier.weight(1f)
@@ -303,7 +304,7 @@ fun PatientDashboardScreen(
                                 onClick = onNavigateToProfile,
                                 contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
-                                Text("Profile Git", style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.ui_go_to_profile_cap), style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
@@ -340,7 +341,7 @@ fun PatientDashboardScreen(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                             ) {
                                 Text(
-                                    text = "Lütfen e-posta adresinizi doğrulayın. Bazı özellikler kısıtlanmış olabilir.",
+                                    text = stringResource(R.string.ui_verify_email_warning),
                                     modifier = Modifier.padding(16.dp),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onErrorContainer
@@ -349,7 +350,7 @@ fun PatientDashboardScreen(
                         }
 
                         if (incomingRequests.isNotEmpty()) {
-                            Text("Bağlantı İstekleri", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.ui_connection_requests), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(8.dp))
                             for (req in incomingRequests) {
                                 Card(
@@ -357,14 +358,14 @@ fun PatientDashboardScreen(
                                     elevation = CardDefaults.cardElevation(4.dp)
                                 ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
-                                        Text("${req.doctorName} size bağlantı isteği gönderdi.", style = MaterialTheme.typography.bodyMedium)
+                                        Text("${req.doctorName} ${stringResource(R.string.ui_sent_connection_request)}", style = MaterialTheme.typography.bodyMedium)
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Button(onClick = { viewModel.respondToRequest(req, "ACCEPTED") }) {
-                                                Text("Kabul Et")
+                                                Text(stringResource(R.string.ui_accept))
                                             }
                                             OutlinedButton(onClick = { viewModel.respondToRequest(req, "REJECTED") }) {
-                                                Text("Reddet")
+                                                Text(stringResource(R.string.ui_reject))
                                             }
                                         }
                                     }
@@ -384,7 +385,7 @@ fun PatientDashboardScreen(
                                         Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(20.dp))
                                         Spacer(modifier = Modifier.width(12.dp))
                                         Text(
-                                            text = if (expertProfile != null) "Uzman ${expertProfile?.fullName} Tarafından Takip Ediliyorsunuz" else "Bağlı Uzmanınız Tarafından Takip Ediliyorsunuz",
+                                            text = if (expertProfile != null) stringResource(R.string.ui_followed_by_expert, expertProfile?.fullName ?: "") else stringResource(R.string.ui_followed_by_your_expert),
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                             color = Color(0xFF1B5E20)
                                         )
@@ -399,14 +400,14 @@ fun PatientDashboardScreen(
                                     ) {
                                         Icon(Icons.Default.LinkOff, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("İlişkiyi Kes", style = MaterialTheme.typography.labelLarge)
+                                        Text(stringResource(R.string.ui_unlink_relationship), style = MaterialTheme.typography.labelLarge)
                                     }
                                 }
                             }
                         }
 
                         if (expertNotes.isNotEmpty()) {
-                            Text("Uzman Notları", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.ui_expert_notes), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(8.dp))
                             for (note in expertNotes) {
                                 Card(
@@ -430,10 +431,10 @@ fun PatientDashboardScreen(
 
                     item {
                         // BUGÜNKÜ GÖREVLER
-                        Text("Bugünkü Görevler", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.ui_todays_tasks), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(8.dp))
                         if (categorizedTasks.today.isEmpty()) {
-                            Text("Bugün için planlanmış görev yok", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.ui_no_tasks_today), style = MaterialTheme.typography.bodyMedium)
                         } else {
                             categorizedTasks.today.forEach { task ->
                                 PatientTaskCard(
@@ -451,10 +452,10 @@ fun PatientDashboardScreen(
                         Spacer(modifier = Modifier.height(24.dp))
 
                         // DEVAM EDEN GÖREVLER
-                        Text("Devam Eden Görevler", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.ui_ongoing_tasks), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(8.dp))
                         if (categorizedTasks.inProgress.isEmpty()) {
-                            Text("Devam eden görev yok", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.ui_no_ongoing_tasks), style = MaterialTheme.typography.bodyMedium)
                         } else {
                             categorizedTasks.inProgress.forEach { task ->
                                 PatientTaskCard(
@@ -471,8 +472,8 @@ fun PatientDashboardScreen(
                         }
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // BUGÜN AKTİF OLMAYANLAR
-                        Text("Bugün Aktif Olmayanlar", style = MaterialTheme.typography.titleMedium, color = Color.Gray)
+                        // NOT ACTIVE TODAY
+                        Text(stringResource(R.string.ui_inactive_today), style = MaterialTheme.typography.titleMedium, color = Color.Gray)
                         Spacer(modifier = Modifier.height(8.dp))
                         if (categorizedTasks.inactiveToday.isNotEmpty()) {
                             categorizedTasks.inactiveToday.forEach { task ->
@@ -489,15 +490,15 @@ fun PatientDashboardScreen(
                                     )
                             }
                         } else {
-                            Text("Yok", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.ui_none), style = MaterialTheme.typography.bodySmall)
                         }
                         Spacer(modifier = Modifier.height(24.dp))
 
                         // TAMAMLANANLAR
-                        Text("Tamamlanan Görevler", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                        Text(stringResource(R.string.ui_completed_tasks), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
                         Spacer(modifier = Modifier.height(8.dp))
                         if (categorizedTasks.completed.isEmpty()) {
-                            Text("Tamamlanan görev yok", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.ui_no_completed_tasks), style = MaterialTheme.typography.bodyMedium)
                         } else {
                             categorizedTasks.completed.forEach { task ->
                                     PatientTaskCard(
@@ -534,7 +535,7 @@ fun PatientDashboardScreen(
                 
                 Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                     var selectedStatsTab by remember { mutableIntStateOf(0) }
-                    val statsTabs = listOf("Kalori", "Performans", "Görevler")
+                    val statsTabs = listOf(stringResource(R.string.ui_calories_tab), stringResource(R.string.ui_performance_tab), stringResource(R.string.ui_tasks))
                     
                     ScrollableTabRow(
                         selectedTabIndex = selectedStatsTab,
@@ -555,12 +556,12 @@ fun PatientDashboardScreen(
                     
                     when(selectedStatsTab) {
                         0 -> {
-                            Text("Son 7 Günlük Kalori Yakımı", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.ui_last_7_days_calories), style = MaterialTheme.typography.titleSmall)
                             Spacer(modifier = Modifier.height(8.dp))
                             CalorieBarChart(data = stats.dailyCalories)
                         }
                         1 -> {
-                            Text("Performans Özetiniz", style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.ui_performance_summary), style = MaterialTheme.typography.titleMedium)
                             Spacer(modifier = Modifier.height(12.dp))
                             
                             val totalCompletedTasks = categorizedTasks.completed.size
@@ -574,13 +575,13 @@ fun PatientDashboardScreen(
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Card(modifier = Modifier.weight(1f)) {
                                     Column(modifier = Modifier.padding(12.dp)) {
-                                        Text("Bugün", style = MaterialTheme.typography.labelSmall)
-                                        Text("${todayReports.size} Egzersiz", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                        Text(stringResource(R.string.ui_today), style = MaterialTheme.typography.labelSmall)
+                                        Text("${todayReports.size} ${stringResource(R.string.ui_exercises_count)}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                                 Card(modifier = Modifier.weight(1f)) {
                                     Column(modifier = Modifier.padding(12.dp)) {
-                                        Text("Yakılan", style = MaterialTheme.typography.labelSmall)
+                                        Text(stringResource(R.string.ui_burned), style = MaterialTheme.typography.labelSmall)
                                         Text("${todayCalories.toInt()} kcal", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
@@ -589,7 +590,7 @@ fun PatientDashboardScreen(
                             Card(modifier = Modifier.fillMaxWidth()) {
                                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Tamamlanan Toplam Görev", style = MaterialTheme.typography.labelSmall)
+                                        Text(stringResource(R.string.ui_total_tasks_completed), style = MaterialTheme.typography.labelSmall)
                                         Text("$totalCompletedTasks", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                                     }
                                     Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -597,12 +598,12 @@ fun PatientDashboardScreen(
                             }
                             
                             Spacer(modifier = Modifier.height(24.dp))
-                            Text("Form Puanı Trendi (Son Egzersizler)", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.ui_form_score_trend), style = MaterialTheme.typography.titleSmall)
                             Spacer(modifier = Modifier.height(8.dp))
                             FormScoreLineChart(data = stats.scoreTrend)
                         }
                         2 -> {
-                            Text("Genel Görev Tamamlama Durumu", style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.ui_task_completion_status), style = MaterialTheme.typography.titleSmall)
                             Spacer(modifier = Modifier.height(8.dp))
                             TaskPieChart(stats = stats.completionStats)
                         }
@@ -624,13 +625,13 @@ fun PatientDashboardScreen(
         pendingExpertSwitch?.let {
             AlertDialog(
                 onDismissRequest = { viewModel.cancelExpertSwitch() },
-                title = { Text("Uzman Değişikliği") },
-                text = { Text("Yeni uzmanla çalışmaya başlarsanız mevcut uzman bağlantınız kopacak ve aktif görevleriniz kaldırılacak.") },
+                title = { Text(stringResource(R.string.ui_expert_change)) },
+                text = { Text(stringResource(R.string.ui_expert_switch_warning)) },
                 confirmButton = {
-                    Button(onClick = { viewModel.confirmExpertSwitch() }) { Text("Onayla") }
+                    Button(onClick = { viewModel.confirmExpertSwitch() }) { Text(stringResource(R.string.ui_confirm)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { viewModel.cancelExpertSwitch() }) { Text("İptal") }
+                    TextButton(onClick = { viewModel.cancelExpertSwitch() }) { Text(stringResource(R.string.ui_cancel)) }
                 }
             )
         }
@@ -638,8 +639,8 @@ fun PatientDashboardScreen(
         if (showUnlinkExpertDialog) {
             AlertDialog(
                 onDismissRequest = { showUnlinkExpertDialog = false },
-                title = { Text("İlişkiyi Kes") },
-                text = { Text("Uzmanınızla ilişkinizi keserseniz aktif görevleriniz kaldırılır. Tamamlanan geçmiş görevleriniz kalır.") },
+                title = { Text(stringResource(R.string.ui_unlink_relationship)) },
+                text = { Text(stringResource(R.string.ui_unlink_warning)) },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -651,10 +652,10 @@ fun PatientDashboardScreen(
                             showUnlinkExpertDialog = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) { Text("İlişkiyi Kes") }
+                    ) { Text(stringResource(R.string.ui_unlink_relationship)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showUnlinkExpertDialog = false }) { Text("İptal") }
+                    TextButton(onClick = { showUnlinkExpertDialog = false }) { Text(stringResource(R.string.ui_cancel)) }
                 }
             )
         }
@@ -662,18 +663,18 @@ fun PatientDashboardScreen(
         taskToHideFromHistory?.let { task ->
             AlertDialog(
                 onDismissRequest = { taskToHideFromHistory = null },
-                title = { Text("Geçmişten Sil") },
-                text = { Text("Bu tamamlanan görevi kendi geçmişinizden kaldırmak istiyor musunuz? Uzman tarafındaki kayıt etkilenmez.") },
+                title = { Text(stringResource(R.string.ui_remove_from_history)) },
+                text = { Text(stringResource(R.string.ui_remove_from_history_confirm)) },
                 confirmButton = {
                     TextButton(onClick = {
                         viewModel.hideTaskFromHistory(task) { _, message ->
                             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                         }
                         taskToHideFromHistory = null
-                    }) { Text("Sil", color = MaterialTheme.colorScheme.error) }
+                    }) { Text(stringResource(R.string.ui_delete), color = MaterialTheme.colorScheme.error) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { taskToHideFromHistory = null }) { Text("İptal") }
+                    TextButton(onClick = { taskToHideFromHistory = null }) { Text(stringResource(R.string.ui_cancel)) }
                 }
             )
         }
@@ -716,7 +717,7 @@ private fun PatientTaskCard(
     val completedSets = progressMapForCard.values.sumOf { it.optInt("completedSets", 0) }
     val percent = if (totalSets > 0) completedSets.toFloat() / totalSets else 0f
     val isGroupTask = task.expertUid.startsWith("GROUP:")
-    val groupName = Regex("^\\[(.+)]").find(task.title)?.groupValues?.getOrNull(1) ?: "Grup"
+    val groupName = Regex("^\\[(.+)]").find(task.title)?.groupValues?.getOrNull(1) ?: stringResource(R.string.ui_group_label)
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -734,7 +735,7 @@ private fun PatientTaskCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(task.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        text = if (isGroupTask) "Grup: $groupName" else "Uzman: ${if (task.expertUid == "SYSTEM") "Sistem" else "Danışman"}",
+                        text = if (isGroupTask) "${stringResource(R.string.ui_group_label)}: $groupName" else "${stringResource(R.string.ui_expert_label)}: ${if (task.expertUid == "SYSTEM") stringResource(R.string.ui_system_label) else stringResource(R.string.ui_consultant_label)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -758,7 +759,7 @@ private fun PatientTaskCard(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
-                        Text("Uzman Notu", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.ui_expert_note), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(task.note, style = MaterialTheme.typography.bodySmall)
                     }
@@ -776,7 +777,7 @@ private fun PatientTaskCard(
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Programı Sil")
+                    Text(stringResource(R.string.ui_program_delete))
                 }
             }
 
@@ -789,21 +790,21 @@ private fun PatientTaskCard(
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Geçmişten Sil")
+                    Text(stringResource(R.string.ui_delete_from_history))
                 }
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
                 Spacer(modifier = Modifier.width(4.dp))
-                val dateText = if (task.createdAt > 0L) sdf.format(Date(task.createdAt)) else "Belirtilmedi"
-                Text("Veriliş: $dateText", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                val dateText = if (task.createdAt > 0L) sdf.format(Date(task.createdAt)) else stringResource(R.string.ui_not_specified)
+                Text("${stringResource(R.string.ui_assigned_at)}: $dateText", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
 
             // ── İlerleme çubuğu ──
             Spacer(modifier = Modifier.height(10.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("İlerleme: $completedSets / $totalSets Set", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.ui_progress_sets), style = MaterialTheme.typography.labelSmall)
                 Text("%${(percent * 100).toInt()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -815,7 +816,7 @@ private fun PatientTaskCard(
                 contentPadding = PaddingValues(0.dp)
             ) {
                 Text(
-                    if (expanded) "Egzersizleri Gizle" else "Egzersizleri Göster (${exerciseListForCard.size})",
+                    if (expanded) stringResource(R.string.ui_hide_exercises) else stringResource(R.string.ui_show_exercises, exerciseListForCard.size),
                     style = MaterialTheme.typography.labelMedium
                 )
                 Icon(
@@ -834,7 +835,7 @@ private fun PatientTaskCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Bu görev bugün aktif değil.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                            Text(stringResource(R.string.ui_task_not_active_today), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -909,8 +910,8 @@ private fun PatientTaskCard(
     if (showRemoveGroupTaskDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveGroupTaskDialog = false },
-            title = { Text("Programı Sil") },
-            text = { Text("Bu grup programını ana sayfanızdan silmek istediğinize emin misiniz?") },
+            title = { Text(stringResource(R.string.ui_program_delete)) },
+            text = { Text(stringResource(R.string.ui_delete_program_confirm)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -919,12 +920,12 @@ private fun PatientTaskCard(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Sil")
+                    Text(stringResource(R.string.ui_delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRemoveGroupTaskDialog = false }) {
-                    Text("İptal")
+                    Text(stringResource(R.string.ui_cancel))
                 }
             }
         )
@@ -943,12 +944,12 @@ private fun ExerciseStartRow(
     onStart: () -> Unit
 ) {
     val exerciseTypeEnum = try { com.example.exerciseformanalyzer.model.ExerciseType.valueOf(exerciseJson.optString("exerciseType")) } catch(e: Exception) { com.example.exerciseformanalyzer.model.ExerciseType.UNKNOWN }
-    val name = if (exerciseTypeEnum != com.example.exerciseformanalyzer.model.ExerciseType.UNKNOWN) exerciseTypeEnum.displayName else exerciseJson.optString("exerciseType", "Egzersiz")
+    val name = if (exerciseTypeEnum != com.example.exerciseformanalyzer.model.ExerciseType.UNKNOWN) exerciseTypeEnum.displayName else exerciseJson.optString("exerciseType", stringResource(R.string.ui_exercise))
     val totalSets = exerciseJson.optInt("sets", 1)
     val targetReps = exerciseJson.optInt("targetReps", 0)
     val targetDur = exerciseJson.optInt("targetDurationSeconds", 0)
     val restTime = if (exerciseJson.has("restTimeSeconds") && !exerciseJson.isNull("restTimeSeconds")) exerciseJson.optInt("restTimeSeconds") else null
-    val targetStr = if (targetReps > 0) "$targetReps Tekrar" else "$targetDur Sn"
+    val targetStr = if (targetReps > 0) "$targetReps ${stringResource(R.string.ui_reps)}" else "$targetDur ${stringResource(R.string.ui_duration_label)}"
 
     Row(
         modifier = Modifier
@@ -960,7 +961,7 @@ private fun ExerciseStartRow(
         if (isCompleted) {
             Icon(
                 imageVector = Icons.Default.CheckCircle,
-                contentDescription = "Tamamlandı",
+                contentDescription = stringResource(R.string.ui_completed),
                 tint = Color(0xFF4CAF50),
                 modifier = Modifier.size(20.dp)
             )
@@ -983,13 +984,13 @@ private fun ExerciseStartRow(
                 Text("•", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 val displayCompletedSets = minOf(completedSets, totalSets)
                 Text(
-                    "$displayCompletedSets / $totalSets Set",
+                    "$displayCompletedSets / $totalSets ${stringResource(R.string.ui_set)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
                 if (restTime != null && restTime > 0) {
                     Text("•", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                    Text("Din: ${restTime}sn", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    Text("${stringResource(R.string.ui_rest_abbr)}: ${restTime}sn", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
             }
         }
@@ -1001,7 +1002,7 @@ private fun ExerciseStartRow(
                 shape = RoundedCornerShape(6.dp)
             ) {
                 Text(
-                    "✓ Tamamlandı",
+                    stringResource(R.string.ui_completed_check),
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color(0xFF4CAF50),
@@ -1021,7 +1022,7 @@ private fun ExerciseStartRow(
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(if (isPartiallyDone) "Devam Et" else "Başla", style = MaterialTheme.typography.labelMedium)
+                Text(if (isPartiallyDone) stringResource(R.string.ui_continue) else stringResource(R.string.ui_start), style = MaterialTheme.typography.labelMedium)
             }
         }
     }
@@ -1029,23 +1030,29 @@ private fun ExerciseStartRow(
 
 @Composable
 private fun PatientFrequencyInfoRow(task: com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity) {
+    val customDaysLabel = stringResource(R.string.ui_custom_days)
+    val dayMap = mapOf(
+        2 to stringResource(R.string.ui_mon),
+        3 to stringResource(R.string.ui_tue),
+        4 to stringResource(R.string.ui_wed),
+        5 to stringResource(R.string.ui_thu),
+        6 to stringResource(R.string.ui_fri),
+        7 to stringResource(R.string.ui_sat),
+        1 to stringResource(R.string.ui_sun)
+    )
     val text = when (task.scheduleType) {
-        "DAILY" -> "Her Gün"
-        "WEEKLY" -> "Haftalık"
+        "DAILY" -> stringResource(R.string.ui_every_day)
+        "WEEKLY" -> stringResource(R.string.ui_weekly)
         "CUSTOM" -> {
             try {
                 val daysArr = org.json.JSONArray(task.daysOfWeekJson)
-                // Calendar.SUNDAY=1, MONDAY=2, ... SATURDAY=7
-                val dayMap = mapOf(
-                    2 to "Pzt", 3 to "Sal", 4 to "Çar", 5 to "Per", 6 to "Cum", 7 to "Cmt", 1 to "Paz"
-                )
                 val selectedList = mutableListOf<String>()
                 for (i in 0 until daysArr.length()) {
                     val dayIdx = daysArr.getInt(i)
                     dayMap[dayIdx]?.let { selectedList.add(it) }
                 }
-                "Özel Günler (${selectedList.joinToString(", ")})"
-            } catch (e: Exception) { "Özel Günler" }
+                "$customDaysLabel (${selectedList.joinToString(", ")})"
+            } catch (e: Exception) { customDaysLabel }
         }
         else -> task.scheduleType
     }
@@ -1053,16 +1060,16 @@ private fun PatientFrequencyInfoRow(task: com.example.exerciseformanalyzer.data.
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
         Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
         Spacer(modifier = Modifier.width(4.dp))
-        Text("Plan: $text", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        Text("${stringResource(R.string.ui_plan_label)}: $text", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
     }
 }
 
 @Composable
 private fun PatientTaskStatusBadge(status: String) {
     val (label, color) = when (status.lowercase()) {
-        "completed" -> "Tamamlandı" to Color(0xFF4CAF50)
-        "in_progress" -> "Devam Ediyor" to Color(0xFF2196F3)
-        else -> "Bekliyor" to Color(0xFFFBC02D)
+        "completed" -> stringResource(R.string.ui_completed) to Color(0xFF4CAF50)
+        "in_progress" -> stringResource(R.string.ui_in_progress) to Color(0xFF2196F3)
+        else -> stringResource(R.string.ui_waiting) to Color(0xFFFBC02D)
     }
 
     Surface(
@@ -1097,20 +1104,30 @@ private fun PatientExerciseProgressRow(taskEx: org.json.JSONObject, progEx: org.
     val targetReps = taskEx.optInt("targetReps", 0)
     val targetDur = taskEx.optInt("targetDurationSeconds", 0)
     
-    val targetStr = if (targetReps > 0) "$targetReps Tekrar" else "$targetDur Sn"
+    val targetStr = if (targetReps > 0) "$targetReps ${stringResource(R.string.ui_reps)}" else "$targetDur ${stringResource(R.string.ui_duration_label)}"
 
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
             Text(targetStr, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
         }
-        Text("$compSets / $totalSets Set", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        Text("$compSets / $totalSets ${stringResource(R.string.ui_set)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
     }
 }
 @Composable
 fun PatientReportCard(report: WorkoutReportEntity) {
     val sdf = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault())
     val dateStr = sdf.format(java.util.Date(report.timestamp))
+    val reportExerciseName = report.exerciseName
+        .takeUnless {
+            it.isBlank() ||
+                it.equals("Algılanıyor...", ignoreCase = true) ||
+                it.equals("Detecting...", ignoreCase = true) ||
+                it.equals("Bilinmeyen", ignoreCase = true) ||
+                it.equals("Bilinmiyor", ignoreCase = true) ||
+                it.equals("Unknown", ignoreCase = true)
+        }
+        ?: stringResource(R.string.ui_unknown)
 
     Card(
         modifier = Modifier
@@ -1128,7 +1145,7 @@ fun PatientReportCard(report: WorkoutReportEntity) {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (report.exerciseName.isNotEmpty()) report.exerciseName else "Egzersiz",
+                        text = reportExerciseName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -1169,17 +1186,17 @@ fun PatientReportCard(report: WorkoutReportEntity) {
             ) {
                 ReportInfoItem(
                     icon = Icons.Default.Repeat,
-                    label = "Tekrar",
+                    label = stringResource(R.string.ui_reps),
                     value = "${report.reps}"
                 )
                 ReportInfoItem(
                     icon = Icons.Default.Timer,
-                    label = "Süre",
+                    label = stringResource(R.string.ui_duration_label),
                     value = "${report.totalTimeSeconds}sn"
                 )
                 ReportInfoItem(
                     icon = Icons.Default.Whatshot,
-                    label = "Kalori",
+                    label = stringResource(R.string.ui_calories),
                     value = "${report.caloriesBurned.toInt()}kcal"
                 )
             }

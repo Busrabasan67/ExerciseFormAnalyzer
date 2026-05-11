@@ -152,7 +152,7 @@ class LeaderboardRepository(private val firestoreService: FirestoreService) : IL
             val userProfile = firestoreService.getUserProfile(pair.first)
             LeaderboardEntry(
                 userId = pair.first,
-                fullName = userProfile?.fullName ?: "Bilinmiyor",
+                fullName = userProfile?.fullName.orEmpty(),
                 value = pair.second,
                 rank = index + 1,
                 isMe = pair.first == currentUid

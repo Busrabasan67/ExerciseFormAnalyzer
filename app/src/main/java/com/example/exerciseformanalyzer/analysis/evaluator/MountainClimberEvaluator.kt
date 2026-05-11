@@ -4,8 +4,10 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
-class MountainClimberEvaluator : ExerciseEvaluator {
+class MountainClimberEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.MOUNTAIN_CLIMBER
     private var repState = RepetitionState()
@@ -16,7 +18,7 @@ class MountainClimberEvaluator : ExerciseEvaluator {
         trackingQuality: TrackingQuality
     ): FormFeedback {
         if (trackingQuality == TrackingQuality.LOST) {
-            return poorTrackingFeedback("Kişi bulunamadı")
+            return poorTrackingFeedback(stringProvider.getString(R.string.err_person_not_found))
         }
 
         val leftShoulder = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_SHOULDER)
@@ -26,7 +28,7 @@ class MountainClimberEvaluator : ExerciseEvaluator {
         val leftKnee = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_KNEE)
 
         if (leftShoulder == null || leftHip == null) {
-            return poorTrackingFeedback("Vücut net görünmüyor")
+            return poorTrackingFeedback(stringProvider.getString(R.string.err_body_not_clear))
         }
 
         val secondaryErrors = mutableListOf<String>()
@@ -43,10 +45,10 @@ class MountainClimberEvaluator : ExerciseEvaluator {
 
         if (hipDeviation < -AnalysisConstants.MOUNTAIN_CLIMBER_HIP_MAX_RISE) {
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
-            secondaryErrors.add("Kalçayı çok yukarı kaldırmayın")
+            secondaryErrors.add(stringProvider.getString(R.string.err_dont_raise_hips))
         } else if (hipDeviation > AnalysisConstants.MOUNTAIN_CLIMBER_HIP_MAX_SAG) {
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
-            secondaryErrors.add("Belinizi aşağı düşürmeyin")
+            secondaryErrors.add(stringProvider.getString(R.string.err_dont_drop_waist))
         }
 
         updateRepetitionState(frame, angles, frame.timestampMs)
@@ -56,7 +58,7 @@ class MountainClimberEvaluator : ExerciseEvaluator {
             score = score.coerceIn(0, 100),
             primaryError = secondaryErrors.firstOrNull(),
             secondaryErrors = secondaryErrors,
-            feedbackMessage = if (secondaryErrors.isEmpty()) "Formunuz düzgün!" else secondaryErrors.first(),
+            feedbackMessage = if (secondaryErrors.isEmpty()) stringProvider.getString(R.string.msg_form_correct) else secondaryErrors.first(),
             confidence = if (isPoorTracking) 0.45f else 0.85f
         )
     }

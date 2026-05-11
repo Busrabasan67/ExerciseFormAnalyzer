@@ -87,7 +87,7 @@ fun ExpertDashboardScreen(
     val currentUser by viewModel.observeCurrentUser().collectAsState(initial = null)
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Hastalarım", "Görev Ata", "Takip", "Sohbet", "Bildirimler")
+    val tabs = listOf(stringResource(R.string.ui_my_patients), stringResource(R.string.ui_assign_task), stringResource(R.string.ui_follow_up), stringResource(R.string.ui_chat), stringResource(R.string.ui_notifications))
     
     var searchQuery by remember { mutableStateOf("") }
     
@@ -161,7 +161,7 @@ fun ExpertDashboardScreen(
                                 if (!currentUser?.profileImageUrl.isNullOrEmpty()) {
                                     androidx.compose.foundation.Image(
                                         painter = coil.compose.rememberAsyncImagePainter(currentUser?.profileImageUrl),
-                                        contentDescription = "Profil",
+                                        contentDescription = stringResource(R.string.profile_title),
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                     )
@@ -214,7 +214,7 @@ fun ExpertDashboardScreen(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text("E-posta adresiniz başarıyla doğrulandı!", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.ui_success_email_verified), color = Color.White, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -331,7 +331,7 @@ fun ExpertDashboardScreen(
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(notification.message, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                                         TextButton(onClick = { viewModel.dismissRelationshipNotification(notification.id) }) {
-                                            Text("Kapat")
+                                            Text(stringResource(R.string.ui_close))
                                         }
                                     }
                                 }
@@ -343,7 +343,7 @@ fun ExpertDashboardScreen(
                                     searchQuery = it
                                     viewModel.searchPatients(it)
                                 },
-                                placeholder = { Text("Hasta E-posta Ara...", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
+                                placeholder = { Text(stringResource(R.string.ui_search_patient_email), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp),
@@ -359,7 +359,7 @@ fun ExpertDashboardScreen(
                                 trailingIcon = {
                                     if (searchQuery.isNotEmpty()) {
                                         IconButton(onClick = { searchQuery = ""; viewModel.searchPatients("") }) {
-                                            Icon(Icons.Default.Close, contentDescription = "Temizle")
+                                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_clear))
                                         }
                                     }
                                 }
@@ -377,7 +377,7 @@ fun ExpertDashboardScreen(
                             // Arama Sonuçları (Autocomplete)
                             if (searchQuery.length >= 2 && searchResults.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(12.dp))
-                                Text("Arama Sonuçları", style = MaterialTheme.typography.titleSmall.copy(color = Color(0xFF2E7D32)))
+                                Text(stringResource(R.string.ui_search_results), style = MaterialTheme.typography.titleSmall.copy(color = Color(0xFF2E7D32)))
                                 searchResults.forEach { user ->
                                     val isPending = sentRequests.any { it.patientId == user.uid && it.status == "pending" }
                                     Card(
@@ -409,9 +409,9 @@ fun ExpertDashboardScreen(
                                                 if (isPending) {
                                                     Icon(Icons.Default.HourglassEmpty, contentDescription = null, modifier = Modifier.size(16.dp))
                                                     Spacer(modifier = Modifier.width(6.dp))
-                                                    Text("Beklemede")
+                                                    Text(stringResource(R.string.ui_pending))
                                                 } else {
-                                                    Text("İstek Gönder")
+                                                    Text(stringResource(R.string.ui_send_request))
                                                 }
                                             }
                                         }
@@ -420,7 +420,7 @@ fun ExpertDashboardScreen(
                             }
 
                             if (requestStatus == "REMOVED") {
-                                Text("Hasta listenizden kaldırıldı.", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 4.dp))
+                                Text(stringResource(R.string.ui_patient_removed), color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(vertical = 4.dp))
                                 LaunchedEffect(Unit) {
                                     kotlinx.coroutines.delay(3000)
                                     viewModel.clearRequestStatus()
@@ -438,7 +438,7 @@ fun ExpertDashboardScreen(
                             // Bekleyen İstekler Bölümü
                             if (sentRequests.any { it.status == "pending" }) {
                                 Spacer(modifier = Modifier.height(16.dp))
-                                Text("Bekleyen İstekler", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(R.string.ui_pending_requests), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 sentRequests.filter { it.status == "pending" }.forEach { req ->
                                     Card(
@@ -451,13 +451,13 @@ fun ExpertDashboardScreen(
                                                 Text(req.patientEmail, style = MaterialTheme.typography.bodySmall)
                                             }
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text("Beklemede", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                                Text(stringResource(R.string.ui_pending), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 TextButton(
                                                     onClick = { viewModel.cancelConnectionRequest(req.requestId) },
                                                     contentPadding = PaddingValues(horizontal = 8.dp)
                                                 ) {
-                                                    Text("İptal Et", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                                                    Text(stringResource(R.string.ui_cancel_it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
                                                 }
                                             }
                                         }
@@ -506,7 +506,7 @@ fun ExpertDashboardScreen(
                                             modifier = Modifier.size(40.dp)
                                         ) {
                                             IconButton(onClick = { patientIdToRemove = patient.uid }) {
-                                                Icon(Icons.Default.PersonRemove, contentDescription = "Kaldır", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                                                Icon(Icons.Default.PersonRemove, contentDescription = stringResource(R.string.ui_remove), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                                             }
                                         }
                                     }
@@ -529,7 +529,7 @@ fun ExpertDashboardScreen(
                                         ) {
                                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Görev Ata", style = MaterialTheme.typography.labelLarge)
+                                            Text(stringResource(R.string.ui_assign_task), style = MaterialTheme.typography.labelLarge)
                                         }
                                         
                                         OutlinedButton(
@@ -538,7 +538,7 @@ fun ExpertDashboardScreen(
                                             shape = RoundedCornerShape(14.dp),
                                             border = BorderStroke(1.dp, Color(0xFF00C853).copy(alpha = 0.5f))
                                         ) {
-                                            Text("Detay", color = Color(0xFF00C853))
+                                            Text(stringResource(R.string.ui_detail), color = Color(0xFF00C853))
                                         }
                                         
                                         IconButton(
@@ -552,7 +552,7 @@ fun ExpertDashboardScreen(
                                                     if (patient.uid in unreadChatPartnerIds) Badge(containerColor = MaterialTheme.colorScheme.error)
                                                 }
                                             ) {
-                                                Icon(Icons.Default.ChatBubbleOutline, contentDescription = "Sohbet", tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp))
+                                                Icon(Icons.Default.ChatBubbleOutline, contentDescription = stringResource(R.string.ui_chat), tint = Color(0xFF2E7D32), modifier = Modifier.size(22.dp))
                                             }
                                         }
                                     }
@@ -570,7 +570,7 @@ fun ExpertDashboardScreen(
                     
                     if (patients.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                            Text("Önce bir hasta eklemelisiniz.")
+                            Text(stringResource(R.string.ui_must_add_patient))
                         }
                     } else {
                         // Inline Task Assignment Form
@@ -578,10 +578,10 @@ fun ExpertDashboardScreen(
                         
                         LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                             item {
-                                Text("Yeni Görev Oluştur", style = MaterialTheme.typography.titleLarge)
+                                Text(stringResource(R.string.ui_create_new_task), style = MaterialTheme.typography.titleLarge)
                                 Spacer(modifier = Modifier.height(16.dp))
                                 
-                                Text("Hasta Seçin:", style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.ui_select_patient), style = MaterialTheme.typography.labelLarge)
                                 // Simplified Patient Selector
                                 patients.forEach { p ->
                                     Row(
@@ -605,7 +605,7 @@ fun ExpertDashboardScreen(
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text("Egzersizleri Belirle ve Ata")
+                                    Text(stringResource(R.string.ui_set_exercises_assign))
                                 }
                                 
                                 // Actually, let's keep the Dialog for the COMPLEX exercise selection 
@@ -627,7 +627,7 @@ fun ExpertDashboardScreen(
                 2 -> {
                     // FOLLOW-UP / TAKİP
                     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                        Text("Verilen Görevlerin Durumu", style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.ui_task_tracking_status), style = MaterialTheme.typography.titleLarge)
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         TaskFilterChips(
@@ -640,9 +640,9 @@ fun ExpertDashboardScreen(
                         if (tasks.isEmpty()) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 if (selectedFilter == TaskFilter.ALL) {
-                                    Text("Henüz görev yok.")
+                                    Text(stringResource(R.string.ui_no_tasks))
                                 } else {
-                                    Text("Seçili kriterde görev bulunamadı.")
+                                    Text(stringResource(R.string.ui_no_tasks_found_filter))
                                 }
                             }
                         } else {
@@ -654,7 +654,7 @@ fun ExpertDashboardScreen(
                                 items(tasks) { task ->
                                     val patient = patients.find { it.uid == task.patientUid }
                                     val isDisconnected = patient == null
-                                    val nameToShow = patient?.fullName ?: task.patientName.takeIf { it.isNotBlank() } ?: "Bilinmeyen Hasta"
+                                    val nameToShow = patient?.fullName ?: task.patientName.takeIf { it.isNotBlank() } ?: stringResource(R.string.ui_unknown_patient)
                                     TaskTrackingCard(
                                         task = task,
                                         patientName = nameToShow,
@@ -721,10 +721,11 @@ fun ExpertDashboardScreen(
                     List(arr.length()) { i -> arr.getInt(i) }
                 } catch (e: Exception) { emptyList() }
             }
+            val unknownPatientLabel = stringResource(R.string.ui_unknown_patient)
 
             AssignTaskDialog(
                 onDismissRequest = { taskToEdit = null },
-                dialogTitle = "Görevi Düzenle",
+                dialogTitle = stringResource(R.string.ui_edit_task),
                 defaultTitle = task.title,
                 defaultNote = task.note,
                 defaultSched = task.scheduleType,
@@ -732,13 +733,13 @@ fun ExpertDashboardScreen(
                 defaultAuto = task.autoRepeat,
                 defaultWeeks = task.repeatDurationWeeks,
                 initialExercises = initialExercises,
-                submitText = "Güncelle",
+                submitText = stringResource(R.string.ui_update),
                 onAssignTask = { title, note, dueDate, exercises, sched, days, auto, weeks ->
                     viewModel.updateTask(
                         taskId = task.id,
                         firebaseDocId = task.firebaseDocId,
                         patientUid = task.patientUid,
-                        patientName = task.patientName.ifBlank { "Bilinmeyen Hasta" },
+                        patientName = task.patientName.ifBlank { unknownPatientLabel },
                         title = title,
                         note = note,
                         dueDate = dueDate,
@@ -757,19 +758,19 @@ fun ExpertDashboardScreen(
         taskIdToDelete?.let { task ->
             AlertDialog(
                 onDismissRequest = { taskIdToDelete = null },
-                title = { Text("Görevi Sil") },
-                text = { Text("'${task.title}' görevini tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz.") },
+                title = { Text(stringResource(R.string.ui_delete_task)) },
+                text = { Text(stringResource(R.string.ui_delete_task_confirm, task.title)) },
                 confirmButton = {
                     TextButton(onClick = {
                         viewModel.deleteTask(task.id, task.firebaseDocId)
                         taskIdToDelete = null
                     }) {
-                        Text("Sil", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.ui_delete), color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { taskIdToDelete = null }) {
-                        Text("İptal")
+                        Text(stringResource(R.string.ui_cancel))
                     }
                 }
             )
@@ -777,10 +778,11 @@ fun ExpertDashboardScreen(
 
         // Delete Individual Exercise Confirmation
         exerciseToDelete?.let { (task, index, name) ->
+            val unknownPatientLabel = stringResource(R.string.ui_unknown_patient)
             AlertDialog(
                 onDismissRequest = { exerciseToDelete = null },
-                title = { Text("Egzersizi Sil") },
-                text = { Text("'$name' egzersizini bu görevden silmek istediğinize emin misiniz?") },
+                title = { Text(stringResource(R.string.ui_delete_exercise)) },
+                text = { Text(stringResource(R.string.ui_delete_exercise_confirm, name)) },
                 confirmButton = {
                     TextButton(onClick = {
                         try {
@@ -812,7 +814,7 @@ fun ExpertDashboardScreen(
                                 taskId = task.id,
                                 firebaseDocId = task.firebaseDocId,
                                 patientUid = task.patientUid,
-                                patientName = task.patientName.ifBlank { "Bilinmeyen Hasta" },
+                                patientName = task.patientName.ifBlank { unknownPatientLabel },
                                 title = task.title,
                                 note = task.note,
                                 dueDate = task.dueDate,
@@ -827,12 +829,12 @@ fun ExpertDashboardScreen(
                         }
                         exerciseToDelete = null
                     }) {
-                        Text("Sil", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.ui_delete), color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { exerciseToDelete = null }) {
-                        Text("İptal")
+                        Text(stringResource(R.string.ui_cancel))
                     }
                 }
             )
@@ -841,19 +843,19 @@ fun ExpertDashboardScreen(
         patientIdToRemove?.let { pid ->
             AlertDialog(
                 onDismissRequest = { patientIdToRemove = null },
-                title = { Text("Hastayı kaldır") },
-                text = { Text("Bu hastayı listenizden kaldırmak istediğinize emin misiniz?") },
+                title = { Text(stringResource(R.string.ui_remove_patient)) },
+                text = { Text(stringResource(R.string.ui_remove_patient_confirm)) },
                 confirmButton = {
                     TextButton(onClick = {
                         viewModel.removePatient(pid)
                         patientIdToRemove = null
                     }) {
-                        Text("Kaldır", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.ui_remove), color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { patientIdToRemove = null }) {
-                        Text("İptal")
+                        Text(stringResource(R.string.ui_cancel))
                     }
                 }
             )
@@ -880,11 +882,11 @@ fun TaskFilterChips(
                 onClick = { onFilterSelected(filter) },
                 label = {
                     val label = when(filter) {
-                        TaskFilter.ALL -> "Hepsi"
-                        TaskFilter.PENDING -> "Bekleyenler"
-                        TaskFilter.IN_PROGRESS -> "Devam Eden"
-                        TaskFilter.COMPLETED -> "Tamamlanan"
-                        TaskFilter.INACTIVE -> "Pasif"
+                        TaskFilter.ALL -> stringResource(R.string.ui_all)
+                        TaskFilter.PENDING -> stringResource(R.string.ui_pending)
+                        TaskFilter.IN_PROGRESS -> stringResource(R.string.ui_in_progress)
+                        TaskFilter.COMPLETED -> stringResource(R.string.ui_completed)
+                        TaskFilter.INACTIVE -> stringResource(R.string.ui_passive)
                     }
                     Text(label, style = MaterialTheme.typography.labelLarge)
                 },
@@ -973,7 +975,7 @@ fun TaskTrackingCard(
                         Icon(Icons.Default.LinkOff, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Bağlantı kesildi.",
+                            text = stringResource(R.string.ui_connection_lost),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -992,7 +994,7 @@ fun TaskTrackingCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.StickyNote2, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF388E3C))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Not", style = MaterialTheme.typography.labelMedium, color = Color(0xFF388E3C), fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.ui_note_label), style = MaterialTheme.typography.labelMedium, color = Color(0xFF388E3C), fontWeight = FontWeight.Bold)
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(task.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1005,22 +1007,22 @@ fun TaskTrackingCard(
             Row(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.weight(1f)) {
                     val createdAtText = if (task.createdAt > 0L) sdf.format(Date(task.createdAt)) else "-"
-                    TaskInfoRow(Icons.Default.CalendarToday, "Başlangıç: $createdAtText")
+                    TaskInfoRow(Icons.Default.CalendarToday, stringResource(R.string.ui_start_date, createdAtText))
                     
                     val planText = when(task.scheduleType) {
-                        "DAILY" -> "Her Gün"
-                        "WEEKLY" -> "Haftalık"
-                        "CUSTOM" -> "Özel Günler"
+                        "DAILY" -> stringResource(R.string.ui_daily)
+                        "WEEKLY" -> stringResource(R.string.ui_weekly)
+                        "CUSTOM" -> stringResource(R.string.ui_custom_days)
                         else -> task.scheduleType
                     }
-                    TaskInfoRow(Icons.Default.Update, "Plan: $planText")
+                    TaskInfoRow(Icons.Default.Update, stringResource(R.string.ui_plan_value_label, planText))
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     if (task.repeatDurationWeeks != null) {
-                        TaskInfoRow(Icons.Default.HourglassBottom, "Süre: ${task.repeatDurationWeeks} Hafta")
+                        TaskInfoRow(Icons.Default.HourglassBottom, stringResource(R.string.ui_duration_weeks_value, task.repeatDurationWeeks))
                     }
                     val statusColor = if (progress >= 1f) Color(0xFF43A047) else Color(0xFF00C853)
-                    TaskInfoRow(Icons.Default.DonutLarge, "Gelişim: %${(progress * 100).toInt()}", color = statusColor)
+                    TaskInfoRow(Icons.Default.DonutLarge, stringResource(R.string.ui_progress_label, (progress * 100).toInt()), color = statusColor)
                 }
             }
             
@@ -1042,7 +1044,7 @@ fun TaskTrackingCard(
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
                     Text(
-                        if (expanded) "Egzersizleri Gizle" else "Egzersizleri Göster (${exercises.size})",
+                        if (expanded) stringResource(R.string.ui_hide_exercises) else stringResource(R.string.ui_show_exercises_count, exercises.size),
                         color = Color(0xFF2E7D32),
                         style = MaterialTheme.typography.labelLarge
                     )
@@ -1056,10 +1058,10 @@ fun TaskTrackingCard(
                 
                 Row {
                     IconButton(onClick = { onEdit(task) }) {
-                        Icon(Icons.Default.ModeEditOutline, contentDescription = "Düzenle", tint = Color(0xFF00C853), modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.ModeEditOutline, contentDescription = stringResource(R.string.ui_edit), tint = Color(0xFF00C853), modifier = Modifier.size(20.dp))
                     }
                     IconButton(onClick = { onDelete(task) }) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.DeleteOutline, contentDescription = stringResource(R.string.ui_delete), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -1068,10 +1070,11 @@ fun TaskTrackingCard(
                 Column(modifier = Modifier.padding(top = 16.dp)) {
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(12.dp))
+                    val exerciseFallbackName = stringResource(R.string.ui_exercise)
                     exercises.forEachIndexed { index, ex ->
                         ExerciseDetailRow(
                             ex = ex, 
-                            onDelete = { onDeleteExercise(task, index, ex.optString("exerciseType", "Egzersiz")) }
+                            onDelete = { onDeleteExercise(task, index, ex.optString("exerciseType", exerciseFallbackName)) }
                         )
                         if (index < exercises.size - 1) {
                             Spacer(modifier = Modifier.height(8.dp))
@@ -1091,7 +1094,7 @@ private fun ExpertChatListTab(
 ) {
     if (patients.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Sohbet edebileceğiniz aktif hasta yok.")
+            Text(stringResource(R.string.ui_no_active_patient_chat))
         }
         return
     }
@@ -1102,7 +1105,7 @@ private fun ExpertChatListTab(
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
         item {
-            Text("Sohbetlerim", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
+            Text(stringResource(R.string.ui_my_chats), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
             Spacer(modifier = Modifier.height(8.dp))
         }
         items(patients) { patient ->
@@ -1139,7 +1142,7 @@ private fun ExpertChatListTab(
                             Text(patient.fullName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                             if (hasUnread) {
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Badge(containerColor = Color(0xFF00C853)) { Text("Yeni", color = Color.White) }
+                                Badge(containerColor = Color(0xFF00C853)) { Text(stringResource(R.string.ui_new_badge_text), color = Color.White) }
                             }
                         }
                         Text(patient.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1166,7 +1169,7 @@ private fun ExpertNotificationsTab(
                     tint = MaterialTheme.colorScheme.outlineVariant
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Yeni bildiriminiz yok.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.ui_no_notifications), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         return
@@ -1178,7 +1181,7 @@ private fun ExpertNotificationsTab(
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
         item {
-            Text("Bildirimler", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
+            Text(stringResource(R.string.ui_notifications_title), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
             Spacer(modifier = Modifier.height(8.dp))
         }
         items(notifications) { notification ->
@@ -1212,7 +1215,7 @@ private fun ExpertNotificationsTab(
                         onClick = { onDismiss(notification.id) },
                         colors = ButtonDefaults.textButtonColors(contentColor = Color.Gray)
                     ) {
-                        Text("Kapat")
+                        Text(stringResource(R.string.ui_close))
                     }
                 }
             }
@@ -1233,12 +1236,12 @@ fun TaskInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: Str
 fun TaskStatusBadge(status: String?) {
     val safeStatus = status?.lowercase() ?: "pending"
     val (text, color) = when (safeStatus) {
-        "pending" -> "Bekliyor" to Color(0xFFFFB300)
-        "in_progress" -> "Devam Ediyor" to Color(0xFF039BE5)
-        "completed", "done" -> "Tamamlandı" to Color(0xFF43A047)
-        "missed" -> "Kaçırıldı" to Color(0xFFE53935)
-        "inactive", "removed" -> "Pasif" to Color.Gray
-        else -> (status ?: "Bekliyor") to Color.Gray
+        "pending" -> stringResource(R.string.ui_waiting) to Color(0xFFFFB300)
+        "in_progress" -> stringResource(R.string.ui_in_progress) to Color(0xFF039BE5)
+        "completed", "done" -> stringResource(R.string.ui_completed) to Color(0xFF43A047)
+        "missed" -> stringResource(R.string.ui_missed) to Color(0xFFE53935)
+        "inactive", "removed" -> stringResource(R.string.ui_passive) to Color.Gray
+        else -> (status ?: stringResource(R.string.ui_waiting)) to Color.Gray
     }
     
     Surface(
@@ -1268,7 +1271,7 @@ fun TaskProgressBar(progress: Float) {
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Tamamlanma: %${(progress * 100).toInt()}",
+            text = stringResource(R.string.ui_completion_label, (progress * 100).toInt()),
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.align(Alignment.End),
             color = if (progress >= 1f) Color(0xFF43A047) else Color(0xFF1B5E20)
@@ -1278,12 +1281,12 @@ fun TaskProgressBar(progress: Float) {
 
 @Composable
 fun ExerciseDetailRow(ex: org.json.JSONObject, onDelete: () -> Unit) {
-    val name = ex.optString("exerciseType", "Egzersiz")
+    val name = ex.optString("exerciseType", stringResource(R.string.ui_exercise))
     val sets = ex.optInt("sets", 0)
     val comp = ex.optInt("completedSets", 0)
     val reps = ex.optInt("targetReps", 0)
     val dur = ex.optInt("targetDurationSeconds", 0)
-    val targetStr = if (reps > 0) "$reps Tekrar" else "$dur Sn"
+    val targetStr = if (reps > 0) stringResource(R.string.ui_reps_count, reps) else stringResource(R.string.ui_seconds_count, dur)
     
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1298,14 +1301,14 @@ fun ExerciseDetailRow(ex: org.json.JSONObject, onDelete: () -> Unit) {
                     shape = CircleShape
                 ) {
                     Text(
-                        text = "$comp / $sets Set", 
+                        text = stringResource(R.string.ui_sets_progress, comp, sets), 
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), 
                         color = Color(0xFF2E7D32),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )
                 }
                 IconButton(onClick = onDelete, modifier = Modifier.size(32.dp).padding(start = 8.dp)) {
-                    Icon(Icons.Default.DeleteOutline, contentDescription = "Egzersizi Sil", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.DeleteOutline, contentDescription = stringResource(R.string.ui_delete_exercise), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -1316,7 +1319,7 @@ fun ExerciseDetailRow(ex: org.json.JSONObject, onDelete: () -> Unit) {
                     Text("•", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     val rtStr = if (ex.has("restTimeSeconds") && !ex.isNull("restTimeSeconds")) ex.optString("restTimeSeconds") else null
                     val restTime = rtStr?.toIntOrNull()
-                    val restTimeStr = if (restTime != null && restTime > 0) "Dinlenme: $restTime Sn" else "Dinlenme: Oto"
+                    val restTimeStr = if (restTime != null && restTime > 0) stringResource(R.string.ui_rest_time_label, restTime) else stringResource(R.string.ui_rest_time_auto)
                     Text(restTimeStr, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 val difficulty = ex.optString("difficulty", "MEDIUM")

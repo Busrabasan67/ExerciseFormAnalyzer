@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui.group
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -47,10 +49,10 @@ fun GroupDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(selectedGroup?.name ?: "Grup Detayı") },
+                title = { Text(selectedGroup?.name ?: stringResource(R.string.ui_group_detail)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Geri")
+                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = stringResource(R.string.ui_back))
                     }
                 }
             )
@@ -82,7 +84,7 @@ fun GroupDetailScreen(
                 // Bekleyen İstekler
                 if (pendingRequests.isNotEmpty()) {
                     item {
-                        Text("Bekleyen Katılım İstekleri", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.ui_pending_requests), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                     }
                     itemsIndexed(pendingRequests) { _, (id, request) ->
                         Card(
@@ -94,13 +96,13 @@ fun GroupDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(request.userName, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                                Text(request.userName.ifBlank { stringResource(R.string.ui_unknown_user) }, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                                 Row {
                                     IconButton(onClick = { groupViewModel.respondToJoinRequest(id, request, false) }) {
-                                        Icon(Icons.Default.Close, "Reddet", tint = MaterialTheme.colorScheme.error)
+                                        Icon(Icons.Default.Close, stringResource(R.string.ui_reject), tint = MaterialTheme.colorScheme.error)
                                     }
                                     IconButton(onClick = { groupViewModel.respondToJoinRequest(id, request, true) }) {
-                                        Icon(Icons.Default.Check, "Onayla", tint = MaterialTheme.colorScheme.primary)
+                                        Icon(Icons.Default.Check, stringResource(R.string.ui_confirm), tint = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }
@@ -110,18 +112,18 @@ fun GroupDetailScreen(
 
                 // Üye Yönetimi
                 item {
-                    Text("Üye Yönetimi", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.ui_member_management), style = MaterialTheme.typography.titleMedium)
                 }
                 itemsIndexed(firestoreMembers) { _, member ->
                     ListItem(
-                        headlineContent = { Text(member.userName) },
+                        headlineContent = { Text(member.userName.ifBlank { stringResource(R.string.ui_unknown_user) }) },
                         supportingContent = { Text(member.role) },
                         trailingContent = {
                             if (member.userId != currentUid) { // Kendini çıkaramasın
                                 val groupId = selectedGroup?.docId
                                 if (groupId != null) {
                                     TextButton(onClick = { groupViewModel.removeMember(groupId, member.userId) }) {
-                                        Text("Çıkar", color = MaterialTheme.colorScheme.error)
+                                        Text(stringResource(R.string.ui_remove), color = MaterialTheme.colorScheme.error)
                                     }
                                 }
                             }
@@ -134,7 +136,7 @@ fun GroupDetailScreen(
 
             // --- PERFORMANS SIRALAMASI ---
             item {
-                Text("Grup İçi Sıralama (Kalori)", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.ui_group_ranking_calories), style = MaterialTheme.typography.titleMedium)
             }
 
             if (isLoading) {
@@ -145,13 +147,15 @@ fun GroupDetailScreen(
                 }
             } else if (rankings.isEmpty()) {
                 item {
-                    Text("Henüz aktivite kaydı yok.", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(16.dp))
+                    Text(stringResource(R.string.ui_no_activity_yet), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(16.dp))
                 }
             } else {
                 itemsIndexed(rankings) { index, entry ->
                     LeaderboardItem(
                         rank = index + 1,
-                        name = entry.fullName,
+                        name = entry.fullName
+                            .takeUnless { it.isBlank() || it.equals("Bilinmiyor", ignoreCase = true) || it.equals("Bilinmeyen", ignoreCase = true) || it.equals("Unknown", ignoreCase = true) }
+                            ?: stringResource(R.string.ui_unknown_user),
                         value = "${entry.value.toInt()} kcal",
                         isMe = entry.isMe
                     )

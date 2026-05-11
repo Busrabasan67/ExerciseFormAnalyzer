@@ -2,6 +2,8 @@ package com.example.exerciseformanalyzer.analysis.evaluator
 
 import com.example.exerciseformanalyzer.model.*
 
+import com.example.exerciseformanalyzer.util.StringProvider
+
 /**
  * Tüm egzersiz değerlendiricilerinin uygulaması gereken ortak arayüz.
  * Her evaluator:
@@ -20,7 +22,7 @@ interface ExerciseEvaluator {
      * Verilen kare için form değerlendirmesi yapar.
      * [frame]: Ham pose karesi
      * [angles]: Hesaplanmış eklem açıları
-     * [trackingQuality]: Takip kalitesi — POOR/LOST ise güvenli "belirsiz" yanıt döndür
+     * [trackingQuality]: Takip kalitesi — POOR/LOST ise güvenli stringProvider.getString(R.string.msg_uncertain) yanıt döndür
      */
     fun evaluate(
         frame: PoseFrame,

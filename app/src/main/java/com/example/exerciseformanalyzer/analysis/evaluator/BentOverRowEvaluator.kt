@@ -4,11 +4,13 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Bent Over Row form değerlendirici.
  */
-class BentOverRowEvaluator : ExerciseEvaluator {
+class BentOverRowEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.BENT_OVER_ROW
 
@@ -36,7 +38,7 @@ class BentOverRowEvaluator : ExerciseEvaluator {
         // Eğer torso açısı çok dengesiz ise (titreme) veya kalça çok aşağıda ise uyarı verilebilir.
         // Şimdilik torso açısı üzerinden gövde eğimini kontrol edelim.
         if (torso < 30f || torso > 65f) {
-            errors.add("Öne eğilmeyi koru ve sırtını düz tut")
+            errors.add(stringProvider.getString(R.string.err_lean_flat_back))
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
         }
 
@@ -49,7 +51,7 @@ class BentOverRowEvaluator : ExerciseEvaluator {
             if (repState.phase == RepetitionPhase.GOING_UP || repState.phase == RepetitionPhase.TOP) {
                 // Bilek omuzun çok önündeyse (yüz yönüne doğru) aşağı çekiliyordur
                 if (abs(wrist.x - shoulder.x) < 0.05f && elbow.y > shoulder.y) {
-                    errors.add("Dirseklerini geriye çek")
+                    errors.add(stringProvider.getString(R.string.err_pull_elbows_back))
                     score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
                 }
             }
@@ -59,7 +61,7 @@ class BentOverRowEvaluator : ExerciseEvaluator {
         val nose = frame.landmarkOrNull(PoseLandmarkIndex.NOSE)
         if (nose != null && shoulder != null) {
             if (nose.y > shoulder.y + 0.1f) {
-                errors.add("Başını nötr tut")
+                errors.add(stringProvider.getString(R.string.err_head_neutral))
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             }
         }
@@ -72,7 +74,7 @@ class BentOverRowEvaluator : ExerciseEvaluator {
             score = score.coerceAtLeast(0),
             primaryError = primaryError,
             secondaryErrors = if (errors.size > 1) errors.drop(1) else emptyList(),
-            feedbackMessage = if (isCorrect) buildPhaseMessage(repState.phase) else primaryError ?: "Formu düzeltin",
+            feedbackMessage = if (isCorrect) buildPhaseMessage(repState.phase) else primaryError ?: stringProvider.getString(R.string.err_fix_form),
             confidence = 0.85f
         )
     }
@@ -107,17 +109,17 @@ class BentOverRowEvaluator : ExerciseEvaluator {
     }
 
     private fun buildPhaseMessage(phase: RepetitionPhase) = when (phase) {
-        RepetitionPhase.IDLE -> "Bent Over Row için hazır"
-        RepetitionPhase.BOTTOM -> "Geriye çek"
-        RepetitionPhase.GOING_UP -> "Çekiyorsun..."
-        RepetitionPhase.TOP -> "Sırtını sıkıştır"
-        RepetitionPhase.GOING_DOWN -> "Yavaşça sal"
+        RepetitionPhase.IDLE -> stringProvider.getString(R.string.msg_ready_bent_row)
+        RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_pull_back)
+        RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_pulling)
+        RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_squeeze_back)
+        RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_release_slowly)
         else -> ""
     }
 
     private fun poorTrackingFeedback() = FormFeedback(
         isCorrect = false, score = 0, primaryError = null,
-        feedbackMessage = "Takip zayıf", confidence = 0.2f
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking), confidence = 0.2f
     )
 
     override fun getRepetitionState(): RepetitionState = repState

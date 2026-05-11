@@ -4,8 +4,10 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
-class BicycleCrunchEvaluator : ExerciseEvaluator {
+class BicycleCrunchEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.BICYCLE_CRUNCH
     private var repState = RepetitionState()
@@ -16,7 +18,7 @@ class BicycleCrunchEvaluator : ExerciseEvaluator {
         trackingQuality: TrackingQuality
     ): FormFeedback {
         if (trackingQuality == TrackingQuality.LOST) {
-            return poorTrackingFeedback("Kişi bulunamadı")
+            return poorTrackingFeedback(stringProvider.getString(R.string.err_person_not_found))
         }
 
         val leftHip = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_HIP)
@@ -25,7 +27,7 @@ class BicycleCrunchEvaluator : ExerciseEvaluator {
         val rightKnee = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_KNEE)
 
         if (leftHip == null || rightHip == null) {
-            return poorTrackingFeedback("Vücut net görünmüyor")
+            return poorTrackingFeedback(stringProvider.getString(R.string.err_body_not_clear))
         }
 
         val secondaryErrors = mutableListOf<String>()
@@ -38,10 +40,10 @@ class BicycleCrunchEvaluator : ExerciseEvaluator {
         
         if (legAngle < AnalysisConstants.BICYCLE_CRUNCH_LEG_ANGLE_MIN) {
             score -= AnalysisConstants.SCORE_PENALTY_MINOR
-            secondaryErrors.add("Bacağınız yere çok yakın")
+            secondaryErrors.add(stringProvider.getString(R.string.err_leg_too_close_to_floor))
         } else if (legAngle > AnalysisConstants.BICYCLE_CRUNCH_LEG_ANGLE_MAX) {
             score -= AnalysisConstants.SCORE_PENALTY_MINOR
-            secondaryErrors.add("Bacağınızı daha aşağı indirin")
+            secondaryErrors.add(stringProvider.getString(R.string.err_lower_leg_more))
         }
 
         updateRepetitionState(angles, frame.timestampMs)
@@ -51,7 +53,7 @@ class BicycleCrunchEvaluator : ExerciseEvaluator {
             score = score.coerceIn(0, 100),
             primaryError = secondaryErrors.firstOrNull(),
             secondaryErrors = secondaryErrors,
-            feedbackMessage = if (secondaryErrors.isEmpty()) "Harika ritim!" else secondaryErrors.first(),
+            feedbackMessage = if (secondaryErrors.isEmpty()) stringProvider.getString(R.string.msg_great_rhythm) else secondaryErrors.first(),
             confidence = 0.8f
         )
     }

@@ -1,9 +1,11 @@
 package com.example.exerciseformanalyzer.ui.group
 
 import android.app.Application
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
+import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.data.local.entity.GroupEntity
 import com.example.exerciseformanalyzer.data.local.entity.GroupMemberEntity
 import com.example.exerciseformanalyzer.data.repository.GroupRepository
@@ -44,6 +46,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
     private val authRepo = app.authRepository
 
     val currentUid: String get() = authRepo.currentUid ?: ""
+    private fun s(@StringRes resId: Int, vararg args: Any): String = app.getString(resId, *args)
 
     private val _uiState = MutableStateFlow<GroupUiState>(GroupUiState.Idle)
     val uiState: StateFlow<GroupUiState> = _uiState.asStateFlow()
@@ -83,7 +86,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                 _exploreGroups.value = groupRepository.getExploreGroups()
                 _myInvites.value = groupRepository.getMyInvites(uid)
             } catch (e: Exception) {
-                _uiState.value = GroupUiState.Error("Keşfet verileri yüklenemedi.")
+                _uiState.value = GroupUiState.Error(s(R.string.ui_error_occurred))
             }
         }
     }
@@ -96,7 +99,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val targetUser = groupRepository.findUserForInvite(email)
                 if (targetUser == null) {
-                    _uiState.value = GroupUiState.Error("Kullanıcı bulunamadı.")
+                    _uiState.value = GroupUiState.Error(s(R.string.ui_user_not_found))
                     return@launch
                 }
 
@@ -104,14 +107,14 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                     groupId = groupDocId,
                     groupName = groupName,
                     fromUserId = uid,
-                    fromUserName = authRepo.currentUserEmail ?: "Bilinmiyor", // Veya profile'dan isim
+                    fromUserName = authRepo.currentUserEmail.orEmpty(),
                     toUserId = targetUser.uid,
                     toUserEmail = email
                 )
                 groupRepository.inviteToGroup(invite)
                 _uiState.value = GroupUiState.Success
             } catch (e: Exception) {
-                _uiState.value = GroupUiState.Error("Davet gönderilemedi: ${e.message}")
+                _uiState.value = GroupUiState.Error(s(R.string.ui_invite_send_failed, s(R.string.unknown_error)))
             }
         }
     }
@@ -125,7 +128,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                 val profile = app.firestoreService.getUserProfile(uid)
                 val request = FirestoreGroupJoinRequest(
                     userId = uid,
-                    userName = profile?.fullName ?: "Bilinmiyor",
+                    userName = profile?.fullName.orEmpty(),
                     groupId = groupDocId,
                     groupName = groupName,
                     creatorId = creatorId,
@@ -135,7 +138,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                 loadDiscoveryData()
                 _uiState.value = GroupUiState.Success
             } catch (e: Exception) {
-                _uiState.value = GroupUiState.Error("Katılım isteği gönderilemedi.")
+                _uiState.value = GroupUiState.Error(s(R.string.ui_request_send_failed, s(R.string.unknown_error)))
             }
         }
     }
@@ -157,7 +160,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                 groupRepository.respondToJoinRequest(requestId, request, accept)
                 loadGroupAdminData(request.groupId) // Veriyi tazele
             } catch (e: Exception) {
-                _uiState.value = GroupUiState.Error("İstek yanıtlama hatası.")
+                _uiState.value = GroupUiState.Error(s(R.string.ui_error_occurred))
             }
         }
     }
@@ -168,7 +171,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                 groupRepository.removeMember(groupId, userId)
                 loadGroupAdminData(groupId) // Veriyi tazele
             } catch (e: Exception) {
-                _uiState.value = GroupUiState.Error("Üye çıkarılamadı.")
+                _uiState.value = GroupUiState.Error(s(R.string.ui_remove_member_failed))
             }
         }
     }
@@ -179,7 +182,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                 groupRepository.respondToInvite(inviteId, invite, accept)
                 loadDiscoveryData() // Listeyi tazele
             } catch (e: Exception) {
-                _uiState.value = GroupUiState.Error("Davet yanıtlama hatası.")
+                _uiState.value = GroupUiState.Error(s(R.string.ui_error_occurred))
             }
         }
     }
@@ -191,11 +194,11 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
     fun createGroup(name: String, description: String, isPrivate: Boolean = false) {
         val uid = currentUid
         if (uid.isEmpty()) {
-            _uiState.value = GroupUiState.Error("Giriş yapmanız gerekiyor.")
+            _uiState.value = GroupUiState.Error(s(R.string.ui_login_required))
             return
         }
         if (name.isBlank()) {
-            _uiState.value = GroupUiState.Error("Grup adı boş olamaz.")
+            _uiState.value = GroupUiState.Error(s(R.string.ui_err_group_name_empty))
             return
         }
 
@@ -206,7 +209,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = GroupUiState.Success
                 loadDiscoveryData() // Keşfet listesini de tazele
             } catch (e: Exception) {
-                _uiState.value = GroupUiState.Error("Grup oluşturulamadı: ${e.message}")
+                _uiState.value = GroupUiState.Error(s(R.string.ui_group_create_failed, s(R.string.unknown_error)))
             }
         }
     }
@@ -218,7 +221,7 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 groupRepository.leaveGroup(groupDocId, uid)
             } catch (e: Exception) {
-                _uiState.value = GroupUiState.Error("Gruptan ayrılınamadı: ${e.message}")
+                _uiState.value = GroupUiState.Error(s(R.string.ui_leave_failed_err, s(R.string.unknown_error)))
             }
         }
     }

@@ -7,8 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.exerciseformanalyzer.R
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.charts.PieChart
@@ -38,7 +40,7 @@ fun FormScoreLineChart(
         modifier = modifier,
         update = { chart ->
             val entries = data.map { Entry(it.first, it.second) }
-            val dataSet = LineDataSet(entries, "Form Skoru Trendi").apply {
+            val dataSet = LineDataSet(entries, "Form Score Trend").apply {
                 color = primaryColor
                 setCircleColor(primaryColor)
                 lineWidth = 2f
@@ -60,6 +62,7 @@ fun CalorieBarChart(
 ) {
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val primaryColor = Color(0xFF2E7D32).toArgb() // Deep Green
+    val dailyCaloriesLabel = stringResource(R.string.ui_daily_calories)
 
     AndroidView(
         factory = { context ->
@@ -76,16 +79,16 @@ fun CalorieBarChart(
         update = { chart ->
             val entries = data.mapIndexed { index, pair -> BarEntry(index.toFloat(), pair.second) }
             val labels = data.map { it.first }
-            
-            val dataSet = BarDataSet(entries, "Günlük Kalori").apply {
+
+            val dataSet = BarDataSet(entries, dailyCaloriesLabel).apply {
                 color = primaryColor
                 valueTextColor = textColor
             }
-            
+
             chart.xAxis.valueFormatter = IndexAxisValueFormatter(labels)
             chart.xAxis.position = com.github.mikephil.charting.components.XAxis.XAxisPosition.BOTTOM
             chart.xAxis.granularity = 1f
-            
+
             chart.data = BarData(dataSet)
             chart.invalidate()
         }
@@ -103,6 +106,13 @@ fun TaskPieChart(
     val red = Color(0xFFE53935).toArgb()
     val gray = Color.Gray.toArgb()
 
+    // Capture labels in composable scope
+    val labelCompleted = stringResource(R.string.ui_completed)
+    val labelInProgress = stringResource(R.string.ui_ongoing_tasks)
+    val labelMissed = stringResource(R.string.task_status_missed)
+    val labelPending = stringResource(R.string.ui_waiting)
+    val taskDistLabel = stringResource(R.string.ui_task_distribution)
+
     AndroidView(
         factory = { context ->
             PieChart(context).apply {
@@ -115,22 +125,22 @@ fun TaskPieChart(
         modifier = modifier,
         update = { chart ->
             val entries = stats.map { (status, count) ->
-                val label = when(status) {
-                    "COMPLETED" -> "Tamamlandı"
-                    "IN_PROGRESS" -> "Devam Ediyor"
-                    "MISSED" -> "Kaçırıldı"
-                    "PENDING", "ASSIGNED" -> "Bekliyor"
+                val label = when (status) {
+                    "COMPLETED" -> labelCompleted
+                    "IN_PROGRESS" -> labelInProgress
+                    "MISSED" -> labelMissed
+                    "PENDING", "ASSIGNED" -> labelPending
                     else -> status
                 }
                 PieEntry(count.toFloat(), label)
             }
-            
-            val dataSet = PieDataSet(entries, "Görev Dağılımı").apply {
+
+            val dataSet = PieDataSet(entries, taskDistLabel).apply {
                 colors = listOf(green, amber, red, gray)
                 valueTextColor = textColor
                 valueTextSize = 13f
             }
-            
+
             chart.data = PieData(dataSet)
             chart.invalidate()
         }

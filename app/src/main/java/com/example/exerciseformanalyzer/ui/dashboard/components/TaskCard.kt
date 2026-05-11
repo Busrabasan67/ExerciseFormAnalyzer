@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui.dashboard.components
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -26,7 +28,7 @@ fun TaskCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = if (task.title.isNotEmpty()) task.title else "Görev",
+                text = if (task.title.isNotEmpty()) task.title else stringResource(R.string.ui_task),
                 style = MaterialTheme.typography.titleMedium
             )
             if (task.note.isNotEmpty()) {
@@ -56,13 +58,18 @@ fun TaskCard(
                 val isPartiallyDone: Boolean
             )
 
-            val parsedExercises = remember(task.exercisesJson) {
+            val unknownLabel = stringResource(R.string.ui_unknown)
+            val setLabel = stringResource(R.string.ui_set)
+            val secondsAbbrLabel = stringResource(R.string.ui_seconds_abbr)
+            val repsLabel = stringResource(R.string.ui_reps)
+
+            val parsedExercises = remember(task.exercisesJson, unknownLabel, setLabel, secondsAbbrLabel, repsLabel) {
                 val list = mutableListOf<ParsedExercise>()
                 try {
                     val arr = JSONArray(task.exercisesJson)
                     for (i in 0 until arr.length()) {
                         val ex = arr.getJSONObject(i)
-                        val name = ex.optString("exerciseType", "Bilinmeyen")
+                        val name = ex.optString("exerciseType", unknownLabel)
                         val tType = ex.optString("targetType", "REPS")
                         val aReps = ex.optInt("actualReps", 0)
                         val aDur = ex.optInt("actualDurationSeconds", 0)
@@ -78,9 +85,9 @@ fun TaskCard(
                         val isPartiallyDone = (rDone > 0 || dDone > 0) && exStatus != "COMPLETED"
 
                         val progressStr = if (tType == "DURATION") {
-                            "Set: $cSets/$sets • $aDur/$tDur Sn"
+                            "$setLabel: $cSets/$sets • $aDur/$tDur $secondsAbbrLabel"
                         } else {
-                            "Set: $cSets/$sets • $aReps/$tReps Tekrar"
+                            "$setLabel: $cSets/$sets • $aReps/$tReps $repsLabel"
                         }
 
                         list.add(
@@ -108,7 +115,7 @@ fun TaskCard(
             }
 
             if (parsedExercises.isEmpty()) {
-                Text("Egzersiz detayları okunamadı", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.ui_err_exercise_details), style = MaterialTheme.typography.bodySmall)
             } else {
                 parsedExercises.forEach { exData ->
                     val isCompleted = exData.status == "COMPLETED"
@@ -130,7 +137,7 @@ fun TaskCard(
                             if (isCompleted) {
                                 Icon(
                                     imageVector = Icons.Filled.Check,
-                                    contentDescription = "Tamamlandı",
+                                    contentDescription = stringResource(R.string.ui_completed),
                                     tint = rowColor,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -183,7 +190,7 @@ fun TaskCard(
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                                 modifier = Modifier.height(28.dp)
                             ) {
-                                Text(if (exData.isPartiallyDone) "Devam Et" else "Başla", style = MaterialTheme.typography.labelSmall)
+                                Text(if (exData.isPartiallyDone) stringResource(R.string.ui_continue) else stringResource(R.string.ui_start), style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -192,13 +199,13 @@ fun TaskCard(
 
             Spacer(modifier = Modifier.height(8.dp))
             val finalStatusText = when (task.status) {
-                "COMPLETED"   -> "Tüm Görev Tamamlandı!"
-                "IN_PROGRESS" -> "Devam Ediyor..."
-                "MISSED"      -> "Kaçırıldı"
-                "inactive", "removed" -> "Bu görev artık aktif değil."
+                "COMPLETED"   -> stringResource(R.string.ui_task_completed_success)
+                "IN_PROGRESS" -> stringResource(R.string.ui_in_progress_dots)
+                "MISSED"      -> stringResource(R.string.task_status_missed)
+                "inactive", "removed" -> stringResource(R.string.ui_task_inactive_msg)
                 else          -> {
-                    if (!isExpertLinked) "Bu görev artık aktif değil."
-                    else "Bekliyor"
+                    if (!isExpertLinked) stringResource(R.string.ui_task_inactive_msg)
+                    else stringResource(R.string.ui_waiting)
                 }
             }
             val finalStatusColor =
@@ -210,7 +217,7 @@ fun TaskCard(
                     MaterialTheme.colorScheme.secondary
 
             Text(
-                text = "Durum: $finalStatusText",
+                text = "${stringResource(R.string.ui_status_label)}: $finalStatusText",
                 style = MaterialTheme.typography.labelLarge,
                 color = finalStatusColor
             )

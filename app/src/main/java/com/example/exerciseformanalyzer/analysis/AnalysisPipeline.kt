@@ -5,6 +5,9 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 
+import com.example.exerciseformanalyzer.R
+import com.example.exerciseformanalyzer.util.StringProvider
+
 /**
  * Ana analiz pipeline'ı — tüm katmanları birleştiren orkestratör.
  *
@@ -15,31 +18,31 @@ import com.example.exerciseformanalyzer.util.AngleUtils
  * Thread-safety: Bu sınıf tek bir iş parçacığından çağrılmalıdır (analiz executor).
  * ViewModel, sonuçları StateFlow üzerinden UI thread'e aktarır.
  */
-class AnalysisPipeline {
+class AnalysisPipeline(private val stringProvider: StringProvider) {
 
     private val classifier = ExerciseClassifier()
 
     // Her egzersiz için ayrı evaluator — kendi durumlarını korurlar
     private val evaluators: Map<ExerciseType, ExerciseEvaluator> = mapOf(
-        ExerciseType.SQUAT to SquatEvaluator(),
-        ExerciseType.PUSH_UP to PushUpEvaluator(),
-        ExerciseType.SIT_UP to SitUpEvaluator(),
-        ExerciseType.DUMBBELL_ROW to DumbbellRowEvaluator(),
-        ExerciseType.BICEPS_CURL to BicepsCurlEvaluator(),
-        ExerciseType.PLANK to PlankEvaluator(),
-        ExerciseType.SHOULDER_PRESS to ShoulderPressEvaluator(),
-        ExerciseType.LATERAL_RAISE to LateralRaiseEvaluator(),
-        ExerciseType.HAMMER_CURL to HammerCurlEvaluator(),
-        ExerciseType.TRICEPS_EXTENSION to TricepsExtensionEvaluator(),
-        ExerciseType.TRICEPS_KICKBACK to TricepsKickbackEvaluator(),
-        ExerciseType.BENT_OVER_ROW to BentOverRowEvaluator(),
-        ExerciseType.BENT_OVER_RAISE to BentOverRaiseEvaluator(),
-        ExerciseType.MOUNTAIN_CLIMBER to MountainClimberEvaluator(),
-        ExerciseType.RUSSIAN_TWIST to RussianTwistEvaluator(),
-        ExerciseType.HEEL_TAP to HeelTapEvaluator(),
-        ExerciseType.BICYCLE_CRUNCH to BicycleCrunchEvaluator(),
-        ExerciseType.REVERSE_CRUNCH to ReverseCrunchEvaluator(),
-        ExerciseType.STRAIGHT_LEG_CRUNCH to StraightLegCrunchEvaluator()
+        ExerciseType.SQUAT to SquatEvaluator(stringProvider),
+        ExerciseType.PUSH_UP to PushUpEvaluator(stringProvider),
+        ExerciseType.SIT_UP to SitUpEvaluator(stringProvider),
+        ExerciseType.DUMBBELL_ROW to DumbbellRowEvaluator(stringProvider),
+        ExerciseType.BICEPS_CURL to BicepsCurlEvaluator(stringProvider),
+        ExerciseType.PLANK to PlankEvaluator(stringProvider),
+        ExerciseType.SHOULDER_PRESS to ShoulderPressEvaluator(stringProvider),
+        ExerciseType.LATERAL_RAISE to LateralRaiseEvaluator(stringProvider),
+        ExerciseType.HAMMER_CURL to HammerCurlEvaluator(stringProvider),
+        ExerciseType.TRICEPS_EXTENSION to TricepsExtensionEvaluator(stringProvider),
+        ExerciseType.TRICEPS_KICKBACK to TricepsKickbackEvaluator(stringProvider),
+        ExerciseType.BENT_OVER_ROW to BentOverRowEvaluator(stringProvider),
+        ExerciseType.BENT_OVER_RAISE to BentOverRaiseEvaluator(stringProvider),
+        ExerciseType.MOUNTAIN_CLIMBER to MountainClimberEvaluator(stringProvider),
+        ExerciseType.RUSSIAN_TWIST to RussianTwistEvaluator(stringProvider),
+        ExerciseType.HEEL_TAP to HeelTapEvaluator(stringProvider),
+        ExerciseType.BICYCLE_CRUNCH to BicycleCrunchEvaluator(stringProvider),
+        ExerciseType.REVERSE_CRUNCH to ReverseCrunchEvaluator(stringProvider),
+        ExerciseType.STRAIGHT_LEG_CRUNCH to StraightLegCrunchEvaluator(stringProvider)
     )
 
     private var currentExerciseType: ExerciseType = ExerciseType.UNKNOWN
@@ -124,7 +127,7 @@ class AnalysisPipeline {
             isCorrect = false,
             score = 0,
             primaryError = null,
-            feedbackMessage = "Kadraja girin",
+            feedbackMessage = stringProvider.getString(R.string.msg_enter_frame),
             confidence = 0f
         ),
         repetitionState = evaluators[currentExerciseType]?.getRepetitionState() ?: RepetitionState(),
@@ -139,7 +142,7 @@ class AnalysisPipeline {
         isCorrect = false,
         score = 0,
         primaryError = null,
-        feedbackMessage = "Egzersiz algılanıyor...",
+        feedbackMessage = stringProvider.getString(R.string.msg_detecting_exercise),
         confidence = 0f
     )
 

@@ -4,8 +4,10 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
-class StraightLegCrunchEvaluator : ExerciseEvaluator {
+class StraightLegCrunchEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.STRAIGHT_LEG_CRUNCH
     private var repState = RepetitionState()
@@ -16,7 +18,7 @@ class StraightLegCrunchEvaluator : ExerciseEvaluator {
         trackingQuality: TrackingQuality
     ): FormFeedback {
         if (trackingQuality == TrackingQuality.LOST) {
-            return poorTrackingFeedback("Kişi bulunamadı")
+            return poorTrackingFeedback(stringProvider.getString(R.string.err_person_not_found))
         }
 
         val leftShoulder = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_SHOULDER)
@@ -24,7 +26,7 @@ class StraightLegCrunchEvaluator : ExerciseEvaluator {
         val leftKnee = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_KNEE)
 
         if (leftHip == null || leftKnee == null || leftShoulder == null) {
-            return poorTrackingFeedback("Vücut net görünmüyor")
+            return poorTrackingFeedback(stringProvider.getString(R.string.err_body_not_clear))
         }
 
         val secondaryErrors = mutableListOf<String>()
@@ -35,7 +37,7 @@ class StraightLegCrunchEvaluator : ExerciseEvaluator {
         
         if (legAngle < 70f || legAngle > 110f) {
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
-            secondaryErrors.add("Bacaklarınızı 90 derece dik tutun")
+            secondaryErrors.add(stringProvider.getString(R.string.err_legs_90_degrees))
         }
         updateRepetitionState(frame, frame.timestampMs)
 
@@ -44,7 +46,7 @@ class StraightLegCrunchEvaluator : ExerciseEvaluator {
             score = score.coerceIn(0, 100),
             primaryError = secondaryErrors.firstOrNull(),
             secondaryErrors = secondaryErrors,
-            feedbackMessage = if (secondaryErrors.isEmpty()) "Harika yükseliş!" else secondaryErrors.first(),
+            feedbackMessage = if (secondaryErrors.isEmpty()) stringProvider.getString(R.string.msg_great_rise) else secondaryErrors.first(),
             confidence = if (isPoorTracking) 0.45f else 0.85f
         )
     }

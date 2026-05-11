@@ -4,6 +4,8 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Dumbbell Row form değerlendirici.
@@ -14,7 +16,7 @@ import kotlin.math.abs
  * 3. Skapula ve ROM: Alt noktada omuz serbest bırakılarak esnetilmeli, üst noktada dirsek sırttan yukarı taşmalı.
  * 4. Boyun/Bakış: Aynaya bakılıp boyun kırılmamalı, baş omurga hizasında (nötr) yere doğru bakmalı.
  */
-class DumbbellRowEvaluator : ExerciseEvaluator {
+class DumbbellRowEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.DUMBBELL_ROW
 
@@ -70,7 +72,7 @@ class DumbbellRowEvaluator : ExerciseEvaluator {
         // Eğer Y farkı (dy) X farkına (dx) göre büyükse dik duruyordur.
         // torsoAngleDeg > 40-45 ise uyarı ver
         if (torsoAngleDeg > 45.0) { 
-            errors.add("Gövdeni yere daha paralel tut (masa gibi), çok dik durarak omuza yük bindirme")
+            errors.add(stringProvider.getString(R.string.err_torso_parallel))
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
         }
 
@@ -84,7 +86,7 @@ class DumbbellRowEvaluator : ExerciseEvaluator {
             
             // Eğer bilek yatay düzlemde (x) omza çok daha yakınsa ve dikeyde de kısaysa, dik çekiyordur
             if (distToShoulderX < (dx * 0.35f) && wrist.y < shoulder.y + 0.15f) {
-                errors.add("Ağırlığı göğsüne doğru dik çekme! Hareketi bir kanca gibi kalçana doğru (geriye) yay çizerek yap")
+                errors.add(stringProvider.getString(R.string.err_pull_to_chest))
                 score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
             }
 
@@ -92,7 +94,7 @@ class DumbbellRowEvaluator : ExerciseEvaluator {
             if (repState.phase == RepetitionPhase.TOP) {
                 // Dirsek omuzun y koordinatını geçmeli (y daha küçük olmalı)
                 if (elbow.y > shoulder.y + 0.05f) {
-                    errors.add("Sırtını tam sıkıştıramıyorsun (yarı yolda), dirseğini tavana doğru daha sert çek")
+                    errors.add(stringProvider.getString(R.string.err_squeeze_back_harder))
                     score -= AnalysisConstants.SCORE_PENALTY_DEPTH
                 }
             }
@@ -101,7 +103,7 @@ class DumbbellRowEvaluator : ExerciseEvaluator {
         // Esneme kontrolü (En alt nokta)
         if (repState.phase == RepetitionPhase.BOTTOM) {
             if (elbowAngle < 160f) {
-                errors.add("Aşağıda kolunu ve omuzunu tam sal, sırt/kanat kasının esnemesine izin ver")
+                errors.add(stringProvider.getString(R.string.err_let_shoulder_hang))
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             }
         }
@@ -115,7 +117,7 @@ class DumbbellRowEvaluator : ExerciseEvaluator {
             // Yüz yere bakıyorsa göz kulaktan y ekseninde aşağıdadır (y değeri büyük)
             // Eğer göz kulak seviyesinin oldukça üstündeyse (y değeri küçükse) kafa havaya kalkmıştır
             if (eye.y < ear.y - 0.03f) {
-                errors.add("Karşıdaki aynaya bakmak için boynunu kırma, başın sırtınla aynı hizada nötr kalsın")
+                errors.add(stringProvider.getString(R.string.err_neck_alignment))
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             }
         }
@@ -166,17 +168,17 @@ class DumbbellRowEvaluator : ExerciseEvaluator {
     private fun buildMessage(isCorrect: Boolean, primaryError: String?, phase: RepetitionPhase): String {
         if (!isCorrect && primaryError != null) return primaryError
         return when (phase) {
-            RepetitionPhase.IDLE, RepetitionPhase.BOTTOM -> "Hazır... Dirseği tavana doğru çek!"
-            RepetitionPhase.GOING_UP -> "Çekiyorsun..."
-            RepetitionPhase.TOP -> "Kanatlarını (lats) tam sık!"
-            RepetitionPhase.GOING_DOWN -> "Esneme hissederek yavaşça sal..."
-            RepetitionPhase.RAISED -> ""
+            RepetitionPhase.IDLE, RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_ready_pull_elbow)
+            RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_pulling)
+            RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_squeeze_lats)
+            RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_stretch_slowly)
+            else -> ""
         }
     }
 
     private fun poorTrackingFeedback() = FormFeedback(
         isCorrect = false, score = 0, primaryError = null,
-        feedbackMessage = "Takip zayıf — tam görünün", confidence = 0.2f
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking_full), confidence = 0.2f
     )
 
     override fun getRepetitionState(): RepetitionState = repState

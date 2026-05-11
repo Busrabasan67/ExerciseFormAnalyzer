@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,14 +40,18 @@ fun WorkoutSummaryScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "🏆 Antrenman Özeti",
+                    text = stringResource(R.string.ui_workout_summary),
                     fontSize = 26.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = summary.exercise.displayName,
+                    text = if (summary.exercise == com.example.exerciseformanalyzer.model.ExerciseType.UNKNOWN) {
+                        stringResource(R.string.ui_unknown)
+                    } else {
+                        summary.exercise.displayName
+                    },
                     fontSize = 18.sp,
                     color = Color(0xFF00BFA5),
                     fontWeight = FontWeight.Medium
@@ -57,10 +63,10 @@ fun WorkoutSummaryScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    SummaryStatCard("Tekrar", "${summary.totalReps}", Color(0xFFFFB300))
+                    SummaryStatCard(stringResource(R.string.ui_reps), "${summary.totalReps}", Color(0xFFFFB300))
                     val mins = summary.durationSeconds / 60
                     val secs = summary.durationSeconds % 60
-                    SummaryStatCard("Süre", String.format("%02d:%02d", mins, secs), Color(0xFF42A5F5))
+                    SummaryStatCard(stringResource(R.string.ui_duration), String.format("%02d:%02d", mins, secs), Color(0xFF42A5F5))
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -69,8 +75,8 @@ fun WorkoutSummaryScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    SummaryStatCard("Doğruluk", "%${summary.accuracyPercentage}", if (summary.accuracyPercentage > 80) Color(0xFF66BB6A) else Color(0xFFEF5350))
-                    SummaryStatCard("Kalori", "${summary.caloriesBurned.toInt()} kcal", Color(0xFFFFA726))
+                    SummaryStatCard(stringResource(R.string.ui_accuracy), "%${summary.accuracyPercentage}", if (summary.accuracyPercentage > 80) Color(0xFF66BB6A) else Color(0xFFEF5350))
+                    SummaryStatCard(stringResource(R.string.ui_calories), "${summary.caloriesBurned.toInt()} kcal", Color(0xFFFFA726))
                 }
                 
                 if (summary.mostCommonError != null) {
@@ -80,9 +86,9 @@ fun WorkoutSummaryScreen(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("💡 Gelişim Alanı:", fontWeight = FontWeight.Bold, color = Color(0xFFEF5350))
+                            Text(stringResource(R.string.ui_improvement_area), fontWeight = FontWeight.Bold, color = Color(0xFFEF5350))
                             Spacer(Modifier.height(4.dp))
-                            Text(text = "En çok yaptığınız hata: \"${summary.mostCommonError}\"", color = Color.White, fontSize = 14.sp)
+                            Text(text = "${stringResource(R.string.ui_most_common_error)}: \"${summary.mostCommonError}\"", color = Color.White, fontSize = 14.sp)
                         }
                     }
                 }
@@ -97,7 +103,7 @@ fun WorkoutSummaryScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00BFA5)),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("Yeni Antrenmana Başla", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.ui_start_new_workout), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
         }

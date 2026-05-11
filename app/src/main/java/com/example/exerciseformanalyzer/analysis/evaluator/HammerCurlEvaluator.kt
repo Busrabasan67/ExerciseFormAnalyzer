@@ -4,11 +4,13 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Hammer Curl form değerlendirme ve tekrar sayacı.
  */
-class HammerCurlEvaluator : ExerciseEvaluator {
+class HammerCurlEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.HAMMER_CURL
 
@@ -39,14 +41,14 @@ class HammerCurlEvaluator : ExerciseEvaluator {
         // 1. Dirsek Sabitliği (Dirsek öne gidiyor mu?)
         val shoulderAngle = AngleUtils.dominantShoulderAngle(angles, frame)
         if (shoulderAngle != null && shoulderAngle > 25f) {
-            errors.add("Dirseklerini sabit tut")
+            errors.add(stringProvider.getString(R.string.err_keep_elbows_stable))
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
         }
 
         // 2. Vücut Sallanıyor mu? (Momentum)
         val torso = angles.torsoInclination
         if (torso != null && (torso > 12f && torso < 85f)) {
-            errors.add("Momentum kullanma")
+            errors.add(stringProvider.getString(R.string.err_no_momentum))
             score -= AnalysisConstants.SCORE_PENALTY_MINOR
         }
 
@@ -58,7 +60,7 @@ class HammerCurlEvaluator : ExerciseEvaluator {
         if (elbow != null && wrist != null) {
             val horizontalDev = abs(elbow.x - wrist.x)
             if (horizontalDev > 0.15f && elbowAngle < 150f) {
-                errors.add("Bileğini düz tut")
+                errors.add(stringProvider.getString(R.string.err_keep_wrist_straight))
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             }
         }
@@ -71,7 +73,7 @@ class HammerCurlEvaluator : ExerciseEvaluator {
             score = score.coerceAtLeast(0),
             primaryError = primaryError,
             secondaryErrors = if (errors.size > 1) errors.drop(1) else emptyList(),
-            feedbackMessage = if (isCorrect) buildPhaseMessage(repState.phase) else primaryError ?: "Formu düzeltin",
+            feedbackMessage = if (isCorrect) buildPhaseMessage(repState.phase) else primaryError ?: stringProvider.getString(R.string.err_fix_form),
             confidence = 0.85f
         )
     }
@@ -106,17 +108,17 @@ class HammerCurlEvaluator : ExerciseEvaluator {
     }
 
     private fun buildPhaseMessage(phase: RepetitionPhase) = when (phase) {
-        RepetitionPhase.IDLE -> "Hammer Curl için hazır"
-        RepetitionPhase.BOTTOM -> "Kaldırın"
-        RepetitionPhase.GOING_UP -> "Çek..."
-        RepetitionPhase.TOP -> "Yavaşça indir"
-        RepetitionPhase.GOING_DOWN -> "İniyor..."
+        RepetitionPhase.IDLE -> stringProvider.getString(R.string.msg_ready_hammer_curl)
+        RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_lift_cmd)
+        RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_pull)
+        RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_lower_slowly)
+        RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_going_down)
         else -> ""
     }
 
     private fun poorTrackingFeedback() = FormFeedback(
         isCorrect = false, score = 0, primaryError = null,
-        feedbackMessage = "Takip zayıf", confidence = 0.2f
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking), confidence = 0.2f
     )
 
     override fun getRepetitionState(): RepetitionState = repState

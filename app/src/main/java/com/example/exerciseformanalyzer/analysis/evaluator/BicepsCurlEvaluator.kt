@@ -3,6 +3,8 @@ package com.example.exerciseformanalyzer.analysis.evaluator
 import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Biceps Curl form değerlendirme ve tekrar sayacı.
@@ -18,7 +20,7 @@ import com.example.exerciseformanalyzer.util.AngleUtils
  *   1. Omuz ve üst kol sabitliği (Üst kolun vücuda yakın kalması, dirseğin öne arkaya çok oynamaması)
  *   2. Tam hareket açıklığı (Aşağıda kolların yeterince açılması)
  */
-class BicepsCurlEvaluator : ExerciseEvaluator {
+class BicepsCurlEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.BICEPS_CURL
 
@@ -53,7 +55,7 @@ class BicepsCurlEvaluator : ExerciseEvaluator {
         // 1. Üst Hareket Açıklığı (Top ROM)
         if (repState.phase == RepetitionPhase.TOP || repState.phase == RepetitionPhase.GOING_DOWN) {
             if (!didReachTop) {
-                errors.add("Dumbbell'ı omzuna kadar çek")
+                errors.add(stringProvider.getString(R.string.err_pull_dumbbell_to_shoulder))
                 score -= AnalysisConstants.SCORE_PENALTY_DEPTH
             }
         }
@@ -67,7 +69,7 @@ class BicepsCurlEvaluator : ExerciseEvaluator {
         } ?: angles.leftShoulderAngle ?: angles.rightShoulderAngle
 
         if (shoulderAngle != null && shoulderAngle > AnalysisConstants.BICEPS_CURL_MAX_SHOULDER_SWING) {
-            errors.add("Dirseklerini sabitle, savurma yapma")
+            errors.add(stringProvider.getString(R.string.err_lock_elbows))
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
         }
 
@@ -75,7 +77,7 @@ class BicepsCurlEvaluator : ExerciseEvaluator {
         val torso = angles.torsoInclination
         if (torso != null && torso > 15f && torso < 80f) {
             // Eğer kişi çok öne ya da arkaya eğiliyorsa hile (momentum) kullanıyordur
-            errors.add("Belinden destek alma, dik dur")
+            errors.add(stringProvider.getString(R.string.err_no_momentum_back))
             score -= AnalysisConstants.SCORE_PENALTY_MINOR
         }
 
@@ -137,12 +139,12 @@ class BicepsCurlEvaluator : ExerciseEvaluator {
     private fun buildMessage(isCorrect: Boolean, primaryError: String?, phase: RepetitionPhase): String {
         if (!isCorrect && primaryError != null) return primaryError
         return when (phase) {
-            RepetitionPhase.IDLE -> "Kolları uzatın (Başlangıç)"
-            RepetitionPhase.BOTTOM -> "Hazır, kaldırın"
-            RepetitionPhase.GOING_UP -> "Çekiyorsunuz..."
-            RepetitionPhase.TOP -> "İyi kasıldın! Yavaşça indir"
-            RepetitionPhase.GOING_DOWN -> "Kontrollü iniş..."
-            RepetitionPhase.RAISED -> "Yukarıdasınız"
+            RepetitionPhase.IDLE -> stringProvider.getString(R.string.msg_extend_arms)
+            RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_ready_lift)
+            RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_pulling_you)
+            RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_good_contraction)
+            RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_controlled_descent)
+            RepetitionPhase.RAISED -> stringProvider.getString(R.string.msg_you_are_up)
         }
     }
 
@@ -150,7 +152,7 @@ class BicepsCurlEvaluator : ExerciseEvaluator {
         isCorrect = false,
         score = 0,
         primaryError = null,
-        feedbackMessage = "Kollar tam görünmüyor!",
+        feedbackMessage = stringProvider.getString(R.string.err_arms_not_visible),
         confidence = 0.2f
     )
 

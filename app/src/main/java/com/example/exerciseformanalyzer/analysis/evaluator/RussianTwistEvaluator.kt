@@ -4,12 +4,14 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Russian Twist analizi yapan sınıf.
  * Odak noktaları: Gövde rotasyonu, sırt dikliği ve denge.
  */
-class RussianTwistEvaluator : ExerciseEvaluator {
+class RussianTwistEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.RUSSIAN_TWIST
     private var repState = RepetitionState()
@@ -20,14 +22,14 @@ class RussianTwistEvaluator : ExerciseEvaluator {
         trackingQuality: TrackingQuality
     ): FormFeedback {
         if (trackingQuality == TrackingQuality.LOST) {
-            return poorTrackingFeedback("Kişi bulunamadı")
+            return poorTrackingFeedback(stringProvider.getString(R.string.err_person_not_found))
         }
 
         val leftShoulder = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_SHOULDER)
         val rightShoulder = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_SHOULDER)
 
         if (leftShoulder == null || rightShoulder == null) {
-            return poorTrackingFeedback("Omuzlar görünmüyor")
+            return poorTrackingFeedback(stringProvider.getString(R.string.err_shoulders_not_visible))
         }
 
         val secondaryErrors = mutableListOf<String>()
@@ -38,10 +40,10 @@ class RussianTwistEvaluator : ExerciseEvaluator {
         val torsoAngle = angles.torsoInclination
         if (torsoAngle != null && torsoAngle > AnalysisConstants.RUSSIAN_TWIST_MAX_BACK_LEAN) {
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
-            secondaryErrors.add("Sırt çok geride")
+            secondaryErrors.add(stringProvider.getString(R.string.err_back_too_far))
         } else if (torsoAngle != null && torsoAngle < AnalysisConstants.RUSSIAN_TWIST_MIN_BACK_ANGLE) {
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
-            secondaryErrors.add("Sırtınız kambur duruyor, dikleşin")
+            secondaryErrors.add(stringProvider.getString(R.string.err_hunchback))
         }
 
         // 2. Rotasyon Kontrolü (Normalleştirilmiş Oran)
@@ -56,7 +58,7 @@ class RussianTwistEvaluator : ExerciseEvaluator {
         // 3. Tekrar Sayma Mantığı
         updateRepetitionState(rotationRatio, frame.timestampMs)
 
-        val feedbackMessage = if (secondaryErrors.isEmpty()) "Harika rotasyon!" else secondaryErrors.first()
+        val feedbackMessage = if (secondaryErrors.isEmpty()) stringProvider.getString(R.string.msg_great_rotation) else secondaryErrors.first()
 
         return FormFeedback(
             isCorrect = score > 70,

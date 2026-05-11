@@ -4,8 +4,10 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
-class HeelTapEvaluator : ExerciseEvaluator {
+class HeelTapEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.HEEL_TAP
     private var repState = RepetitionState()
@@ -16,14 +18,14 @@ class HeelTapEvaluator : ExerciseEvaluator {
         trackingQuality: TrackingQuality
     ): FormFeedback {
         if (trackingQuality == TrackingQuality.LOST) {
-            return poorTrackingFeedback("Kişi bulunamadı")
+            return poorTrackingFeedback(stringProvider.getString(R.string.err_person_not_found))
         }
 
         val leftShoulder = frame.landmarkOrNull(PoseLandmarkIndex.LEFT_SHOULDER)
         val rightShoulder = frame.landmarkOrNull(PoseLandmarkIndex.RIGHT_SHOULDER)
 
         if (leftShoulder == null || rightShoulder == null) {
-            return poorTrackingFeedback("Omuzlar görünmüyor")
+            return poorTrackingFeedback(stringProvider.getString(R.string.err_shoulders_not_visible))
         }
         
         val isPoorTracking = trackingQuality == TrackingQuality.POOR
@@ -38,7 +40,7 @@ class HeelTapEvaluator : ExerciseEvaluator {
             score = score.coerceIn(0, 100),
             primaryError = secondaryErrors.firstOrNull(),
             secondaryErrors = secondaryErrors,
-            feedbackMessage = if (secondaryErrors.isEmpty()) "Oblikleri sıkıştırın!" else secondaryErrors.first(),
+            feedbackMessage = if (secondaryErrors.isEmpty()) stringProvider.getString(R.string.msg_squeeze_obliques) else secondaryErrors.first(),
             confidence = 0.8f
         )
     }
@@ -53,7 +55,7 @@ class HeelTapEvaluator : ExerciseEvaluator {
 
         if (lShoulder == null || rShoulder == null || lHip == null || rHip == null) return
 
-        // Sol ve sağ tarafın "sıkışma" miktarını ölç (Omuz-Kalça mesafesi)
+        // Sol ve sağ tarafın stringProvider.getString(R.string.msg_squeeze) miktarını ölç (Omuz-Kalça mesafesi)
         val lSideDist = Math.sqrt(Math.pow((lShoulder.x - lHip.x).toDouble(), 2.0) + Math.pow((lShoulder.y - lHip.y).toDouble(), 2.0))
         val rSideDist = Math.sqrt(Math.pow((rShoulder.x - rHip.x).toDouble(), 2.0) + Math.pow((rShoulder.y - rHip.y).toDouble(), 2.0))
         

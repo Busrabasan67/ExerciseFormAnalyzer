@@ -1,9 +1,11 @@
 package com.example.exerciseformanalyzer.ui.auth
 
 import android.app.Application
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
+import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.domain.model.AuthResult
 import com.example.exerciseformanalyzer.domain.model.GoogleAuthResult
 import com.example.exerciseformanalyzer.domain.repository.IAuthRepository
@@ -38,6 +40,22 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    private fun s(@StringRes resId: Int): String = getApplication<MainApplication>().getString(resId)
+
+    private fun localizedAuthError(message: String, @StringRes fallbackResId: Int): String {
+        return message.takeUnless {
+            it.contains("Kayit", ignoreCase = true) ||
+                it.contains("Giris", ignoreCase = true) ||
+                it.contains("Kullanici", ignoreCase = true) ||
+                it.contains("Dogrulama", ignoreCase = true) ||
+                it.contains("Sifre", ignoreCase = true) ||
+                it.contains("Google girisi", ignoreCase = true) ||
+                it.contains("Google kaydi", ignoreCase = true) ||
+                it.contains("gonderilemedi", ignoreCase = true) ||
+                it.contains("tamamlanamadi", ignoreCase = true)
+        } ?: s(fallbackResId)
+    }
+
     fun checkAutoLogin() {
         if (_uiState.value != AuthUiState.Idle) return
         viewModelScope.launch {
@@ -56,7 +74,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun login(email: String, pass: String, rememberMe: Boolean = false) {
         if (email.isBlank() || pass.isBlank()) {
-            _uiState.value = AuthUiState.Error("Email ve sifre bos olamaz.")
+            _uiState.value = AuthUiState.Error(s(R.string.auth_email_password_required))
             return
         }
 
@@ -71,11 +89,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                             userPrefs.saveUserSession(uid, role, rememberMe)
                             _uiState.value = AuthUiState.Success(uid, role)
                         } else {
-                            _uiState.value = AuthUiState.Error("Kullanici profili bulunamadi.")
+                            _uiState.value = AuthUiState.Error(s(R.string.auth_profile_not_found))
                         }
                     }
                 }
-                is AuthResult.Error -> _uiState.value = AuthUiState.Error(result.message)
+                is AuthResult.Error -> _uiState.value = AuthUiState.Error(localizedAuthError(result.message, R.string.auth_login_failed))
                 is AuthResult.Loading -> Unit
             }
         }
@@ -83,7 +101,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun register(fullName: String, email: String, pass: String, role: String) {
         if (fullName.isBlank() || email.isBlank() || pass.isBlank()) {
-            _uiState.value = AuthUiState.Error("Lutfen tum alanlari doldurunuz.")
+            _uiState.value = AuthUiState.Error(s(R.string.error_empty_fields))
             return
         }
 
@@ -95,7 +113,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     userPrefs.saveUserSession(result.data.uid, finalRole, false)
                     _uiState.value = AuthUiState.Success(result.data.uid, finalRole)
                 }
-                is AuthResult.Error -> _uiState.value = AuthUiState.Error(result.message)
+                is AuthResult.Error -> _uiState.value = AuthUiState.Error(localizedAuthError(result.message, R.string.auth_register_failed))
                 is AuthResult.Loading -> Unit
             }
         }
@@ -130,7 +148,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         email = result.email
                     )
                 }
-                is GoogleAuthResult.Error -> _uiState.value = AuthUiState.Error(result.message)
+                is GoogleAuthResult.Error -> _uiState.value = AuthUiState.Error(localizedAuthError(result.message, R.string.auth_google_failed))
             }
         }
     }
@@ -147,7 +165,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 is GoogleAuthResult.RequiresRoleSelection -> {
                     _uiState.value = AuthUiState.RequiresGoogleRoleSelection(result.uid, result.fullName, result.email)
                 }
-                is GoogleAuthResult.Error -> _uiState.value = AuthUiState.Error(result.message)
+                is GoogleAuthResult.Error -> _uiState.value = AuthUiState.Error(localizedAuthError(result.message, R.string.auth_google_failed))
             }
         }
     }
@@ -166,7 +184,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendPasswordResetEmail(email: String, onSuccess: () -> Unit) {
         if (email.isBlank()) {
-            _uiState.value = AuthUiState.Error("Lutfen e-posta adresinizi girin.")
+            _uiState.value = AuthUiState.Error(s(R.string.password_reset_email_required))
             return
         }
         viewModelScope.launch {
@@ -176,7 +194,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = AuthUiState.Idle
                     onSuccess()
                 }
-                is AuthResult.Error -> _uiState.value = AuthUiState.Error(result.message)
+                is AuthResult.Error -> _uiState.value = AuthUiState.Error(localizedAuthError(result.message, R.string.password_reset_failed))
                 else -> _uiState.value = AuthUiState.Idle
             }
         }

@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui.admin
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -40,10 +42,10 @@ fun AdminDashboardScreen(
     onLogout: () -> Unit
 ) {
     val selectedPanel by viewModel.selectedAdminPanel.collectAsState()
-    val panelTabs = listOf("Sistem Admin", "Hasta Görünümü", "Doktor Görünümü")
+    val panelTabs = listOf(stringResource(R.string.ui_system_admin), stringResource(R.string.ui_patient_view), stringResource(R.string.ui_expert_view))
     
     var selectedAdminSubTab by remember { mutableIntStateOf(0) }
-    val adminTabs = listOf("Genel Bakış", "Kullanıcılar", "Görev & Rozetler", "Gruplar")
+    val adminTabs = listOf(stringResource(R.string.ui_overview), stringResource(R.string.ui_users), stringResource(R.string.ui_tasks_and_badges), stringResource(R.string.ui_groups))
     
     val stats by viewModel.adminSystemStats.collectAsState()
     val showLogoutDialog by viewModel.showLogoutDialog.collectAsState()
@@ -62,10 +64,10 @@ fun AdminDashboardScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Admin Paneli") },
+                    title = { Text(stringResource(R.string.ui_admin_panel)) },
                     actions = {
                         IconButton(onClick = { viewModel.setShowLogoutDialog(true) }) {
-                            Icon(imageVector = Icons.Default.Logout, contentDescription = "Çıkış")
+                            Icon(imageVector = Icons.Default.Logout, contentDescription = stringResource(R.string.ui_logout))
                         }
                     }
                 )
@@ -161,24 +163,24 @@ fun AdminDashboardScreen(
 @Composable
 fun OverviewTab(stats: com.example.exerciseformanalyzer.model.AdminSystemStats) {
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-        Text("Sistem Özeti", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Genel sistem performansı ve kullanıcı dağılımı", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        Text(stringResource(R.string.ui_system_summary), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.ui_admin_perf_desc), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
     
         Spacer(modifier = Modifier.height(24.dp))
         
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            StatCard("Toplam Hasta", stats.totalUsers.toString(), Modifier.weight(1f), Icons.Default.People, MaterialTheme.colorScheme.primary)
-            StatCard("Toplam Uzman", stats.totalExperts.toString(), Modifier.weight(1f), Icons.Default.MedicalServices, MaterialTheme.colorScheme.secondary)
+            StatCard(stringResource(R.string.ui_total_patients), stats.totalUsers.toString(), Modifier.weight(1f), Icons.Default.People, MaterialTheme.colorScheme.primary)
+            StatCard(stringResource(R.string.ui_total_experts), stats.totalExperts.toString(), Modifier.weight(1f), Icons.Default.MedicalServices, MaterialTheme.colorScheme.secondary)
         }
         Spacer(modifier = Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            StatCard("Bugünkü Antrenman", stats.dailyWorkouts.toString(), Modifier.weight(1f), Icons.Default.FitnessCenter, Color(0xFF4CAF50))
-            StatCard("Aktif Gruplar", stats.activeGroups.toString(), Modifier.weight(1f), Icons.Default.Groups, Color(0xFF2196F3))
+            StatCard(stringResource(R.string.ui_daily_workouts), stats.dailyWorkouts.toString(), Modifier.weight(1f), Icons.Default.FitnessCenter, Color(0xFF4CAF50))
+            StatCard(stringResource(R.string.ui_active_groups_stat), stats.activeGroups.toString(), Modifier.weight(1f), Icons.Default.Groups, Color(0xFF2196F3))
         }
 
         Spacer(modifier = Modifier.height(24.dp))
         
-        Text("Kullanıcı Dağılımı", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.ui_user_distribution), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Card(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             shape = RoundedCornerShape(16.dp)
@@ -191,7 +193,7 @@ fun OverviewTab(stats: com.example.exerciseformanalyzer.model.AdminSystemStats) 
                     )
                 } else {
                     Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                        Text("Veri yükleniyor...", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.ui_loading_data), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -199,7 +201,7 @@ fun OverviewTab(stats: com.example.exerciseformanalyzer.model.AdminSystemStats) 
 
         Spacer(modifier = Modifier.height(24.dp))
         
-        Text("7 Günlük Aktivite Trendi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.ui_7_day_activity_trend), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Card(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             shape = RoundedCornerShape(16.dp)
@@ -212,7 +214,7 @@ fun OverviewTab(stats: com.example.exerciseformanalyzer.model.AdminSystemStats) 
                     )
                 } else {
                     Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                        Text("Yeterli veri yok.", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.ui_no_enough_data), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -220,7 +222,7 @@ fun OverviewTab(stats: com.example.exerciseformanalyzer.model.AdminSystemStats) 
 
         Spacer(modifier = Modifier.height(24.dp))
         
-        Text("Popüler Egzersizler", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.ui_popular_exercises), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         stats.exercisePopularity.forEach { (name, count) ->
             Card(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -233,7 +235,7 @@ fun OverviewTab(stats: com.example.exerciseformanalyzer.model.AdminSystemStats) 
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    Badge { Text("$count Seans") }
+                    Badge { Text(stringResource(R.string.ui_seans_count, count)) }
                 }
             }
         }
@@ -266,14 +268,14 @@ fun UserManagementTab(viewModel: AdminViewModel) {
     val selectedRole by viewModel.selectedRoleFilter.collectAsState()
 
     Column {
-        Text("Sistem Kullanıcıları", style = MaterialTheme.typography.titleMedium)
-        Text("${users.size} kayıt bulundu.", style = MaterialTheme.typography.labelSmall)
+        Text(stringResource(R.string.ui_system_users), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.ui_records_found, users.size), style = MaterialTheme.typography.labelSmall)
         Spacer(modifier = Modifier.height(16.dp))
         
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { viewModel.updateSearchQuery(it) },
-            label = { Text("Kullanıcı Ara (İsim / E-posta)") },
+            label = { Text(stringResource(R.string.ui_search_user_placeholder)) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             modifier = Modifier.fillMaxWidth()
         )
@@ -284,7 +286,7 @@ fun UserManagementTab(viewModel: AdminViewModel) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val roles = listOf(null to "Tümü", "PATIENT" to "Hasta", "EXPERT" to "Uzman", "ADMIN" to "Admin")
+            val roles = listOf(null to stringResource(R.string.ui_all), "PATIENT" to stringResource(R.string.ui_patient), "EXPERT" to stringResource(R.string.ui_expert), "ADMIN" to "Admin")
             roles.forEach { (role, label) ->
                 FilterChip(
                     selected = selectedRole == role,
@@ -301,7 +303,7 @@ fun UserManagementTab(viewModel: AdminViewModel) {
                 if (viewModel.allUsers.collectAsState().value.isEmpty()) {
                     CircularProgressIndicator()
                 } else {
-                    Text("Sonuç bulunamadı.")
+                    Text(stringResource(R.string.ui_no_results))
                 }
             }
         } else {
@@ -352,7 +354,7 @@ fun UserListItem(user: com.example.exerciseformanalyzer.model.firestore.Firestor
                 Text(user.fullName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
                 Text(user.email, style = MaterialTheme.typography.bodySmall)
                 if (user.status == "PASSIVE") {
-                    Text("Pasif Hesap", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.ui_passive_account), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                 }
             }
             Badge(
@@ -364,7 +366,7 @@ fun UserListItem(user: com.example.exerciseformanalyzer.model.firestore.Firestor
             
             Box {
                 IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "Seçenekler")
+                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.ui_options))
                 }
                 DropdownMenu(
                     expanded = showMenu,
@@ -372,7 +374,7 @@ fun UserListItem(user: com.example.exerciseformanalyzer.model.firestore.Firestor
                 ) {
                     if (user.role != "EXPERT") {
                         DropdownMenuItem(
-                            text = { Text("Uzman Yap") },
+                            text = { Text(stringResource(R.string.ui_make_expert)) },
                             onClick = { 
                                 viewModel.updateUserRole(user.uid, "EXPERT")
                                 showMenu = false
@@ -381,7 +383,7 @@ fun UserListItem(user: com.example.exerciseformanalyzer.model.firestore.Firestor
                     }
                     if (user.role != "PATIENT") {
                         DropdownMenuItem(
-                            text = { Text("Hasta Yap") },
+                            text = { Text(stringResource(R.string.ui_make_patient)) },
                             onClick = { 
                                 viewModel.updateUserRole(user.uid, "PATIENT")
                                 showMenu = false
@@ -390,7 +392,7 @@ fun UserListItem(user: com.example.exerciseformanalyzer.model.firestore.Firestor
                     }
                     if (user.status == "ACTIVE") {
                         DropdownMenuItem(
-                            text = { Text("Hesabı Dondur (Pasif)") },
+                            text = { Text(stringResource(R.string.ui_freeze_account)) },
                             onClick = { 
                                 viewModel.updateUserStatus(user.uid, "PASSIVE")
                                 showMenu = false
@@ -398,7 +400,7 @@ fun UserListItem(user: com.example.exerciseformanalyzer.model.firestore.Firestor
                         )
                     } else {
                         DropdownMenuItem(
-                            text = { Text("Hesabı Aktifleştir") },
+                            text = { Text(stringResource(R.string.ui_activate_account)) },
                             onClick = { 
                                 viewModel.updateUserStatus(user.uid, "ACTIVE")
                                 showMenu = false
@@ -463,16 +465,16 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                Text("Rozet Fabrikası", style = MaterialTheme.typography.titleMedium)
-                Text("Sistem genelinde yeni başarı hedefleri tanımlayın.", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.ui_badge_factory), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.ui_badge_factory_desc), style = MaterialTheme.typography.bodySmall)
             }
             Button(
                 onClick = { openDialogForCreate() }, 
                 modifier = Modifier.height(48.dp)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Ekle")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.ui_add))
                 Spacer(Modifier.width(4.dp))
-                Text("Yeni Rozet")
+                Text(stringResource(R.string.ui_new_badge))
             }
         }
         
@@ -480,7 +482,7 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
 
         if (badges.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                Text("Henüz rozet tanımlanmamış.")
+                Text(stringResource(R.string.ui_no_badges_defined))
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -522,10 +524,10 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
                                 }
                             }
                             IconButton(onClick = { openDialogForEdit(id, badge) }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Düzenle", tint = MaterialTheme.colorScheme.primary)
+                                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.ui_edit), tint = MaterialTheme.colorScheme.primary)
                             }
                             IconButton(onClick = { viewModel.deleteBadge(id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_delete), tint = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -549,20 +551,20 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
 
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text(if (editingBadgeId == null) "Yeni Rozet Oluştur" else "Rozeti Düzenle") },
+            title = { Text(if (editingBadgeId == null) stringResource(R.string.ui_create_new_badge) else stringResource(R.string.ui_edit_badge)) },
             text = {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
-                        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Rozet Adı (TR)") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.ui_badge_name_tr)) }, modifier = Modifier.fillMaxWidth())
                     }
                     item {
-                        OutlinedTextField(value = nameEn, onValueChange = { nameEn = it }, label = { Text("Badge Name (EN)") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = nameEn, onValueChange = { nameEn = it }, label = { Text(stringResource(R.string.ui_badge_name_en)) }, modifier = Modifier.fillMaxWidth())
                     }
                     item {
-                        OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Açıklama (TR)") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text(stringResource(R.string.ui_desc_tr)) }, modifier = Modifier.fillMaxWidth())
                     }
                     item {
-                        OutlinedTextField(value = descriptionEn, onValueChange = { descriptionEn = it }, label = { Text("Description (EN)") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = descriptionEn, onValueChange = { descriptionEn = it }, label = { Text(stringResource(R.string.ui_desc_en)) }, modifier = Modifier.fillMaxWidth())
                     }
                     item {
                         ExposedDropdownMenuBox(
@@ -573,7 +575,7 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
                                 value = category,
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Kategori") },
+                                label = { Text(stringResource(R.string.ui_category)) },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) },
                                 colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
                                 modifier = Modifier.menuAnchor().fillMaxWidth()
@@ -596,7 +598,7 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
                     }
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val targetLabel = if (category == "CALORIES") "Hedef (kcal)" else "Hedef Sayı"
+                            val targetLabel = if (category == "CALORIES") stringResource(R.string.ui_target_kcal) else stringResource(R.string.ui_target_count)
                             OutlinedTextField(
                                 value = targetValue, 
                                 onValueChange = { targetValue = it.filter { char -> char.isDigit() } }, 
@@ -606,7 +608,7 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
                             OutlinedTextField(
                                 value = xpReward, 
                                 onValueChange = { xpReward = it.filter { char -> char.isDigit() } }, 
-                                label = { Text("XP Ödülü") }, 
+                                label = { Text(stringResource(R.string.ui_xp_reward)) }, 
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -641,11 +643,11 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
                         showDialog = false
                     }
                 }) {
-                    Text("Kaydet")
+                    Text(stringResource(R.string.ui_save))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) { Text("İptal") }
+                TextButton(onClick = { showDialog = false }) { Text(stringResource(R.string.ui_cancel)) }
             }
         )
     }
@@ -665,17 +667,17 @@ fun GroupManagementTab(viewModel: AdminViewModel) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Sistem Grupları", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.ui_system_groups), style = MaterialTheme.typography.titleMedium)
             IconButton(onClick = { viewModel.fetchAllGroups() }) {
-                Icon(Icons.Default.Refresh, contentDescription = "Yenile")
+                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.ui_refresh))
             }
         }
-        Text("${groups.size} aktif grup bulundu.", style = MaterialTheme.typography.labelSmall)
+        Text(stringResource(R.string.ui_active_groups_found, groups.size), style = MaterialTheme.typography.labelSmall)
         Spacer(modifier = Modifier.height(16.dp))
         
         if (groups.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                Text("Grup bulunamadı.")
+                Text(stringResource(R.string.ui_group_not_found))
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -714,7 +716,7 @@ fun AdminGroupListItem(
                     IconButton(onClick = { viewModel.updateGroupVisibility(group.id, !group.isPrivate) }) {
                         Icon(
                             imageVector = if (!group.isPrivate) Icons.Default.Public else Icons.Default.Lock,
-                            contentDescription = "Gizlilik",
+                            contentDescription = stringResource(R.string.ui_privacy),
                             tint = if (!group.isPrivate) Color(0xFF4CAF50) else Color(0xFFF44336)
                         )
                     }
@@ -723,7 +725,7 @@ fun AdminGroupListItem(
                         viewModel.loadGroupMembers(group.id)
                         showMemberDialog = true 
                     }) {
-                        Icon(Icons.Default.Group, contentDescription = "Üyeler", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.Group, contentDescription = stringResource(R.string.ui_members), tint = MaterialTheme.colorScheme.primary)
                     }
                     
                     if (showMemberDialog) {
@@ -735,7 +737,7 @@ fun AdminGroupListItem(
                     }
 
                     IconButton(onClick = { showDeleteConfirm = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_delete), tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -749,9 +751,9 @@ fun AdminGroupListItem(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Badge(containerColor = if (!group.isPrivate) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)) {
-                    Text(if (!group.isPrivate) "Genel" else "Gizli", style = MaterialTheme.typography.labelSmall)
+                    Text(if (!group.isPrivate) stringResource(R.string.ui_public) else stringResource(R.string.ui_private), style = MaterialTheme.typography.labelSmall)
                 }
-                Text("Oluşturulma: ${group.createdAt?.let { java.text.SimpleDateFormat("dd/MM/yyyy").format(it) } ?: "-"}", 
+                Text(stringResource(R.string.ui_created_date, group.createdAt?.let { java.text.SimpleDateFormat("dd/MM/yyyy").format(it) } ?: "-"), 
                      style = MaterialTheme.typography.labelSmall, color = Color.Gray)
             }
         }
@@ -760,8 +762,8 @@ fun AdminGroupListItem(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Grubu Sil?") },
-            text = { Text("'${group.name}' grubunu silmek istediğinize emin misiniz? Bu işlem geri alınamaz.") },
+            title = { Text(stringResource(R.string.ui_delete_group_q)) },
+            text = { Text(stringResource(R.string.ui_delete_group_confirm, group.name)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -770,11 +772,11 @@ fun AdminGroupListItem(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Sil")
+                    Text(stringResource(R.string.ui_delete))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) { Text("İptal") }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text(stringResource(R.string.ui_cancel)) }
             }
         )
     }
@@ -799,11 +801,11 @@ fun GroupMemberManagementDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("'${group.name}' Üyelerini Yönet", style = MaterialTheme.typography.titleLarge) },
+        title = { Text(stringResource(R.string.ui_manage_members_title, group.name), style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
                 // Mevcut Üyeler
-                Text("Grup Üyeleri (${members.size})", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                Text(stringResource(R.string.ui_group_members_count, members.size), style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 LazyColumn(modifier = Modifier.weight(1f)) {
@@ -823,14 +825,14 @@ fun GroupMemberManagementDialog(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(userInfo?.fullName ?: "Bilinmeyen Kullanıcı", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    Text(userInfo?.fullName ?: stringResource(R.string.ui_unknown_user), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                                     userInfo?.email?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = Color.Gray) }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(member.role, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                         if (group.creatorId == member.userId) {
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Badge(containerColor = MaterialTheme.colorScheme.primaryContainer) {
-                                                Text("KURUCU/YÖNETİCİ", style = MaterialTheme.typography.labelSmall)
+                                                Text(stringResource(R.string.ui_creator_admin), style = MaterialTheme.typography.labelSmall)
                                             }
                                         }
                                     }
@@ -840,7 +842,7 @@ fun GroupMemberManagementDialog(
                                     if (group.creatorId == member.userId) {
                                         // Mevcut Yönetici - Dokunulmaz
                                         Badge(containerColor = MaterialTheme.colorScheme.primaryContainer) {
-                                            Text("GRUP YÖNETİCİSİ", style = MaterialTheme.typography.labelSmall)
+                                            Text(stringResource(R.string.ui_group_creator_cap), style = MaterialTheme.typography.labelSmall)
                                         }
                                     } else {
                                         // Yetkili/Yetki Al (Moderator Yönetimi)
@@ -848,7 +850,7 @@ fun GroupMemberManagementDialog(
                                             onClick = { memberToChangeRole = member }
                                         ) {
                                             Text(
-                                                if (member.role.lowercase() == "moderator") "Yetkiyi Al" else "Yetkili Yap",
+                                                if (member.role.lowercase() == "moderator") stringResource(R.string.ui_revoke_authority) else stringResource(R.string.ui_grant_authority),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = if (member.role.lowercase() == "moderator") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                                             )
@@ -864,11 +866,11 @@ fun GroupMemberManagementDialog(
                                             shape = RoundedCornerShape(8.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA000))
                                         ) {
-                                            Text("Yönetici Yap", style = MaterialTheme.typography.labelSmall)
+                                            Text(stringResource(R.string.ui_make_admin), style = MaterialTheme.typography.labelSmall)
                                         }
 
                                         IconButton(onClick = { memberToRemove = member }) {
-                                            Icon(Icons.Default.Close, contentDescription = "Çıkar", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_remove), tint = Color.Gray, modifier = Modifier.size(16.dp))
                                         }
                                     }
                                 }
@@ -887,14 +889,14 @@ fun GroupMemberManagementDialog(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Dışarıdan Üye Ekle")
+                        Text(stringResource(R.string.ui_add_member_externally))
                     }
                 } else {
                     Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp)).padding(8.dp)) {
                         OutlinedTextField(
                             value = userSearchQuery,
                             onValueChange = { userSearchQuery = it },
-                            label = { Text("Kullanıcı Ara") },
+                            label = { Text(stringResource(R.string.ui_search_user)) },
                             modifier = Modifier.fillMaxWidth(),
                             textStyle = MaterialTheme.typography.bodySmall
                         )
@@ -918,19 +920,19 @@ fun GroupMemberManagementDialog(
                                     viewModel.addMemberToGroup(group.id, user.uid, "MEMBER")
                                     userSearchQuery = ""
                                 }) {
-                                    Text("Ekle", style = MaterialTheme.typography.labelSmall)
+                                    Text(stringResource(R.string.ui_add), style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                         }
                         TextButton(onClick = { showAddMemberSection = false }, modifier = Modifier.align(Alignment.End)) {
-                            Text("Kapat")
+                            Text(stringResource(R.string.ui_close))
                         }
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Tamam") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_ok)) }
         }
     )
 
@@ -939,16 +941,20 @@ fun GroupMemberManagementDialog(
         val userInfo = allUsers.find { it.uid == member.userId }
         AlertDialog(
             onDismissRequest = { memberToChangeRole = null },
-            title = { Text("Yetki Değişimi") },
-            text = { Text("${userInfo?.fullName ?: "Bu kullanıcıyı"} ${if (member.role.lowercase() == "moderator") "yetkisini almak" else "yetkili yapmak"} istediğinize emin misiniz?") },
+            title = { Text(stringResource(R.string.ui_authority_change)) },
+            text = { 
+                val memberName = userInfo?.fullName ?: stringResource(R.string.ui_unknown_user)
+                val actionText = if (member.role.lowercase() == "moderator") stringResource(R.string.ui_action_revoke_authority) else stringResource(R.string.ui_action_grant_authority)
+                Text(stringResource(R.string.ui_authority_change_confirm, memberName, actionText)) 
+            },
             confirmButton = {
                 Button(onClick = {
                     val newRole = if (member.role.lowercase() == "moderator") "member" else "moderator"
                     viewModel.updateMemberRole(group.id, member.userId, newRole)
                     memberToChangeRole = null
-                }) { Text("Evet") }
+                }) { Text(stringResource(R.string.ui_yes)) }
             },
-            dismissButton = { TextButton(onClick = { memberToChangeRole = null }) { Text("İptal") } }
+            dismissButton = { TextButton(onClick = { memberToChangeRole = null }) { Text(stringResource(R.string.ui_cancel)) } }
         )
     }
 
@@ -956,8 +962,8 @@ fun GroupMemberManagementDialog(
         val userInfo = allUsers.find { it.uid == member.userId }
         AlertDialog(
             onDismissRequest = { memberToMakeCreator = null },
-            title = { Text("Yönetici Devri") },
-            text = { Text("${userInfo?.fullName ?: "Bu kullanıcıyı"} grubun yeni TEK YÖNETİCİSİ yapmak istediğinize emin misiniz? Eski yönetici üyeye düşürülecektir.") },
+            title = { Text(stringResource(R.string.ui_transfer_admin)) },
+            text = { Text(stringResource(R.string.ui_transfer_admin_confirm, userInfo?.fullName ?: stringResource(R.string.ui_unknown_user))) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -965,9 +971,9 @@ fun GroupMemberManagementDialog(
                         memberToMakeCreator = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA000))
-                ) { Text("Evet, Devret") }
+                ) { Text(stringResource(R.string.ui_yes_transfer)) }
             },
-            dismissButton = { TextButton(onClick = { memberToMakeCreator = null }) { Text("İptal") } }
+            dismissButton = { TextButton(onClick = { memberToMakeCreator = null }) { Text(stringResource(R.string.ui_cancel)) } }
         )
     }
 
@@ -975,8 +981,8 @@ fun GroupMemberManagementDialog(
         val userInfo = allUsers.find { it.uid == member.userId }
         AlertDialog(
             onDismissRequest = { memberToRemove = null },
-            title = { Text("Üyeyi Çıkar") },
-            text = { Text("${userInfo?.fullName ?: "Bu kullanıcıyı"} gruptan çıkarmak istediğinize emin misiniz?") },
+            title = { Text(stringResource(R.string.ui_remove_member)) },
+            text = { Text(stringResource(R.string.ui_remove_member_confirm, userInfo?.fullName ?: stringResource(R.string.ui_unknown_user))) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -984,9 +990,9 @@ fun GroupMemberManagementDialog(
                         memberToRemove = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Evet, Çıkar") }
+                ) { Text(stringResource(R.string.ui_yes_remove)) }
             },
-            dismissButton = { TextButton(onClick = { memberToRemove = null }) { Text("İptal") } }
+            dismissButton = { TextButton(onClick = { memberToRemove = null }) { Text(stringResource(R.string.ui_cancel)) } }
         )
     }
 }
