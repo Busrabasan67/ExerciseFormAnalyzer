@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,11 +26,11 @@ fun ExerciseSelectionDialog(
         onDismissRequest = { /* Zorunlu seçim için boş */ },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
         title = {
-            Text(text = "Antrenmana Başla", fontWeight = FontWeight.Bold)
+            Text(text = stringResource(R.string.ui_start_workout), fontWeight = FontWeight.Bold)
         },
         text = {
             Column {
-                Text("Lütfen yapacağınız hareketi seçin:")
+                Text(stringResource(R.string.ui_select_exercise))
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 // UNKNOWN hariç hepsini listele
@@ -45,7 +47,7 @@ fun ExerciseSelectionDialog(
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Text(
-                                text = "✨ Otomatik Algılasın",
+                                text = stringResource(R.string.ui_auto_detect),
                                 modifier = Modifier.padding(16.dp),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
@@ -97,17 +99,17 @@ fun ExerciseInfoDialog(
                 Text(text = meta.description, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Text("Kamera Açısı:", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text(text = "👉 ${meta.preferredAngle.displayName} olacak şekilde hazırlanın.", fontSize = 14.sp)
+                Text(stringResource(R.string.ui_camera_angle), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(text = stringResource(R.string.ui_prepare_angle, meta.preferredAngle.displayName), fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Text("DOĞRU FORM:", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = androidx.compose.ui.graphics.Color(0xFF00BFA5))
+                Text(stringResource(R.string.ui_correct_form), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = androidx.compose.ui.graphics.Color(0xFF00BFA5))
                 meta.correctFormRules.forEach { rule ->
                     Text(text = "✓ $rule", fontSize = 14.sp)
                 }
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Text("YAPILMAMASI GEREKENLER:", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = androidx.compose.ui.graphics.Color(0xFFE53935))
+                Text(stringResource(R.string.ui_common_mistakes), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = androidx.compose.ui.graphics.Color(0xFFE53935))
                 meta.commonMistakes.forEach { mistake ->
                     Text(text = "✗ $mistake", fontSize = 14.sp)
                 }
@@ -115,12 +117,12 @@ fun ExerciseInfoDialog(
         },
         confirmButton = {
             Button(onClick = onStart) {
-                Text("Anladım, Başla")
+                Text(stringResource(R.string.ui_got_it_start))
             }
         },
         dismissButton = {
             TextButton(onClick = onCancel) {
-                Text("İptal")
+                Text(stringResource(R.string.ui_cancel))
             }
         }
     )

@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui.community
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -110,6 +112,7 @@ fun GroupDetailScreen(
     val appliedProgramIds by viewModel.appliedProgramIds.collectAsState()
 
     val snackbarHost = remember { SnackbarHostState() }
+    val context = LocalContext.current
     val currentUid = viewModel.currentUid
     val canInvite = viewModel.canInvite()
     val canManageRoles = viewModel.canManageRoles()
@@ -119,10 +122,13 @@ fun GroupDetailScreen(
     val canLeaveGroup = isCurrentMember && viewModel.currentMemberRole() != "admin"
 
     var selectedTab by remember { mutableIntStateOf(0) }
+    val labelMembers = stringResource(R.string.ui_members)
+    val labelGroupClosed = stringResource(R.string.ui_group_closed)
+    val labelLeftGroup = stringResource(R.string.ui_left_group)
     val tabs = when {
-        canInvite -> listOf("Sohbet", "Bilgiler", "Üyeler", "Davet")
-        isCurrentMember -> listOf("Sohbet", "Bilgiler", "Üyeler")
-        else -> listOf("Bilgiler", "Üyeler")
+        canInvite -> listOf(stringResource(R.string.ui_chat), stringResource(R.string.ui_info), labelMembers, stringResource(R.string.ui_invite))
+        isCurrentMember -> listOf(stringResource(R.string.ui_chat), stringResource(R.string.ui_info), labelMembers)
+        else -> listOf(stringResource(R.string.ui_info), labelMembers)
     }
 
     var inviteQuery by remember { mutableStateOf("") }
@@ -142,7 +148,7 @@ fun GroupDetailScreen(
     LaunchedEffect(event) {
         when (val e = event) {
             is CommunityEvent.Success -> {
-                if (e.message == "Grup kapatıldı." || e.message == "Gruptan çıkıldı.") {
+                if (e.message == labelGroupClosed || e.message == labelLeftGroup) {
                     viewModel.resetEvent()
                     onNavigateBack()
                     return@LaunchedEffect
@@ -151,7 +157,7 @@ fun GroupDetailScreen(
                 viewModel.resetEvent()
             }
             is CommunityEvent.Error -> {
-                snackbarHost.showSnackbar("Hata: ${e.message}")
+                snackbarHost.showSnackbar(context.getString(R.string.ui_error_with_message, e.message))
                 viewModel.resetEvent()
             }
             else -> {}
@@ -159,7 +165,6 @@ fun GroupDetailScreen(
     }
 
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState()
     var showImageSourceDialog by remember { mutableStateOf(false) }
     var tempPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -191,10 +196,10 @@ fun GroupDetailScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text(group?.name ?: "Grup Detayı", fontWeight = FontWeight.Bold) },
+                    title = { Text(group?.name ?: stringResource(R.string.ui_group_detail), fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Geri")
+                            Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.ui_back))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -214,7 +219,7 @@ fun GroupDetailScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHost) }
     ) { padding ->
-        if (tabs[selectedTab] == "Sohbet") {
+        if (tabs[selectedTab] == "Chat") {
             ChatSectionFixed(
                 messages = messages,
                 programs = programs,
@@ -234,7 +239,7 @@ fun GroupDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 when (tabs[selectedTab]) {
-                    "Bilgiler" -> {
+                    "Info" -> {
                         item {
                             GroupInfoCard(
                                 group = group,
@@ -254,7 +259,7 @@ fun GroupDetailScreen(
                             )
                         }
                     }
-                    "Üyeler" -> {
+                    labelMembers -> {
                         if (members.isEmpty()) {
                             item {
                                 Box(
@@ -262,7 +267,7 @@ fun GroupDetailScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "Üye bulunamadı.",
+                                        text = stringResource(R.string.ui_member_not_found),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                     )
@@ -287,7 +292,7 @@ fun GroupDetailScreen(
                             }
                         }
                     }
-                    "Davet" -> {
+                    "Invite" -> {
                         item {
                             InviteSection(
                                 query = inviteQuery,
@@ -318,8 +323,8 @@ fun GroupDetailScreen(
     if (showProgramDialog) {
         AssignTaskDialog(
             onDismissRequest = { showProgramDialog = false },
-            dialogTitle = "Grup Programı Paylaş",
-            submitText = "Sohbette Paylaş",
+            dialogTitle = stringResource(R.string.ui_share_group_program),
+            submitText = stringResource(R.string.ui_share_in_chat),
             onAssignTask = { title, note, _, exercises, sched, days, auto, weeks ->
                 viewModel.shareProgram(title, note, exercises, sched, days, auto, weeks)
                 showProgramDialog = false
@@ -330,9 +335,9 @@ fun GroupDetailScreen(
     memberPendingRemoval?.let { member ->
         AlertDialog(
             onDismissRequest = { memberPendingRemoval = null },
-            title = { Text("Üyeyi Çıkar") },
+            title = { Text(stringResource(R.string.ui_remove_member)) },
             text = {
-                Text("\"${member.userName}\" adlı kullanıcıyı çıkarmak istediğinize emin misiniz?")
+                Text(stringResource(R.string.ui_remove_member_confirm, member.userName))
             },
             confirmButton = {
                 Button(
@@ -342,12 +347,12 @@ fun GroupDetailScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Çıkar")
+                    Text(stringResource(R.string.ui_remove))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { memberPendingRemoval = null }) {
-                    Text("İptal")
+                    Text(stringResource(R.string.ui_cancel))
                 }
             }
         )
@@ -355,9 +360,9 @@ fun GroupDetailScreen(
     if (showCloseGroupDialog) {
         AlertDialog(
             onDismissRequest = { showCloseGroupDialog = false },
-            title = { Text("Grubu Kapat") },
+            title = { Text(stringResource(R.string.ui_close_group)) },
             text = {
-                Text("Grubu kapatmak istediğinize emin misiniz? Bu işlem gruba ait üyeleri, davetleri, istekleri, mesajları ve programları kalıcı olarak siler.")
+                Text(stringResource(R.string.ui_close_group_confirm))
             },
             confirmButton = {
                 Button(
@@ -367,12 +372,12 @@ fun GroupDetailScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Kapat")
+                    Text(stringResource(R.string.ui_close))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCloseGroupDialog = false }) {
-                    Text("İptal")
+                    Text(stringResource(R.string.ui_cancel))
                 }
             }
         )
@@ -380,8 +385,8 @@ fun GroupDetailScreen(
     if (showLeaveGroupDialog) {
         AlertDialog(
             onDismissRequest = { showLeaveGroupDialog = false },
-            title = { Text("Gruptan Çık") },
-            text = { Text("Bu gruptan çıkmak istediğinize emin misiniz?") },
+            title = { Text(stringResource(R.string.ui_leave_group)) },
+            text = { Text(stringResource(R.string.ui_leave_group_confirm)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -390,12 +395,12 @@ fun GroupDetailScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Çık")
+                     Text(stringResource(R.string.ui_leave))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLeaveGroupDialog = false }) {
-                    Text("İptal")
+                    Text(stringResource(R.string.ui_cancel))
                 }
             }
         )
@@ -417,7 +422,7 @@ fun GroupDetailScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Grup Fotoğrafı",
+                    text = stringResource(R.string.ui_group_photo),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -425,7 +430,7 @@ fun GroupDetailScreen(
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Grubunuzun kapak fotoğrafını nasıl güncellemek istersiniz?",
+                    text = stringResource(R.string.ui_group_cover_update_msg),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
@@ -464,8 +469,8 @@ fun GroupDetailScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "Kamera",
+                         Text(
+                            text = stringResource(R.string.camera),
                             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                             modifier = Modifier.weight(1f)
                         )
@@ -511,8 +516,8 @@ fun GroupDetailScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "Galeri",
+                         Text(
+                            text = stringResource(R.string.gallery),
                             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                             modifier = Modifier.weight(1f)
                         )
@@ -529,7 +534,7 @@ fun GroupDetailScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "İptal",
+                        text = stringResource(R.string.ui_cancel),
                         style = MaterialTheme.typography.bodyLarge.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.SemiBold
@@ -578,7 +583,7 @@ private fun GroupInfoCard(
                 if (!group.coverImageUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = group.coverImageUrl,
-                        contentDescription = "Grup Kapağı",
+                        contentDescription = stringResource(R.string.ui_group_cover),
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
@@ -599,7 +604,7 @@ private fun GroupInfoCard(
                             .padding(8.dp)
                             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), CircleShape)
                     ) {
-                        Icon(Icons.Default.PhotoCamera, contentDescription = "Kapağı Değiştir", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.PhotoCamera, contentDescription = stringResource(R.string.ui_change_cover), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -613,7 +618,7 @@ private fun GroupInfoCard(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = if (group.isPrivate) "Kapalı Grup" else "Herkese Açık",
+                            text = if (group.isPrivate) stringResource(R.string.ui_private_group) else stringResource(R.string.ui_public),
                             style = MaterialTheme.typography.bodySmall,
                             color = if (group.isPrivate)
                                 MaterialTheme.colorScheme.secondary
@@ -636,7 +641,7 @@ private fun GroupInfoCard(
                 if (group.creatorName.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Kuran kişi: ${group.creatorName}",
+                        text = stringResource(R.string.ui_created_by, group.creatorName),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -654,15 +659,15 @@ private fun GroupInfoCard(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Kapalı Grup",
+                                text = stringResource(R.string.ui_private_group),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 text = if (group.isPrivate) {
-                                    "Katılmak için yönetici onayı gerekir."
+                                    stringResource(R.string.ui_requires_admin_approval)
                                 } else {
-                                    "Herkes direkt katılabilir."
+                                    stringResource(R.string.ui_anyone_can_join)
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -683,15 +688,15 @@ private fun GroupInfoCard(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Üyeler Fotoğraf Yükleyebilir",
+                                text = stringResource(R.string.ui_members_can_upload_photo),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 text = if (group.allowMemberPhotoUpload) {
-                                    "Üyeler kapak fotoğrafını değiştirebilir."
+                                    stringResource(R.string.ui_members_can_change_cover)
                                 } else {
-                                    "Sadece yönetici fotoğraf değiştirebilir."
+                                    stringResource(R.string.ui_only_admin_can_change_photo)
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -713,7 +718,7 @@ private fun GroupInfoCard(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Text("Grubu Kapat")
+                        Text(stringResource(R.string.ui_close_group))
                     }
                 }
 
@@ -726,7 +731,7 @@ private fun GroupInfoCard(
                             contentColor = MaterialTheme.colorScheme.error
                         )
                     ) {
-                        Text("Gruptan Çık")
+                        Text(stringResource(R.string.ui_leave_group))
                     }
                 }
             }
@@ -817,7 +822,7 @@ private fun MemberCard(
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
                     ) {
                         Text(
-                            if (member.role == "moderator") "Üye yap" else "Yetkili yap",
+                            if (member.role == "moderator") stringResource(R.string.ui_make_member) else stringResource(R.string.ui_make_moderator),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
@@ -826,7 +831,7 @@ private fun MemberCard(
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
                     ) {
                         Text(
-                            "Yönetici yap",
+                            stringResource(R.string.ui_make_admin_low),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
@@ -838,7 +843,7 @@ private fun MemberCard(
                 IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Çıkar",
+                        contentDescription = stringResource(R.string.ui_remove),
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(18.dp)
                     )
@@ -875,19 +880,19 @@ private fun ChatSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Sohbet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.ui_chat), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             if (canShareProgram) {
                 OutlinedButton(onClick = onShareProgram) {
                     Icon(Icons.Default.FitnessCenter, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Program Paylaş")
+                    Text(stringResource(R.string.ui_share_program))
                 }
             }
         }
 
         if (messages.isEmpty()) {
             Text(
-                text = "Henüz mesaj yok.",
+                text = stringResource(R.string.ui_no_messages),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
@@ -911,7 +916,7 @@ private fun ChatSection(
             OutlinedTextField(
                 value = messageText,
                 onValueChange = { messageText = it },
-                label = { Text("Mesaj yaz") },
+                label = { Text(stringResource(R.string.ui_write_message)) },
                 modifier = Modifier.weight(1f),
                 minLines = 1,
                 maxLines = 4
@@ -954,12 +959,12 @@ private fun ChatSectionFixed(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Sohbet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.ui_chat), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             if (canShareProgram) {
                 OutlinedButton(onClick = onShareProgram) {
                     Icon(Icons.Default.FitnessCenter, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Program Paylaş")
+                    Text(stringResource(R.string.ui_share_program))
                 }
             }
         }
@@ -970,7 +975,7 @@ private fun ChatSectionFixed(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Henüz mesaj yok.",
+                    text = stringResource(R.string.ui_no_messages),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
                 )
@@ -1032,7 +1037,7 @@ private fun ChatSectionFixed(
                     OutlinedTextField(
                         value = messageText,
                         onValueChange = { messageText = it },
-                        placeholder = { Text("Mesaj yaz") },
+                        placeholder = { Text(stringResource(R.string.ui_write_message)) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(24.dp),
                         minLines = 1,
@@ -1057,8 +1062,14 @@ private fun ChatSectionFixed(
 }
 
 private sealed class ChatTimelineItem {
-    data class DateHeader(val dateKey: String, val label: String) : ChatTimelineItem()
+    data class DateHeader(val dateKey: String, val label: ChatDateLabel) : ChatTimelineItem()
     data class Message(val message: FsGroupMessage) : ChatTimelineItem()
+}
+
+private sealed class ChatDateLabel {
+    object Today : ChatDateLabel()
+    object Yesterday : ChatDateLabel()
+    data class Other(val label: String) : ChatDateLabel()
 }
 
 @Composable
@@ -1100,7 +1111,12 @@ private fun ChatMessageTimeline(
 
 
 @Composable
-private fun ChatDateHeader(label: String) {
+private fun ChatDateHeader(labelItem: ChatDateLabel) {
+    val label = when(labelItem) {
+        ChatDateLabel.Today -> stringResource(R.string.ui_today)
+        ChatDateLabel.Yesterday -> stringResource(R.string.ui_yesterday)
+        is ChatDateLabel.Other -> labelItem.label
+    }
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Surface(
             shape = RoundedCornerShape(12.dp),
@@ -1123,7 +1139,7 @@ private fun buildChatTimeline(messages: List<FsGroupMessage>): List<ChatTimeline
     messages.sortedBy { it.createdAt }.forEach { message ->
         val dateKey = chatDateKey(message.createdAt)
         if (dateKey != lastDateKey) {
-            items += ChatTimelineItem.DateHeader(dateKey, chatDateLabel(message.createdAt))
+            items += ChatTimelineItem.DateHeader(dateKey, chatDateLabelItem(message.createdAt))
             lastDateKey = dateKey
         }
         items += ChatTimelineItem.Message(message)
@@ -1136,21 +1152,21 @@ private fun chatDateKey(timestamp: Long): String {
     return "${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.DAY_OF_YEAR)}"
 }
 
-private fun chatDateLabel(timestamp: Long): String {
-    val locale = Locale("tr", "TR")
+private fun chatDateLabelItem(timestamp: Long): ChatDateLabel {
+    val locale = Locale.getDefault()
     val messageDate = Calendar.getInstance(locale).apply { timeInMillis = timestamp.coerceAtLeast(0L) }
     val today = Calendar.getInstance(locale)
     val yesterday = Calendar.getInstance(locale).apply { add(Calendar.DAY_OF_YEAR, -1) }
 
     return when {
-        isSameDay(messageDate, today) -> "Bugün"
-        isSameDay(messageDate, yesterday) -> "Dün"
+        isSameDay(messageDate, today) -> ChatDateLabel.Today
+        isSameDay(messageDate, yesterday) -> ChatDateLabel.Yesterday
         messageDate.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
             messageDate.get(Calendar.MONTH) == today.get(Calendar.MONTH) -> {
-            capitalizeTurkish(SimpleDateFormat("EEEE", locale).format(messageDate.time))
+            ChatDateLabel.Other(SimpleDateFormat("EEEE", locale).format(messageDate.time).capitalize(locale))
         }
         else -> {
-            capitalizeTurkish(SimpleDateFormat("d MMMM EEEE", locale).format(messageDate.time))
+            ChatDateLabel.Other(SimpleDateFormat("d MMMM EEEE", locale).format(messageDate.time).capitalize(locale))
         }
     }
 }
@@ -1159,11 +1175,11 @@ private fun isSameDay(first: Calendar, second: Calendar): Boolean =
     first.get(Calendar.YEAR) == second.get(Calendar.YEAR) &&
         first.get(Calendar.DAY_OF_YEAR) == second.get(Calendar.DAY_OF_YEAR)
 
-private fun capitalizeTurkish(value: String): String =
-    value.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("tr", "TR")) else it.toString() }
+private fun String.capitalize(locale: Locale): String =
+    replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
 
 private fun chatTimeLabel(timestamp: Long): String =
-    SimpleDateFormat("HH:mm", Locale("tr", "TR")).format(Date(timestamp.coerceAtLeast(0L)))
+    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp.coerceAtLeast(0L)))
 
 @Composable
 private fun TextMessageCard(
@@ -1190,7 +1206,7 @@ private fun TextMessageCard(
             }
             if (canDelete) {
                 IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_delete), tint = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -1218,7 +1234,7 @@ private fun ProgramMessageCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(program.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Text(
-                        "${message.senderName} paylaştı",
+                        "${message.senderName} ${stringResource(R.string.ui_shared)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                     )
@@ -1231,7 +1247,7 @@ private fun ProgramMessageCard(
                 if (canDelete) {
                     Spacer(modifier = Modifier.width(4.dp))
                     IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_delete), tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -1241,7 +1257,7 @@ private fun ProgramMessageCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "${program.exercises.size} egzersiz • ${program.scheduleType}",
+                stringResource(R.string.ui_exercises_bullet_schedule, program.exercises.size, program.scheduleType),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.secondary
             )
@@ -1251,7 +1267,7 @@ private fun ProgramMessageCard(
                 enabled = !applied,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (applied) "Program Uygulandı" else "Programı Uygula")
+                Text(if (applied) stringResource(R.string.ui_program_applied) else stringResource(R.string.ui_apply_program))
             }
         }
     }
@@ -1264,10 +1280,11 @@ private fun roleColor(role: String) = when (role) {
     else -> MaterialTheme.colorScheme.primary
 }
 
+@Composable
 private fun roleLabel(role: String): String = when (role) {
-    "admin" -> "Yönetici"
-    "moderator" -> "Yetkili"
-    else -> "Üye"
+    "admin" -> stringResource(R.string.ui_role_admin)
+    "moderator" -> stringResource(R.string.ui_role_moderator)
+    else -> stringResource(R.string.ui_role_member)
 }
 
 @Composable
@@ -1281,7 +1298,7 @@ private fun InviteSection(
 ) {
     Column {
         Text(
-            text = "E-posta ile Kullanıcı Davet Et",
+            text = stringResource(R.string.ui_invite_by_email),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -1289,7 +1306,7 @@ private fun InviteSection(
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
-            label = { Text("E-posta ara (min. 2 karakter)") },
+            label = { Text(stringResource(R.string.ui_search_email_hint)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             leadingIcon = {
@@ -1298,7 +1315,7 @@ private fun InviteSection(
             trailingIcon = {
                 if (query.isNotEmpty()) {
                     IconButton(onClick = onClearSearch) {
-                        Icon(Icons.Default.Close, contentDescription = "Temizle")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_clear))
                     }
                 }
             }
@@ -1327,7 +1344,7 @@ private fun InviteSection(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = user.fullName.ifBlank { "İsimsiz Kullanıcı" },
+                                    text = user.fullName.ifBlank { stringResource(R.string.ui_anonymous_user) },
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -1344,7 +1361,7 @@ private fun InviteSection(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Davet Et")
+                                Text(stringResource(R.string.ui_invite))
                             }
                         }
                     }
@@ -1353,7 +1370,7 @@ private fun InviteSection(
         } else if (query.length >= 2 && !isLoading) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Kullanıcı bulunamadı.",
+                text = stringResource(R.string.ui_user_not_found),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )

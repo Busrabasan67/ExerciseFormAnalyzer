@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
+import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.data.local.entity.TaskAssignmentEntity
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.data.repository.CommunityRepository
@@ -268,10 +269,11 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
             if (doctorProfile != null) {
                 val result = userRepo.sendConnectionRequest(patient, doctorProfile)
                 if (result.isSuccess) {
-                    _requestStatus.value = "İstek gönderildi"
+                    _requestStatus.value = getApplication<MainApplication>().getString(R.string.ui_request_sent)
                     loadSentRequests()
                 } else {
-                    _searchError.value = "İstek gönderilemedi: ${result.exceptionOrNull()?.message}"
+                    val message = result.exceptionOrNull()?.message ?: getApplication<MainApplication>().getString(R.string.unknown_error)
+                    _searchError.value = getApplication<MainApplication>().getString(R.string.ui_request_send_failed, message)
                 }
             }
         }
@@ -281,10 +283,11 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             val result = userRepo.cancelConnectionRequest(requestId)
             if (result.isSuccess) {
-                _requestStatus.value = "İstek iptal edildi"
+                _requestStatus.value = getApplication<MainApplication>().getString(R.string.ui_request_cancelled)
                 loadSentRequests()
             } else {
-                _searchError.value = "İstek iptal edilemedi: ${result.exceptionOrNull()?.message}"
+                val message = result.exceptionOrNull()?.message ?: getApplication<MainApplication>().getString(R.string.unknown_error)
+                _searchError.value = getApplication<MainApplication>().getString(R.string.ui_request_cancel_failed, message)
             }
         }
     }
@@ -299,7 +302,8 @@ class ExpertViewModel(application: Application) : AndroidViewModel(application) 
                 planRepo.deactivateDoctorTasks(uid, patientId)
                 _requestStatus.value = "REMOVED"
             } else {
-                _searchError.value = "Hasta kaldırılamadı: ${result.exceptionOrNull()?.message}"
+                val message = result.exceptionOrNull()?.message ?: getApplication<MainApplication>().getString(R.string.unknown_error)
+                _searchError.value = getApplication<MainApplication>().getString(R.string.ui_patient_remove_failed, message)
             }
         }
     }

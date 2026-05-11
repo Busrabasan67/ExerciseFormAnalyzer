@@ -4,11 +4,13 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Triceps Kickback form değerlendirici.
  */
-class TricepsKickbackEvaluator : ExerciseEvaluator {
+class TricepsKickbackEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.TRICEPS_KICKBACK
 
@@ -39,19 +41,19 @@ class TricepsKickbackEvaluator : ExerciseEvaluator {
         // 1. Üst Kol Sabitliği (Omuz açısı kontrolü)
         val shoulderAngle = AngleUtils.dominantShoulderAngle(angles, frame)
         if (shoulderAngle != null && shoulderAngle > 35f) {
-            errors.add("Üst kolunu sabit tut")
+            errors.add(stringProvider.getString(R.string.err_keep_upper_arm_stable))
             score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
         }
 
         // 2. Gövde Eğimi (Öne eğilmeyi koruyor mu?)
         if (torso < 35f) {
-            errors.add("Öne eğilmeyi koru")
+            errors.add(stringProvider.getString(R.string.err_keep_forward_lean))
             score -= AnalysisConstants.SCORE_PENALTY_MINOR
         }
 
         // 3. Eksik Açılma
         if (repState.phase == RepetitionPhase.GOING_DOWN && maxExtensionInRep < 155f) {
-            errors.add("Kolunu tamamen aç")
+            errors.add(stringProvider.getString(R.string.err_open_arm_fully))
             score -= AnalysisConstants.SCORE_PENALTY_DEPTH
         }
 
@@ -63,7 +65,7 @@ class TricepsKickbackEvaluator : ExerciseEvaluator {
             score = score.coerceAtLeast(0),
             primaryError = primaryError,
             secondaryErrors = if (errors.size > 1) errors.drop(1) else emptyList(),
-            feedbackMessage = if (isCorrect) buildPhaseMessage(repState.phase) else primaryError ?: "Formu düzeltin",
+            feedbackMessage = if (isCorrect) buildPhaseMessage(repState.phase) else primaryError ?: stringProvider.getString(R.string.err_fix_form),
             confidence = 0.85f
         )
     }
@@ -99,17 +101,17 @@ class TricepsKickbackEvaluator : ExerciseEvaluator {
     }
 
     private fun buildPhaseMessage(phase: RepetitionPhase) = when (phase) {
-        RepetitionPhase.IDLE -> "Triceps Kickback için hazır"
-        RepetitionPhase.BOTTOM -> "Geriye doğru aç"
-        RepetitionPhase.GOING_UP -> "İtiyorsun..."
-        RepetitionPhase.TOP -> "Kasılmayı hisset ve dön"
-        RepetitionPhase.GOING_DOWN -> "Kontrollü dönüş..."
+        RepetitionPhase.IDLE -> stringProvider.getString(R.string.msg_ready_triceps_kickback)
+        RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_open_back)
+        RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_pushing)
+        RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_feel_contraction)
+        RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_controlled_return)
         else -> ""
     }
 
     private fun poorTrackingFeedback() = FormFeedback(
         isCorrect = false, score = 0, primaryError = null,
-        feedbackMessage = "Takip zayıf", confidence = 0.2f
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking), confidence = 0.2f
     )
 
     override fun getRepetitionState(): RepetitionState = repState

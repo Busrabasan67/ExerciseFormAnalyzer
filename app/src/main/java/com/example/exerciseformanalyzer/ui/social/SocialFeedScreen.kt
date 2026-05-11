@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui.social
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,10 +32,10 @@ fun SocialFeedScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Aktivite Akışı") },
+                title = { Text(stringResource(R.string.ui_activity_feed)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Geri")
+                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = stringResource(R.string.ui_back))
                     }
                 }
             )
@@ -41,7 +43,7 @@ fun SocialFeedScreen(
     ) { paddingVals ->
         if (activities.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(paddingVals), contentAlignment = Alignment.Center) {
-                Text("Henüz aktivite yok", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.ui_no_activity), style = MaterialTheme.typography.bodyLarge)
             }
         } else {
             LazyColumn(
@@ -63,6 +65,22 @@ fun SocialFeedScreen(
 fun ActivityCard(activity: FirestoreActivity) {
     var likes by remember { mutableIntStateOf(activity.likeCount) }
     var isLiked by remember { mutableStateOf(false) }
+    val userName = activity.userName
+        .takeUnless { it.isBlank() || it.equals("Bilinmiyor", ignoreCase = true) || it.equals("Bilinmeyen", ignoreCase = true) || it.equals("Unknown", ignoreCase = true) }
+        ?: stringResource(R.string.ui_unknown_user)
+    val workoutCompletedText = "antrenmanını tamamladı"
+    val activityDescription = if (activity.activityType == "WORKOUT") {
+        val exerciseName = activity.description.substringBefore(" $workoutCompletedText").trim()
+        if (exerciseName.isBlank() || exerciseName.contains("Algılanıyor", ignoreCase = true) || exerciseName.contains("Detecting", ignoreCase = true)) {
+            stringResource(R.string.ui_workout_completed_generic)
+        } else if (activity.description.contains(workoutCompletedText, ignoreCase = true)) {
+            stringResource(R.string.ui_workout_completed_activity, exerciseName)
+        } else {
+            activity.description.ifBlank { stringResource(R.string.ui_workout_completed_generic) }
+        }
+    } else {
+        activity.description
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -77,13 +95,13 @@ fun ActivityCard(activity: FirestoreActivity) {
                     color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(if (activity.userName.isNotEmpty()) activity.userName.first().toString() else "?")
+                        Text(userName.firstOrNull()?.toString() ?: "?")
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(activity.userName, style = MaterialTheme.typography.titleMedium)
-                    Text(activity.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    Text(userName, style = MaterialTheme.typography.titleMedium)
+                    Text(activityDescription, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }
             }
             
@@ -120,7 +138,7 @@ fun ActivityCard(activity: FirestoreActivity) {
                 }
                 
                 IconButton(onClick = { /* Ping/Motivation Logic */ }) {
-                    Icon(imageVector = Icons.Default.EmojiEmotions, contentDescription = "Motive Et", tint = MaterialTheme.colorScheme.secondary)
+                    Icon(imageVector = Icons.Default.EmojiEmotions, contentDescription = stringResource(R.string.ui_motivate), tint = MaterialTheme.colorScheme.secondary)
                 }
             }
         }

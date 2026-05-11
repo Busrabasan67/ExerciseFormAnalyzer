@@ -1,9 +1,11 @@
 package com.example.exerciseformanalyzer.ui.profile
 
 import android.app.Application
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exerciseformanalyzer.MainApplication
+import com.example.exerciseformanalyzer.R
 import com.example.exerciseformanalyzer.data.local.entity.UserEntity
 import com.example.exerciseformanalyzer.model.WorkoutStats
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +22,17 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private val workoutRepo = (application as MainApplication).workoutRepository
 
     val currentUid: String get() = authRepo.currentUid ?: ""
+
+    private fun localizedAuthError(message: String?, @StringRes fallbackResId: Int): String {
+        return message
+            ?.takeUnless {
+                it.contains("Sifre", ignoreCase = true) ||
+                    it.contains("sifirlama", ignoreCase = true) ||
+                    it.contains("gonderilemedi", ignoreCase = true) ||
+                    it.contains("guncellenemedi", ignoreCase = true)
+            }
+            ?: getApplication<MainApplication>().getString(fallbackResId)
+    }
 
     fun observeCurrentUser(): Flow<UserEntity?> {
         val uid = currentUid
@@ -69,28 +82,28 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     fun sendPasswordReset(onResult: (Boolean, String?) -> Unit = { _, _ -> }) {
         val email = authRepo.currentUserEmail
         if (email.isNullOrEmpty()) {
-            onResult(false, "E-posta adresi bulunamadı.")
+            onResult(false, getApplication<MainApplication>().getString(R.string.email_not_found_error))
             return
         }
         viewModelScope.launch {
             when (val result = authRepo.sendPasswordResetEmail(email)) {
                 is com.example.exerciseformanalyzer.domain.model.AuthResult.Success -> onResult(true, null)
-                is com.example.exerciseformanalyzer.domain.model.AuthResult.Error -> onResult(false, result.message)
-                else -> onResult(false, "Bilinmeyen bir hata oluştu.")
+                is com.example.exerciseformanalyzer.domain.model.AuthResult.Error -> onResult(false, localizedAuthError(result.message, R.string.password_reset_failed))
+                else -> onResult(false, getApplication<MainApplication>().getString(R.string.unknown_error))
             }
         }
     }
 
     fun updatePassword(newPassword: String, onResult: (Boolean, String?) -> Unit) {
         if (newPassword.length < 6) {
-            onResult(false, "Şifre en az 6 karakter olmalıdır.")
+            onResult(false, getApplication<MainApplication>().getString(R.string.password_min_length_error))
             return
         }
         viewModelScope.launch {
             when (val result = authRepo.updatePassword(newPassword)) {
                 is com.example.exerciseformanalyzer.domain.model.AuthResult.Success -> onResult(true, null)
-                is com.example.exerciseformanalyzer.domain.model.AuthResult.Error -> onResult(false, result.message)
-                else -> onResult(false, "Bilinmeyen bir hata oluştu.")
+                is com.example.exerciseformanalyzer.domain.model.AuthResult.Error -> onResult(false, localizedAuthError(result.message, R.string.password_update_failed))
+                else -> onResult(false, getApplication<MainApplication>().getString(R.string.unknown_error))
             }
         }
     }

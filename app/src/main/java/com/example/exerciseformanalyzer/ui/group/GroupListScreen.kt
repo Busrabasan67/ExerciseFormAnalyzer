@@ -35,7 +35,7 @@ fun GroupListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Gruplarım", "Keşfet", "Davetler")
+    val tabs = listOf(stringResource(R.string.ui_my_groups), stringResource(R.string.ui_discover), stringResource(R.string.ui_invitations))
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showInviteDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // groupId to groupName
@@ -161,7 +161,7 @@ private fun MyGroupsTab(
     onNavigateToDetail: (String, String, String, String) -> Unit
 ) {
     if (groups.isEmpty()) {
-        EmptyState(Icons.Default.People, "Henüz bir gruba dahil değilsiniz.")
+        EmptyState(Icons.Default.People, stringResource(R.string.ui_no_group_yet))
     } else {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(groups) { group ->
@@ -202,7 +202,7 @@ private fun ExploreTab(
     }
 
     if (displayGroups.isEmpty()) {
-        EmptyState(Icons.Default.Search, "Şu an keşfedilecek yeni grup yok.")
+        EmptyState(Icons.Default.Search, stringResource(R.string.ui_no_new_groups_discover))
     } else {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(displayGroups) { (id, group) ->
@@ -214,12 +214,12 @@ private fun ExploreTab(
                     onClick = { onNavigateToDetail(id, group.name, group.description, group.creatorId) },
                     actionContent = {
                         if (isMember) {
-                            Text("Üyesiniz", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.ui_you_are_member), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         } else if (group.isPrivate) {
                             Text("Sadece Davet", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                         } else {
                             Button(onClick = { onJoinRequest(id, group.name, group.creatorId) }) {
-                                Text("Katılma İsteği")
+                                Text(stringResource(R.string.ui_join_request))
                             }
                         }
                     }
@@ -235,7 +235,7 @@ private fun InvitesTab(
     onRespond: (String, FirestoreGroupInvite, Boolean) -> Unit
 ) {
     if (invites.isEmpty()) {
-        EmptyState(Icons.Default.Mail, "Gelen davetiniz bulunmuyor.")
+        EmptyState(Icons.Default.Mail, stringResource(R.string.ui_no_pending_invites))
     } else {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(invites) { (id, invite) ->
@@ -245,15 +245,16 @@ private fun InvitesTab(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(invite.groupName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("${invite.fromUserName} sizi bu gruba davet etti.", style = MaterialTheme.typography.bodySmall)
+                        val inviterName = invite.fromUserName.ifBlank { stringResource(R.string.ui_unknown_user) }
+                        Text("$inviterName ${stringResource(R.string.ui_invited_you_to_group)}", style = MaterialTheme.typography.bodySmall)
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             OutlinedButton(onClick = { onRespond(id, invite, false) }) {
-                                Text("Reddet")
+                                Text(stringResource(R.string.ui_reject))
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Button(onClick = { onRespond(id, invite, true) }) {
-                                Text("Kabul Et")
+                                Text(stringResource(R.string.ui_accept))
                             }
                         }
                     }
@@ -308,7 +309,7 @@ private fun GroupCard(
                 }
                 if (isPrivate) {
                     Text(
-                        text = "Özel Grup",
+                        text = stringResource(R.string.ui_private_group),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
@@ -403,15 +404,15 @@ private fun InviteUserDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Kişi Davet Et") },
+        title = { Text(stringResource(R.string.ui_invite_person)) },
         text = {
             Column {
-                Text("$groupName grubuna davet etmek istediğiniz kişinin e-posta adresini girin.", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.ui_invite_instruction, groupName), style = MaterialTheme.typography.bodySmall)
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("E-posta adresi") },
+                    label = { Text(stringResource(R.string.ui_email_address)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -424,11 +425,11 @@ private fun InviteUserDialog(
         confirmButton = {
             Button(onClick = { onInvite(email) }, enabled = !isLoading && email.isNotBlank()) {
                 if (isLoading) CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                else Text("Davet Gönder")
+                else Text(stringResource(R.string.ui_invite))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("İptal") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel)) }
         }
     )
 }

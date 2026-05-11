@@ -3,16 +3,18 @@ package com.example.exerciseformanalyzer.analysis.evaluator
 import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Plank form değerlendirme aracı.
- * Plank statik bir hareket olduğu için tekrar sayısı artmaz. FSM "TOP" fazında kilitli kalır.
+ * Plank statik bir hareket olduğu için tekrar sayısı artmaz. FSM stringProvider.getString(R.string.msg_top) fazında kilitli kalır.
  *
  * Form kontrolleri:
  * 1. Kalça Sarkması (Hip Sag) - Belin yere doğru bükülmesi
  * 2. Kalça Yükselmesi (Hip Rise) - Kalçanın tepe oluşturacak kadar yükselmesi
  */
-class PlankEvaluator : ExerciseEvaluator {
+class PlankEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.PLANK
 
@@ -40,11 +42,11 @@ class PlankEvaluator : ExerciseEvaluator {
             // Plank şınavdan çok daha hassastır. Eşik 0.08f yerine 0.04f (sıkı denetim)
             when {
                 hipDeviation > 0.04f -> {
-                    errors.add("Belinin aşağı doğru çökmesine izin verme")
+                    errors.add(stringProvider.getString(R.string.err_dont_let_waist_sag))
                     score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
                 }
                 hipDeviation < -0.04f -> {
-                    errors.add("Kalçanı çok yukarı kaldırma, dümdüz bir çizgi ol")
+                    errors.add(stringProvider.getString(R.string.err_hips_straight_line))
                     score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
                 }
             }
@@ -64,7 +66,7 @@ class PlankEvaluator : ExerciseEvaluator {
             val verticalDiff = Math.abs(sLmd.y - eLmd.y)
             // Eğer yatay mesafe, dikey mesafenin %45'inden fazlaysa dirsek önde veya arkadadır
             if (horizontalDiff > verticalDiff * 0.45f) {
-                errors.add("Dirseklerin tam omuzlarının altında olmalı")
+                errors.add(stringProvider.getString(R.string.err_elbows_under_shoulders))
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             }
         }
@@ -72,7 +74,7 @@ class PlankEvaluator : ExerciseEvaluator {
         // 3. Karın ve Kalça Aktivasyonu: Dizler bükülü mü? (Bükülüyorsa kalça/karın gevşektir)
         val kneeAngle = AngleUtils.dominantKneeAngle(angles, frame)
         if (kneeAngle != null && kneeAngle < 160f) {
-            errors.add("Dizlerini bükme, karın ve kalça kaslarını sık")
+            errors.add(stringProvider.getString(R.string.err_dont_bend_knees))
             score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
         }
 
@@ -82,15 +84,15 @@ class PlankEvaluator : ExerciseEvaluator {
 
         if (headPitch != null && headPitch < 0.005f) {
             // Gözler kulak hizasına kadar veya kulağın üstüne çıkarsa (baş yukarı kalkmış demektir)
-            errors.add("Başını çok yukarı diktin, tam ellerinin ortasına bak")
+            errors.add(stringProvider.getString(R.string.err_head_too_high))
             score -= AnalysisConstants.SCORE_PENALTY_MINOR
         } else if (headDeviation != null) {
             if (headDeviation > 0.05f) { 
-                errors.add("Göğsüne veya ayaklarına bakma, boynunu düz tut")
+                errors.add(stringProvider.getString(R.string.err_dont_look_at_chest))
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             } else if (headDeviation < -0.04f) {
                 // Çok ufak bir kafa kaldırmada bile omurga eğrisini bozmayı engelle 
-                errors.add("Boynunu geriye bükme, matına bak")
+                errors.add(stringProvider.getString(R.string.err_dont_bend_neck))
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             }
         }
@@ -118,7 +120,7 @@ class PlankEvaluator : ExerciseEvaluator {
             score = score.coerceAtLeast(0),
             primaryError = primaryError,
             secondaryErrors = if (errors.size > 1) errors.drop(1) else emptyList(),
-            feedbackMessage = if (isCorrect) "Formun çok iyi, bozmadan bekle!" else primaryError!!,
+            feedbackMessage = if (isCorrect) stringProvider.getString(R.string.msg_great_form_hold) else primaryError!!,
             confidence = if (trackingQuality == TrackingQuality.GOOD) 0.9f else 0.7f
         )
     }
@@ -219,7 +221,7 @@ class PlankEvaluator : ExerciseEvaluator {
 
     private fun poorTrackingFeedback() = FormFeedback(
         isCorrect = false, score = 0, primaryError = null,
-        feedbackMessage = "Takip zayıf — tam görünün", confidence = 0.2f
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking_full), confidence = 0.2f
     )
 
     override fun getRepetitionState(): RepetitionState = repState

@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui.dashboard.components
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.focus.onFocusChanged
@@ -36,17 +39,18 @@ import java.util.Calendar
 @Composable
 fun AssignTaskDialog(
     onDismissRequest: () -> Unit,
-    dialogTitle: String = "Gelişmiş Görev Planla",
-    defaultTitle: String = "Haftalık Antrenman",
+    dialogTitle: String = stringResource(R.string.ui_advanced_task_plan),
+    defaultTitle: String = stringResource(R.string.ui_weekly_workout),
     defaultNote: String = "",
     defaultSched: String = "DAILY",
     defaultDays: List<Int> = emptyList(),
     defaultAuto: Boolean = false,
     defaultWeeks: Int? = null,
     initialExercises: List<TaskExerciseInput>? = null,
-    submitText: String = "Görevi Yayınla",
+    submitText: String = stringResource(R.string.ui_publish_task),
     onAssignTask: (title: String, note: String, dueDate: Long, exercises: List<TaskExerciseInput>, sched: String, days: List<Int>, auto: Boolean, weeks: Int?) -> Unit
 ) {
+    val context = LocalContext.current
     var title by remember(defaultTitle) { mutableStateOf(defaultTitle) }
     var note by remember(defaultNote) { mutableStateOf(defaultNote) }
     
@@ -112,7 +116,7 @@ fun AssignTaskDialog(
                         OutlinedTextField(
                             value = title,
                             onValueChange = { title = it },
-                            label = { Text("Görev Başlığı") },
+                            label = { Text(stringResource(R.string.ui_task_title)) },
                             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = TextFieldDefaults.outlinedTextFieldColors(
@@ -120,9 +124,9 @@ fun AssignTaskDialog(
                             )
                         )
                         OutlinedTextField(
-                            value = note,
-                            onValueChange = { note = it },
-                            label = { Text("Özel Notlar (Opsiyonel)") },
+                            value = note, 
+                            onValueChange = { note = it }, 
+                            label = { Text(stringResource(R.string.ui_special_notes_hint)) }, 
                             modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = TextFieldDefaults.outlinedTextFieldColors(
@@ -133,13 +137,13 @@ fun AssignTaskDialog(
 
                     // Zamanlama Bölümü
                     item {
-                        Text("Planlama", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
+                        Text(stringResource(R.string.ui_planning_label), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(), 
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            listOf("DAILY" to "Her Gün", "WEEKLY" to "Haftalık", "CUSTOM" to "Özel").forEach { (type, label) ->
+                            listOf("DAILY" to stringResource(R.string.ui_everyday), "WEEKLY" to stringResource(R.string.ui_weekly), "CUSTOM" to stringResource(R.string.ui_custom)).forEach { (type, label) ->
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically, 
                                     modifier = Modifier.clickable { sched = type }
@@ -157,7 +161,13 @@ fun AssignTaskDialog(
                         if (sched == "CUSTOM") {
                             Spacer(modifier = Modifier.height(12.dp))
                             val dayNames = listOf(
-                                2 to "Pzt", 3 to "Sal", 4 to "Çar", 5 to "Per", 6 to "Cum", 7 to "Cmt", 1 to "Paz"
+                                2 to stringResource(R.string.ui_mon), 
+                                3 to stringResource(R.string.ui_tue), 
+                                4 to stringResource(R.string.ui_wed), 
+                                5 to stringResource(R.string.ui_thu), 
+                                6 to stringResource(R.string.ui_fri), 
+                                7 to stringResource(R.string.ui_sat), 
+                                1 to stringResource(R.string.ui_sun)
                             )
                             Row(
                                 modifier = Modifier
@@ -198,7 +208,7 @@ fun AssignTaskDialog(
                                     onCheckedChange = { auto = it },
                                     colors = CheckboxDefaults.colors(checkedColor = Color(0xFF00C853))
                                 )
-                                Text("Otomatik Tekrarla (Haftalık Bazda)", style = MaterialTheme.typography.bodyMedium)
+                                Text(stringResource(R.string.ui_auto_repeat_weekly), style = MaterialTheme.typography.bodyMedium)
                             }
                         }
 
@@ -207,7 +217,7 @@ fun AssignTaskDialog(
                             NumericTextField(
                                 value = weeksStr,
                                 onValueChange = { weeksStr = it },
-                                label = "Süre (Kaç Hafta?)",
+                                label = stringResource(R.string.ui_duration_weeks),
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                             )
                         }
@@ -217,7 +227,7 @@ fun AssignTaskDialog(
 
                     // Egzersiz İçeriği Bölümü
                     item {
-                        Text("Egzersiz Programı", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
+                        Text(stringResource(R.string.ui_exercise_program), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
@@ -238,9 +248,9 @@ fun AssignTaskDialog(
                             border = BorderStroke(1.dp, Color(0xFF00C853)),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF00C853))
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Ekle", modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.ui_add), modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Yeni Egzersiz Ekle", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.ui_add_new_exercise), style = MaterialTheme.typography.labelLarge)
                         }
                         
                         if (showError.isNotEmpty()) {
@@ -269,7 +279,7 @@ fun AssignTaskDialog(
                         onClick = onDismissRequest,
                         modifier = Modifier.weight(1f).height(48.dp)
                     ) {
-                        Text("İptal", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.ui_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Button(
                         onClick = {
@@ -287,12 +297,12 @@ fun AssignTaskDialog(
                             }
                             
                             when {
-                                exercises.isEmpty() -> showError = "En az 1 egzersiz eklemelisiniz."
+                                exercises.isEmpty() -> showError = context.getString(R.string.ui_err_at_least_one_ex)
                                 validatedExercises.any { it.targetValue.toIntOrNull() == null || (it.targetValue.toIntOrNull() ?: 0) <= 0 } -> 
-                                    showError = "Tüm hedefler (Tekrar/Süre) 0'dan büyük olmalıdır."
+                                    showError = context.getString(R.string.ui_err_target_positive)
                                 validatedExercises.any { it.sets.toIntOrNull() == null || (it.sets.toIntOrNull() ?: 0) <= 0 } -> 
-                                    showError = "Set sayısı 0'dan büyük olmalıdır."
-                                sched == "CUSTOM" && days.isEmpty() -> showError = "Özel günler için en az bir gün seçmelisiniz."
+                                    showError = context.getString(R.string.ui_err_sets_positive)
+                                sched == "CUSTOM" && days.isEmpty() -> showError = context.getString(R.string.ui_err_select_custom_days)
                                 else -> {
                                     val sortedDays = days.sortedWith(compareBy { if (it == 1) 8 else it })
                                     onAssignTask(title, note, c.timeInMillis, validatedExercises, sched, sortedDays, auto, finalWeeks)
@@ -336,9 +346,9 @@ fun ExerciseAdvancedCard(
                 ) {
                     OutlinedTextField(
                         readOnly = true,
-                        value = item.exerciseType.displayName,
+                        value = item.exerciseType.displayName, 
                         onValueChange = { },
-                        label = { Text("Egzersiz Tipi") },
+                        label = { Text(stringResource(R.string.ui_exercise_type_label)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedEx) },
                         colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = Color(0xFF00C853)),
                         shape = RoundedCornerShape(14.dp),
@@ -371,7 +381,7 @@ fun ExerciseAdvancedCard(
                 }
                 
                 IconButton(onClick = onRemove, modifier = Modifier.padding(start = 8.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_delete), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
                 }
             }
             
@@ -380,13 +390,13 @@ fun ExerciseAdvancedCard(
                 NumericTextField(
                     value = item.targetValue,
                     onValueChange = { onUpdate(item.copy(targetValue = it)) },
-                    label = if (item.isDurationBased) "Süre (Sn)" else "Tekrar",
+                    label = if (item.isDurationBased) stringResource(R.string.ui_duration_sec) else stringResource(R.string.ui_reps_label),
                     modifier = Modifier.weight(1f).height(64.dp)
                 )
                 NumericTextField(
                     value = item.sets,
                     onValueChange = { onUpdate(item.copy(sets = it)) },
-                    label = "Set Sayısı",
+                    label = stringResource(R.string.ui_set_count),
                     modifier = Modifier.weight(1f).height(64.dp)
                 )
             }
@@ -396,13 +406,17 @@ fun ExerciseAdvancedCard(
                 NumericTextField(
                     value = item.restTimeSeconds,
                     onValueChange = { onUpdate(item.copy(restTimeSeconds = it)) },
-                    label = "Dinlenme (Sn)",
+                    label = stringResource(R.string.ui_rest_time_sec_label),
                     modifier = Modifier.weight(1f).height(64.dp)
                 )
                 
                 // Zorluk Dropdown
                 var expandedDiff by remember { mutableStateOf(false) }
-                val diffs = listOf("EASY" to "Kolay", "MEDIUM" to "Orta", "HARD" to "Zor")
+                val diffs = listOf(
+                    "EASY" to stringResource(R.string.ui_easy), 
+                    "MEDIUM" to stringResource(R.string.ui_medium), 
+                    "HARD" to stringResource(R.string.ui_hard)
+                )
                 ExposedDropdownMenuBox(
                     expanded = expandedDiff,
                     onExpandedChange = { expandedDiff = !expandedDiff },
@@ -410,9 +424,9 @@ fun ExerciseAdvancedCard(
                 ) {
                     OutlinedTextField(
                         readOnly = true,
-                        value = diffs.find { it.first == item.difficulty }?.second ?: "Orta",
+                        value = diffs.find { it.first == item.difficulty }?.second ?: stringResource(R.string.ui_medium),
                         onValueChange = { },
-                        label = { Text("Zorluk") },
+                        label = { Text(stringResource(R.string.ui_difficulty_label)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDiff) },
                         colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = Color(0xFF00C853)),
                         shape = RoundedCornerShape(14.dp),
@@ -438,7 +452,13 @@ fun ExerciseAdvancedCard(
             Spacer(modifier = Modifier.height(12.dp))
             // Kategori Dropdown
             var expandedCat by remember { mutableStateOf(false) }
-            val cats = listOf("STRENGTH" to "Güç", "CARDIO" to "Kardiyo", "FLEXIBILITY" to "Esneklik", "BALANCE" to "Denge", "REHAB" to "Rehabilitasyon")
+            val cats = listOf(
+                "STRENGTH" to stringResource(R.string.ui_strength), 
+                "CARDIO" to stringResource(R.string.ui_cardio), 
+                "FLEXIBILITY" to stringResource(R.string.ui_flexibility), 
+                "BALANCE" to stringResource(R.string.ui_balance), 
+                "REHAB" to stringResource(R.string.ui_rehab)
+            )
             ExposedDropdownMenuBox(
                 expanded = expandedCat,
                 onExpandedChange = { expandedCat = !expandedCat },
@@ -446,9 +466,9 @@ fun ExerciseAdvancedCard(
             ) {
                 OutlinedTextField(
                     readOnly = true,
-                    value = cats.find { it.first == item.category }?.second ?: "Güç",
+                    value = cats.find { it.first == item.category }?.second ?: stringResource(R.string.ui_strength),
                     onValueChange = { },
-                    label = { Text("Kategori") },
+                    label = { Text(stringResource(R.string.ui_category_label)) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCat) },
                     colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(focusedBorderColor = Color(0xFF00C853)),
                     shape = RoundedCornerShape(14.dp),

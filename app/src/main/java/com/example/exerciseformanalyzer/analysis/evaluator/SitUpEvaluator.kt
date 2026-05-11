@@ -3,6 +3,8 @@ package com.example.exerciseformanalyzer.analysis.evaluator
 import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Sit-up / Crunch (Mekik) form değerlendirme ve tekrar sayacı.
@@ -17,7 +19,7 @@ import com.example.exerciseformanalyzer.util.AngleUtils
  *   2. Boyun gerginliği (baş ve omuz hizası)
  *   3. Kontrollü inme
  */
-class SitUpEvaluator : ExerciseEvaluator {
+class SitUpEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.SIT_UP
 
@@ -51,7 +53,7 @@ class SitUpEvaluator : ExerciseEvaluator {
         // 1. Hareket tamamlanma kontrolü
         if (repState.phase == RepetitionPhase.TOP) {
             if (torsoAngle > AnalysisConstants.SIT_UP_TOP_ANGLE_MAX + 15f) {
-                errors.add("Hareketi tamamla")
+                errors.add(stringProvider.getString(R.string.err_complete_movement))
                 score -= AnalysisConstants.SCORE_PENALTY_DEPTH
             }
         }
@@ -59,7 +61,7 @@ class SitUpEvaluator : ExerciseEvaluator {
         // 2. Boyun gerginliği kontrolü (baş, omuzdan çok yukarıda mı?)
         val neckStrain = detectNeckStrain(frame)
         if (neckStrain) {
-            errors.add("Boynunu çekme")
+            errors.add(stringProvider.getString(R.string.err_dont_pull_neck))
             score -= AnalysisConstants.SCORE_PENALTY_MINOR
         }
 
@@ -143,17 +145,17 @@ class SitUpEvaluator : ExerciseEvaluator {
     private fun buildMessage(isCorrect: Boolean, primaryError: String?, phase: RepetitionPhase): String {
         if (!isCorrect && primaryError != null) return primaryError
         return when (phase) {
-            RepetitionPhase.IDLE, RepetitionPhase.BOTTOM -> "Yatay pozisyon — hazır"
-            RepetitionPhase.GOING_UP -> "Kalkıyorsunuz..."
-            RepetitionPhase.TOP -> "Harika! İnin"
-            RepetitionPhase.GOING_DOWN -> "Kontrollü inin"
-            RepetitionPhase.RAISED -> "Yukarıdasınız"
+            RepetitionPhase.IDLE, RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_horizontal_ready)
+            RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_rising)
+            RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_great_go_down)
+            RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_go_down_controlled)
+            RepetitionPhase.RAISED -> stringProvider.getString(R.string.msg_you_are_up)
         }
     }
 
     private fun poorTrackingFeedback() = FormFeedback(
         isCorrect = false, score = 0, primaryError = null,
-        feedbackMessage = "Takip zayıf — kameraya tam görünün", confidence = 0.2f
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking_camera), confidence = 0.2f
     )
 
     override fun getRepetitionState(): RepetitionState = repState

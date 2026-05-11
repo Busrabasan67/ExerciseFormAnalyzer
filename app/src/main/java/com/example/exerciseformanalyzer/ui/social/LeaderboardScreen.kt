@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui.social
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -56,10 +58,10 @@ fun LeaderboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Liderlik Tablosu") },
+                title = { Text(stringResource(R.string.ui_leaderboard)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Geri")
+                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = stringResource(R.string.ui_back))
                     }
                 }
             )
@@ -84,7 +86,13 @@ fun LeaderboardScreen(
                             viewModel.setPeriod(period)
                             if (period == LeaderboardPeriod.CUSTOM) showDatePicker = true
                         },
-                        text = { Text(period.displayName) }
+                        text = { Text(when(period) {
+                            LeaderboardPeriod.DAILY -> stringResource(R.string.ui_daily)
+                            LeaderboardPeriod.WEEKLY -> stringResource(R.string.ui_weekly)
+                            LeaderboardPeriod.MONTHLY -> stringResource(R.string.ui_monthly)
+                            LeaderboardPeriod.ALL_TIME -> stringResource(R.string.ui_all_time)
+                            LeaderboardPeriod.CUSTOM -> stringResource(R.string.ui_custom)
+                        }) }
                     )
                 }
             }
@@ -103,16 +111,16 @@ fun LeaderboardScreen(
                                     showDatePicker = false
                                 }
                             }
-                        ) { Text("Tamam") }
+                        ) { Text(stringResource(R.string.ui_done)) }
                     },
                     dismissButton = {
-                        TextButton(onClick = { showDatePicker = false }) { Text("İptal") }
+                        TextButton(onClick = { showDatePicker = false }) { Text(stringResource(R.string.ui_cancel)) }
                     }
                 ) {
                     DateRangePicker(
                         state = dateRangePickerState,
-                        title = { Text("Tarih Aralığı Seçin", modifier = Modifier.padding(16.dp)) },
-                        headline = { Text("Liderlik tablosu için tarihleri belirleyin", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp)) },
+                        title = { Text(stringResource(R.string.ui_select_date_range), modifier = Modifier.padding(16.dp)) },
+                        headline = { Text(stringResource(R.string.ui_set_dates_leaderboard), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp)) },
                         showModeToggle = false,
                         modifier = Modifier.weight(1f)
                     )
@@ -134,12 +142,12 @@ fun LeaderboardScreen(
                         Text(
                             text = customRange?.let {
                                 "${dateFormatter.format(Date(it.first))} - ${dateFormatter.format(Date(it.second))}"
-                            } ?: "Tarih Seçilmedi",
+                            } ?: stringResource(R.string.ui_no_date_selected),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         TextButton(onClick = { showDatePicker = true }) {
-                            Text("Değiştir")
+                            Text(stringResource(R.string.ui_change))
                         }
                     }
                 }
@@ -156,7 +164,11 @@ fun LeaderboardScreen(
                     FilterChip(
                         selected = selectedMetric == metric,
                         onClick = { viewModel.setMetric(metric) },
-                        label = { Text(metric.displayName) }
+                        label = { Text(when(metric) {
+                            LeaderboardMetric.CALORIES -> stringResource(R.string.ui_metric_calories)
+                            LeaderboardMetric.XP -> stringResource(R.string.ui_metric_xp)
+                            LeaderboardMetric.LEVEL -> stringResource(R.string.ui_metric_level)
+                        }) }
                     )
                 }
             }
@@ -169,7 +181,7 @@ fun LeaderboardScreen(
             // Rozetlerim (My Badges) Vitrini
             if (earnedBadges.isNotEmpty()) {
                 Text(
-                    text = "Rozetlerim",
+                    text = stringResource(R.string.ui_my_badges),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                 )
@@ -225,7 +237,7 @@ fun LeaderboardScreen(
                 }
             } else if (rankings.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Henüz veri yok", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.ui_no_data), style = MaterialTheme.typography.bodyLarge)
                 }
             } else {
                 LazyColumn(
@@ -234,9 +246,13 @@ fun LeaderboardScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     itemsIndexed(rankings) { _, entry ->
+                        val unknownUserLabel = stringResource(R.string.ui_unknown_user)
+                        val displayName = entry.fullName
+                            .takeUnless { it.isBlank() || it.equals("Bilinmiyor", ignoreCase = true) || it.equals("Bilinmeyen", ignoreCase = true) || it.equals("Unknown", ignoreCase = true) }
+                            ?: unknownUserLabel
                         LeaderboardItem(
                             rank = entry.rank,
-                            name = entry.fullName,
+                            name = displayName,
                             value = when(selectedMetric) {
                                 LeaderboardMetric.XP -> "${entry.value.toInt()} XP"
                                 LeaderboardMetric.CALORIES -> "${entry.value.toInt()} kcal"
@@ -279,7 +295,7 @@ fun LeaderboardItem(rank: Int, name: String, value: String, isMe: Boolean) {
             
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isMe) "$name (Siz)" else name,
+                    text = if (isMe) "$name ${stringResource(R.string.ui_you_suffix)}" else name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal
                 )

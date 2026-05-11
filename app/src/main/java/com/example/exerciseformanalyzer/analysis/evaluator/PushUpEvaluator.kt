@@ -3,6 +3,8 @@ package com.example.exerciseformanalyzer.analysis.evaluator
 import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Push-up (Şınav) form değerlendirme ve tekrar sayacı.
@@ -15,7 +17,7 @@ import com.example.exerciseformanalyzer.util.AngleUtils
  *   2. Vücut düzlüğü (kalça sarkma / yükselme)
  *   3. Tam ROM - kolların tam uzaması
  */
-class PushUpEvaluator : ExerciseEvaluator {
+class PushUpEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.PUSH_UP
 
@@ -48,7 +50,7 @@ class PushUpEvaluator : ExerciseEvaluator {
         // 1. Derinlik kontrolü (Range of Motion)
         if (repState.phase == RepetitionPhase.BOTTOM || repState.phase == RepetitionPhase.GOING_UP) {
             if (elbowAngle > AnalysisConstants.PUSH_UP_ELBOW_ANGLE_DOWN_MAX + 15f) {
-                errors.add("Daha derine in, göğsün yere yaklaşsın")
+                errors.add(stringProvider.getString(R.string.err_go_deeper))
                 score -= AnalysisConstants.SCORE_PENALTY_DEPTH
             }
         }
@@ -58,11 +60,11 @@ class PushUpEvaluator : ExerciseEvaluator {
         if (hipDeviation != null) {
             when {
                 hipDeviation > AnalysisConstants.PUSH_UP_HIP_SAG_THRESHOLD -> {
-                    errors.add("Belini düz tut, karnını sık!")
+                    errors.add(stringProvider.getString(R.string.err_flat_back_tight_core))
                     score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
                 }
                 hipDeviation < -AnalysisConstants.PUSH_UP_HIP_RISE_THRESHOLD -> {
-                    errors.add("Kalçanı çok kaldırma, vücudun düz olsun")
+                    errors.add(stringProvider.getString(R.string.err_hips_too_high))
                     score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
                 }
             }
@@ -72,7 +74,7 @@ class PushUpEvaluator : ExerciseEvaluator {
         // En iyi önden veya açılı görünümlerde fark edilir.
         val shoulderAngle = AngleUtils.dominantShoulderAngle(angles, frame)
         if (shoulderAngle != null && shoulderAngle > 75f) {
-            errors.add("Dirseklerini vücuduna yaklaştır (Ok ucu formu)")
+            errors.add(stringProvider.getString(R.string.err_elbows_close))
             score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
         }
 
@@ -158,18 +160,18 @@ class PushUpEvaluator : ExerciseEvaluator {
     private fun buildMessage(isCorrect: Boolean, primaryError: String?, phase: RepetitionPhase): String {
         if (!isCorrect && primaryError != null) return primaryError
         return when (phase) {
-            RepetitionPhase.IDLE -> "Şınav pozisyonuna geçin"
-            RepetitionPhase.TOP -> "Hazır"
-            RepetitionPhase.GOING_DOWN -> "İniyorsunuz..."
-            RepetitionPhase.BOTTOM -> "Harika! Çıkın"
-            RepetitionPhase.GOING_UP -> "Süper form!"
-            RepetitionPhase.RAISED -> "Yukarıdasınız"
+            RepetitionPhase.IDLE -> stringProvider.getString(R.string.msg_pushup_position)
+            RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_ready)
+            RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_going_down_you)
+            RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_great_go_up)
+            RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_super_form)
+            RepetitionPhase.RAISED -> stringProvider.getString(R.string.msg_you_are_up)
         }
     }
 
     private fun poorTrackingFeedback() = FormFeedback(
         isCorrect = false, score = 0, primaryError = null,
-        feedbackMessage = "Takip zayıf — kameraya tam görünün", confidence = 0.2f
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking_camera), confidence = 0.2f
     )
 
     override fun getRepetitionState(): RepetitionState = repState

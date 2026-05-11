@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui.community
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -107,6 +109,7 @@ fun CommunityScreen(
     val incomingJoinRequests by viewModel.incomingJoinRequests.collectAsState()
 
     val snackbarHost = remember { SnackbarHostState() }
+    val context = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var waitingCreateSuccess by remember { mutableStateOf(false) }
@@ -141,7 +144,7 @@ fun CommunityScreen(
                 viewModel.resetEvent()
             }
             is CommunityEvent.Error -> {
-                snackbarHost.showSnackbar("Hata: ${e.message}")
+                snackbarHost.showSnackbar(context.getString(R.string.ui_error_with_message, e.message))
                 waitingCreateSuccess = false
                 viewModel.resetEvent()
             }
@@ -153,10 +156,10 @@ fun CommunityScreen(
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Topluluklar", fontWeight = FontWeight.Bold) },
+                    title = { Text(stringResource(R.string.ui_communities), fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Geri")
+                            Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.ui_back))
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -164,7 +167,7 @@ fun CommunityScreen(
                     )
                 )
                 TabRow(selectedTabIndex = selectedTab) {
-                    listOf("Gruplarım", "Keşfet", "Davetler", "Gelen").forEachIndexed { index, title ->
+                    listOf(stringResource(R.string.ui_my_groups), stringResource(R.string.ui_discover), stringResource(R.string.ui_invitations), stringResource(R.string.ui_incoming)).forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
@@ -190,7 +193,7 @@ fun CommunityScreen(
                 ExtendedFloatingActionButton(
                     onClick = { showCreateDialog = true },
                     icon = { Icon(Icons.Default.Add, null) },
-                    text = { Text("Grup Oluştur") }
+                    text = { Text(stringResource(R.string.ui_create_group)) }
                 )
             }
         },
@@ -234,7 +237,7 @@ private fun ExploreTab(
     val groups by viewModel.exploreGroups.collectAsState()
 
     if (groups.isEmpty()) {
-        EmptyState(message = "Keşfedilecek grup yok.")
+        EmptyState(message = stringResource(R.string.ui_no_groups_discover))
     } else {
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
@@ -320,7 +323,7 @@ private fun ExploreGroupCard(
                     )
                 }
                 Text(
-                    text = if (group.isPrivate) "Kapalı Grup" else "Herkese Açık",
+                    text = if (group.isPrivate) stringResource(R.string.ui_private_group) else stringResource(R.string.ui_public),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (group.isPrivate)
                         MaterialTheme.colorScheme.secondary
@@ -334,13 +337,13 @@ private fun ExploreGroupCard(
             // Buton durumu
             when (userStatus) {
                 "member" -> Text(
-                    text = "Üyesiniz",
+                    text = stringResource(R.string.ui_you_are_member),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 "pendingRequest" -> Text(
-                    text = "İstek gönderildi",
+                    text = stringResource(R.string.ui_request_sent),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -349,7 +352,7 @@ private fun ExploreGroupCard(
                     color = MaterialTheme.colorScheme.tertiaryContainer
                 ) {
                     Text(
-                        text = "Davet Var",
+                        text = stringResource(R.string.ui_has_invite),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -362,14 +365,14 @@ private fun ExploreGroupCard(
                             onClick = onSendRequest,
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            Text("İstek", style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(R.string.ui_request), style = MaterialTheme.typography.labelSmall)
                         }
                     } else {
                         Button(
                             onClick = onJoin,
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
-                            Text("Katıl", style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(R.string.ui_join), style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -391,7 +394,7 @@ private fun MyGroupsTab(
     val unreadGroupIds by viewModel.unreadGroupIds.collectAsState()
 
     if (myGroups.isEmpty()) {
-        EmptyState(message = "Henüz bir gruba dahil değilsiniz.\nYeni bir grup oluşturun veya bir gruba katılın.")
+        EmptyState(message = stringResource(R.string.ui_no_group_create_join))
     } else {
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
@@ -489,7 +492,7 @@ private fun MyGroupCard(
                 }
                 if (isAdmin) {
                     Text(
-                        text = "Yönetici",
+                        text = stringResource(R.string.ui_admin),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.tertiary,
                         fontWeight = FontWeight.Bold
@@ -510,7 +513,7 @@ private fun MyInvitesTab(viewModel: CommunityViewModel) {
 
     if (invites.isEmpty()) {
         EmptyState(
-            message = "Bekleyen davetiniz yok.",
+            message = stringResource(R.string.ui_no_pending_invites),
             icon = Icons.Default.MailOutline
         )
     } else {
@@ -565,7 +568,7 @@ private fun InviteCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "${invite.fromUserName} sizi bu gruba davet etti.",
+                        text = "${invite.fromUserName} ${stringResource(R.string.ui_invited_you_to_group)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                     )
@@ -576,9 +579,9 @@ private fun InviteCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                OutlinedButton(onClick = onReject) { Text("Reddet") }
+                OutlinedButton(onClick = onReject) { Text(stringResource(R.string.ui_reject)) }
                 Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = onAccept) { Text("Kabul Et") }
+                Button(onClick = onAccept) { Text(stringResource(R.string.ui_accept)) }
             }
         }
     }
@@ -594,7 +597,7 @@ private fun IncomingJoinRequestsTab(viewModel: CommunityViewModel) {
 
     if (requests.isEmpty()) {
         EmptyState(
-            message = "Yönettiğiniz gizli gruplar için bekleyen katılma isteği yok.",
+            message = stringResource(R.string.ui_no_pending_join_requests),
             icon = Icons.Default.People
         )
     } else {
@@ -672,9 +675,9 @@ private fun JoinRequestCard(
                 OutlinedButton(
                     onClick = onReject,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Reddet") }
+                ) { Text(stringResource(R.string.ui_reject)) }
                 Spacer(modifier = Modifier.width(8.dp))
-                Button(onClick = onAccept) { Text("Kabul Et") }
+                Button(onClick = onAccept) { Text(stringResource(R.string.ui_accept)) }
             }
         }
     }
@@ -730,7 +733,7 @@ private fun CreateGroupDialog(
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(
-                    text = "Yeni Grup Oluştur",
+                    text = stringResource(R.string.ui_create_new_group),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -756,7 +759,7 @@ private fun CreateGroupDialog(
                     } else {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Text("Kapak Fotoğrafı Ekle", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.ui_add_cover_photo), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -765,7 +768,7 @@ private fun CreateGroupDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Grup Adı *") },
+                    label = { Text(stringResource(R.string.ui_group_name_req)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -773,7 +776,7 @@ private fun CreateGroupDialog(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Açıklama") },
+                    label = { Text(stringResource(R.string.ui_description)) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 3
@@ -786,9 +789,9 @@ private fun CreateGroupDialog(
                     Checkbox(checked = isPrivate, onCheckedChange = { isPrivate = it })
                     Spacer(modifier = Modifier.width(4.dp))
                     Column {
-                        Text("Gizli Grup", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.ui_private_group), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         Text(
-                            text = if (isPrivate) "Katılmak için yönetici onayı gerekir." else "Herkes direkt katılabilir.",
+                            text = if (isPrivate) stringResource(R.string.ui_requires_admin_approval) else stringResource(R.string.ui_anyone_can_join),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -799,7 +802,7 @@ private fun CreateGroupDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(onClick = onDismiss) { Text("İptal") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel)) }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = { onCreate(name, description, isPrivate, selectedImageBytes) },
@@ -808,7 +811,7 @@ private fun CreateGroupDialog(
                         if (isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         } else {
-                            Text("Oluştur")
+                            Text(stringResource(R.string.ui_create))
                         }
                     }
                 }
@@ -833,7 +836,7 @@ private fun CreateGroupDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Kapak Fotoğrafı",
+                    text = stringResource(R.string.ui_group_photo),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -842,7 +845,7 @@ private fun CreateGroupDialog(
                 )
                 
                 Text(
-                    text = "Grubunuz için bir kapak fotoğrafı seçin",
+                    text = stringResource(R.string.ui_group_cover_update_msg),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
@@ -884,7 +887,7 @@ private fun CreateGroupDialog(
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(
-                            text = "Kamera",
+                            text = stringResource(R.string.camera),
                             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                             modifier = Modifier.weight(1f)
                         )
@@ -934,7 +937,7 @@ private fun CreateGroupDialog(
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(
-                            text = "Galeri",
+                            text = stringResource(R.string.gallery),
                             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                             modifier = Modifier.weight(1f)
                         )
@@ -953,7 +956,7 @@ private fun CreateGroupDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "İptal",
+                        text = stringResource(R.string.ui_cancel),
                         style = MaterialTheme.typography.bodyLarge.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.SemiBold

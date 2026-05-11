@@ -4,6 +4,8 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Shoulder Press form değerlendirici.
@@ -15,7 +17,7 @@ import kotlin.math.abs
  * 3. Hareket Aralığı (ROM): Dambıllar omuz hizasına indirilmeli, çok derine inip batma yapılmamalı. Yukarıda dirsek tam kilitlenmemeli.
  * 4. Bilek Pozisyonu: Ön kol (dirsek ile bilek arası) yere tam dik olmalı.
  */
-class ShoulderPressEvaluator : ExerciseEvaluator {
+class ShoulderPressEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
 
     override val exerciseType = ExerciseType.SHOULDER_PRESS
 
@@ -65,7 +67,7 @@ class ShoulderPressEvaluator : ExerciseEvaluator {
         if (profile != BodyProfile.FRONTAL && hip != null && hip.visibility > 0.5f) {
             val shoulderHipDx = abs(shoulder.x - hip.x)
             if (shoulderHipDx > 0.12f) { // Omuz, kalçaya göre x ekseninde çok sapmışsa (yaylanma)
-                errors.add("Belini sabit tut")
+                errors.add(stringProvider.getString(R.string.err_keep_waist_stable))
                 score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
             }
         }
@@ -84,7 +86,7 @@ class ShoulderPressEvaluator : ExerciseEvaluator {
                 
                 // Hareketin en dip noktasındayken (dirsekler büklüyken) skapular hizayı denetle
                 if (!elbowInFront && elbowAngle < 130f) {
-                    errors.add("Dirsek açını daralt")
+                    errors.add(stringProvider.getString(R.string.err_narrow_elbow_angle))
                     score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
                 }
             }
@@ -93,7 +95,7 @@ class ShoulderPressEvaluator : ExerciseEvaluator {
         // 3. Hareket Aralığı (ROM - Tepe Noktası ve Derinlik)
         if (repState.phase == RepetitionPhase.TOP || repState.phase == RepetitionPhase.GOING_DOWN) {
             if (elbowAngle < 160f) {
-                errors.add("Kollarını tam uzat")
+                errors.add(stringProvider.getString(R.string.err_fully_extend_arms))
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             }
         }
@@ -101,11 +103,11 @@ class ShoulderPressEvaluator : ExerciseEvaluator {
         if (repState.phase == RepetitionPhase.BOTTOM || repState.phase == RepetitionPhase.GOING_UP) {
             val wristShoulderDy = abs(wrist.y - shoulder.y)
             if (elbowAngle > 110f && wrist.y < shoulder.y && wristShoulderDy > 0.15f) {
-                errors.add("Ağırlığı kulak/omuz hizasına kadar indir")
+                errors.add(stringProvider.getString(R.string.err_lower_to_ear))
                 score -= AnalysisConstants.SCORE_PENALTY_DEPTH
             }
             if (wrist.y > shoulder.y + 0.03f) { // Bilek omuzdan daha aşağıya düşüyorsa
-                errors.add("Ağırlığı çok fazla düşürüp omuzlarında batma yaratma")
+                errors.add(stringProvider.getString(R.string.err_drop_too_low))
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             }
         }
@@ -116,7 +118,7 @@ class ShoulderPressEvaluator : ExerciseEvaluator {
         if (forearmLength > 0.05f) {
             // Eğer ön kol dikey değilse (yatay sapma fazlaysa)
             if (horizontalDeviation > forearmLength * 0.35f) {
-                errors.add("Bileklerini bükme, ön kolunu yere tam dik (dik açılı) tut")
+                errors.add(stringProvider.getString(R.string.err_dont_bend_wrists))
                 score -= AnalysisConstants.SCORE_PENALTY_MINOR
             }
         }
@@ -166,18 +168,18 @@ class ShoulderPressEvaluator : ExerciseEvaluator {
     private fun buildMessage(isCorrect: Boolean, primaryError: String?, phase: RepetitionPhase): String {
         if (!isCorrect && primaryError != null) return primaryError
         return when (phase) {
-            RepetitionPhase.IDLE -> "Omuz presi için hazır"
-            RepetitionPhase.BOTTOM -> "Güçlü bir şekilde yukarı it!"
-            RepetitionPhase.GOING_UP -> "İtiyorsun..."
-            RepetitionPhase.TOP -> "Kontrollü bir şekilde indir"
-            RepetitionPhase.GOING_DOWN -> "İniyor..."
-            RepetitionPhase.RAISED -> ""
+            RepetitionPhase.IDLE -> stringProvider.getString(R.string.msg_ready_shoulder_press)
+            RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_push_strong)
+            RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_pushing)
+            RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_lower_control)
+            RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_going_down)
+            else -> ""
         }
     }
 
     private fun poorTrackingFeedback() = FormFeedback(
         isCorrect = false, score = 0, primaryError = null,
-        feedbackMessage = "Takip zayıf — tam görünün", confidence = 0.2f
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking_full), confidence = 0.2f
     )
 
     override fun getRepetitionState(): RepetitionState = repState

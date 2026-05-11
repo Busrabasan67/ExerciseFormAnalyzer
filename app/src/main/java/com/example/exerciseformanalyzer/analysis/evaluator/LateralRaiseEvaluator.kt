@@ -4,6 +4,8 @@ import com.example.exerciseformanalyzer.model.*
 import com.example.exerciseformanalyzer.util.AnalysisConstants
 import com.example.exerciseformanalyzer.util.AngleUtils
 import kotlin.math.abs
+import com.example.exerciseformanalyzer.util.StringProvider
+import com.example.exerciseformanalyzer.R
 
 /**
  * Lateral Raise (Yana Açış) form değerlendirici.
@@ -15,7 +17,7 @@ import kotlin.math.abs
  * 4. Serçe Parmak Kuralı: Bilek tutuşu su dökme açısında hafif içe dönük (serçe parmak yukarıda/hizada) olmalı.
  * 5. Momentum/Salınım: Belden veya dizden yaylanarak ivme kazanılmamalı, gövde sabit durmalı.
  */
-class LateralRaiseEvaluator : ExerciseEvaluator {
+class LateralRaiseEvaluator(private val stringProvider: StringProvider) : ExerciseEvaluator {
     override val exerciseType = ExerciseType.LATERAL_RAISE
     private var repState = RepetitionState()
 
@@ -76,7 +78,7 @@ class LateralRaiseEvaluator : ExerciseEvaluator {
             } else if (repState.phase == RepetitionPhase.GOING_UP || repState.phase == RepetitionPhase.TOP) {
                 val leanDiff = abs(currentLeanX - initialTorsoLeanX!!)
                 if (leanDiff > 0.08f) { // Gövde ileri geri sallanıyor
-                    errors.add("Yavaş ve kontrollü yap")
+                    errors.add(stringProvider.getString(R.string.msg_slow_controlled))
                     score -= AnalysisConstants.SCORE_PENALTY_ALIGNMENT
                 }
             }
@@ -84,11 +86,11 @@ class LateralRaiseEvaluator : ExerciseEvaluator {
 
         // 1. Dirsek Eğimi (Hafif Bükülü Dirsekler)
         if (elbowAngle > 175f) {
-            errors.add("Kollarını dümdüz kilitleme, dirseklerini çok hafif bükülü tut")
+            errors.add(stringProvider.getString(R.string.err_dont_lock_arms))
             score -= AnalysisConstants.SCORE_PENALTY_MINOR
         } else if (elbowAngle < 120f) {
-            // "Uzağa it" kuralına uymuyor, sadece bükerek yukarı kaldırıyor
-            errors.add("Ağırlığı sadece yukarı çekme, sanki yan duvarlara dokunacakmış gibi uzağa it")
+            // stringProvider.getString(R.string.msg_push_away) kuralına uymuyor, sadece bükerek yukarı kaldırıyor
+            errors.add(stringProvider.getString(R.string.err_pull_only_up))
             score -= AnalysisConstants.SCORE_PENALTY_MINOR
         }
 
@@ -98,12 +100,12 @@ class LateralRaiseEvaluator : ExerciseEvaluator {
             // 2. Dirsekler Önden Gitsin (Bilek dirsekten yüksekte olmamalı)
             // Y koordinatında küçük olan daha yukarıdadır.
                 if (shoulderAngle > 105f) {
-                    errors.add("Omuz hizasını geçme")
+                    errors.add(stringProvider.getString(R.string.err_dont_pass_shoulder))
                     score -= AnalysisConstants.SCORE_PENALTY_MINOR
                 }
                 
                 if (wrist.y < elbow.y - 0.02f) { 
-                    errors.add("Omuzdan kaldır")
+                    errors.add(stringProvider.getString(R.string.err_lift_from_shoulder))
                     score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
                 }
 
@@ -111,12 +113,12 @@ class LateralRaiseEvaluator : ExerciseEvaluator {
             if (pinky != null && index != null && pinky.visibility > 0.4f && index.visibility > 0.4f) {
                 // Eğer serçe parmak (pinky.y) işaret parmağından (index.y) çok daha aşağıdaysa (büyükse), avuç içi karşıya veya yukarı bakıyordur.
                 if (pinky.y > index.y + 0.03f) {
-                    errors.add("Serçe parmağın baş parmağına göre hafif yukarıda olsun. Avuç içi yeri göstersin")
+                    errors.add(stringProvider.getString(R.string.err_pinky_up))
                     score -= AnalysisConstants.SCORE_PENALTY_MINOR
                 }
                 // Aşırı sürahiden su dökme kontrolü
                 if (pinky.y < index.y - 0.08f) {
-                    errors.add("Sürahiden su boşaltır gibi bileğini aşırı bükme, omuz sıkışabilir")
+                    errors.add(stringProvider.getString(R.string.err_dont_pour_pitcher))
                     score -= AnalysisConstants.SCORE_PENALTY_MINOR
                 }
             }
@@ -134,7 +136,7 @@ class LateralRaiseEvaluator : ExerciseEvaluator {
                 val inScapularPlane = if (facingLeft) (elbow.x < shoulder.x + 0.02f) else (elbow.x > shoulder.x - 0.02f)
                 
                 if (!inScapularPlane && (repState.phase == RepetitionPhase.TOP || repState.phase == RepetitionPhase.GOING_UP)) {
-                    errors.add("Kollarını vücudun tam yanından değil, 20-30 derece daha önünden aç (Skapular uçuş)")
+                    errors.add(stringProvider.getString(R.string.err_scapular_plane))
                     score -= AnalysisConstants.SCORE_PENALTY_JOINT_ALIGNMENT
                 }
             }
@@ -191,17 +193,17 @@ class LateralRaiseEvaluator : ExerciseEvaluator {
     private fun buildMessage(isCorrect: Boolean, primaryError: String?, phase: RepetitionPhase): String {
         if (!isCorrect && primaryError != null) return primaryError
         return when (phase) {
-            RepetitionPhase.IDLE, RepetitionPhase.BOTTOM -> "Hazır... Yana ve uzağa it!"
-            RepetitionPhase.GOING_UP -> "Kaldır..."
-            RepetitionPhase.TOP -> "Zirvede hisset, yavaşça indir"
-            RepetitionPhase.GOING_DOWN -> "Kontrollü iniyor..."
-            RepetitionPhase.RAISED -> ""
+            RepetitionPhase.IDLE, RepetitionPhase.BOTTOM -> stringProvider.getString(R.string.msg_ready_push_away)
+            RepetitionPhase.GOING_UP -> stringProvider.getString(R.string.msg_lift)
+            RepetitionPhase.TOP -> stringProvider.getString(R.string.msg_feel_peak)
+            RepetitionPhase.GOING_DOWN -> stringProvider.getString(R.string.msg_going_down_controlled)
+            else -> ""
         }
     }
 
     private fun poorTrackingFeedback() = FormFeedback(
         isCorrect = false, score = 0, primaryError = null,
-        feedbackMessage = "Takip zayıf — tam görünün", confidence = 0.2f
+        feedbackMessage = stringProvider.getString(R.string.err_poor_tracking_full), confidence = 0.2f
     )
 
     override fun getRepetitionState(): RepetitionState = repState

@@ -85,7 +85,7 @@ fun CameraPreviewScreen(
 
     if (!hasPermission) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Kamera izni gerekiyor.")
+            Text("Camera permission is required.")
         }
         return
     }

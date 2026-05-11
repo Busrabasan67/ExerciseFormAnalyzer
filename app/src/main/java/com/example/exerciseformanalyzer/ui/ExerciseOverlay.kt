@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -222,7 +224,7 @@ private fun LoadingOverlay() {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator(color = Color.White)
             Spacer(Modifier.height(12.dp))
-            StatusText("Model yükleniyor...")
+            StatusText(stringResource(R.string.ui_loading_model))
         }
     }
 }
@@ -231,7 +233,7 @@ private fun LoadingOverlay() {
 private fun ReadyOverlay() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         InfoBadge(
-            text = "Egzersiz yapmaya başlayın",
+            text = stringResource(R.string.ui_start_exercising),
             color = ColorWarning,
             modifier = Modifier.padding(top = 16.dp)
         )
@@ -296,13 +298,13 @@ private fun AnalyzingOverlay(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Set tamamlandı. Dinlenin.", color = ColorGoodForm, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_set_completed_rest), color = ColorGoodForm, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(16.dp))
                     Text("$restTimeLeft", color = Color.White, fontSize = 72.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("saniye", color = Color.LightGray, fontSize = 16.sp)
+                    Text(stringResource(R.string.ui_seconds), color = Color.LightGray, fontSize = 16.sp)
                     Spacer(Modifier.height(32.dp))
                     Button(onClick = onEndRest, colors = ButtonDefaults.buttonColors(containerColor = ColorNeutral)) {
-                        Text("Sonraki Sete Geç", fontSize = 16.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.ui_next_set), fontSize = 16.sp, color = Color.Black, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -315,7 +317,7 @@ private fun AnalyzingOverlay(
                     .background(Color.Black.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("DURAKLATILDI", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.ui_paused), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -363,8 +365,13 @@ private fun TopInfoPanel(
 ) {
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            val exerciseDisplayName = if (exerciseType == ExerciseType.UNKNOWN) {
+                stringResource(R.string.ui_unknown_detecting)
+            } else {
+                exerciseType.displayName
+            }
             InfoBadge(
-                text = exerciseType.displayName,
+                text = exerciseDisplayName,
                 color = Color.White
             )
             Spacer(Modifier.width(8.dp))
@@ -379,12 +386,12 @@ private fun TopInfoPanel(
         if (taskContext != null) {
             Spacer(Modifier.height(6.dp))
             Row {
-                InfoBadge(text = "Set: ${taskContext.completedSets} / ${taskContext.targetSets}", color = ColorNeutral)
+                InfoBadge(text = "${stringResource(R.string.ui_set)}: ${taskContext.completedSets} / ${taskContext.targetSets}", color = ColorNeutral)
                 Spacer(Modifier.width(8.dp))
                 val targetText = if (taskContext.targetType == "DURATION") {
-                    "Hedef süre: ${taskContext.targetDurationSeconds} sn"
+                    stringResource(R.string.ui_target_duration_sec, taskContext.targetDurationSeconds)
                 } else {
-                    "Hedef tekrar: ${taskContext.targetReps}"
+                    "${stringResource(R.string.ui_target_reps_label)}: ${taskContext.targetReps}"
                 }
                 InfoBadge(text = targetText, color = ColorNeutral)
             }
@@ -393,17 +400,17 @@ private fun TopInfoPanel(
         Spacer(Modifier.height(6.dp))
         Row {
             Button(onClick = onPauseToggle, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) {
-                Text(if (isPaused) "Devam Et" else "Duraklat", fontSize = 12.sp)
+                Text(if (isPaused) stringResource(R.string.ui_continue) else stringResource(R.string.ui_pause), fontSize = 12.sp)
             }
             if (taskContext == null) {
                 Spacer(Modifier.width(8.dp))
                 Button(onClick = onManualRest, colors = ButtonDefaults.buttonColors(containerColor = ColorNeutral)) {
-                    Text("Seti Bitir", fontSize = 12.sp, color = Color.Black)
+                    Text(stringResource(R.string.ui_end_set), fontSize = 12.sp, color = Color.Black)
                 }
             }
             Spacer(Modifier.width(8.dp))
             Button(onClick = onEndWorkout, colors = ButtonDefaults.buttonColors(containerColor = ColorBadForm)) {
-                Text("Bitir", fontSize = 12.sp, color = Color.White)
+                Text(stringResource(R.string.ui_end), fontSize = 12.sp, color = Color.White)
             }
         }
 
@@ -411,27 +418,27 @@ private fun TopInfoPanel(
 
         // Takip kalitesi
         val (qualityText, qualityColor) = when (trackingQuality) {
-            TrackingQuality.GOOD -> "Takip: Mükemmel" to ColorGoodForm
-            TrackingQuality.FAIR -> "Takip: Orta" to ColorWarning
-            TrackingQuality.POOR -> "Takip Zayıf" to ColorBadForm
-            TrackingQuality.LOST -> "Kişi Bulunamadı" to ColorNeutral
+            TrackingQuality.GOOD -> stringResource(R.string.ui_tracking_perfect) to ColorGoodForm
+            TrackingQuality.FAIR -> stringResource(R.string.ui_tracking_fair) to ColorWarning
+            TrackingQuality.POOR -> stringResource(R.string.ui_tracking_poor_cap) to ColorBadForm
+            TrackingQuality.LOST -> stringResource(R.string.ui_person_not_found) to ColorNeutral
         }
         InfoBadge(text = qualityText, color = qualityColor)
 
         // Kadraj dışı uyarısı
         if (!isInFrame && trackingQuality != TrackingQuality.LOST) {
             Spacer(Modifier.height(4.dp))
-            InfoBadge(text = "⚠️ Kadraj dışına çıkıyorsunuz", color = ColorWarning)
+            InfoBadge(text = stringResource(R.string.ui_out_of_frame), color = ColorWarning)
         }
 
         // Yanlış duruş açısı uyarısı (Örn: Yan durulması gereken yerde önden durulması)
         val metadata = exerciseType.getMetadata()
         if (metadata.preferredAngle == CameraAngle.SIDE && activeProfile == BodyProfile.FRONTAL && trackingQuality != TrackingQuality.LOST) {
             Spacer(Modifier.height(4.dp))
-            InfoBadge(text = "🔄 Yan Dönün (Side Profile)", color = ColorWarning)
+            InfoBadge(text = stringResource(R.string.ui_turn_to_camera_side), color = ColorWarning)
         } else if (metadata.preferredAngle == CameraAngle.FRONT && activeProfile != BodyProfile.FRONTAL && trackingQuality != TrackingQuality.LOST) {
             Spacer(Modifier.height(4.dp))
-            InfoBadge(text = "🔄 Kameraya Dönün (Front Profile)", color = ColorWarning)
+            InfoBadge(text = stringResource(R.string.ui_turn_to_camera_front), color = ColorWarning)
         }
     }
 }
@@ -454,7 +461,7 @@ private fun BottomFeedbackPanel(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (!isPersonVisible) {
-            StatusText("Kadraja girin", color = ColorWarning)
+            StatusText(stringResource(R.string.ui_enter_frame), color = ColorWarning)
             return@Column
         }
 
@@ -508,9 +515,9 @@ private fun FormStatusIndicator(isCorrect: Boolean, confidence: Float) {
         else -> ColorBadForm
     }
     val label = when {
-        confidence < 0.4f -> "Belirsiz"
-        isCorrect -> "✓ Doğru Form"
-        else -> "✗ Hata Var"
+        confidence < 0.4f -> stringResource(R.string.ui_uncertain)
+        isCorrect -> stringResource(R.string.ui_correct_form_check)
+        else -> stringResource(R.string.ui_has_error_cross)
     }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -539,7 +546,7 @@ private fun RepCountBadge(count: Int, targetReps: Int) {
             fontWeight = FontWeight.ExtraBold
         )
         Text(
-            text = "tekrar",
+            text = stringResource(R.string.ui_reps),
             color = Color.White.copy(alpha = 0.7f),
             fontSize = 12.sp
         )
@@ -566,7 +573,7 @@ private fun TimerBadge(seconds: Int, targetSeconds: Int) {
             fontWeight = FontWeight.ExtraBold
         )
         Text(
-            text = "saniye",
+            text = stringResource(R.string.ui_seconds),
             color = Color.White.copy(alpha = 0.7f),
             fontSize = 12.sp
         )
@@ -593,7 +600,7 @@ private fun FormScoreIndicator(score: Int, modifier: Modifier = Modifier) {
             fontWeight = FontWeight.ExtraBold
         )
         Text(
-            text = "skor",
+            text = stringResource(R.string.ui_score),
             color = Color.White.copy(alpha = 0.6f),
             fontSize = 11.sp
         )

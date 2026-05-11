@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui.dashboard
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -31,7 +33,7 @@ fun PatientDetailScreen(
 ) {
     val patients by viewModel.observeMyPatients().collectAsState(initial = emptyList())
     val patient = remember(patients, patientUid) { patients.find { it.uid == patientUid } }
-    val patientName = patient?.fullName ?: "Hasta Detayı"
+    val patientName = patient?.fullName ?: stringResource(R.string.ui_patient_detail)
 
     var startDate by remember { mutableStateOf<Date?>(null) }
     var endDate by remember { mutableStateOf<Date?>(null) }
@@ -55,7 +57,7 @@ fun PatientDetailScreen(
                         Text(
                             text = if (startDate != null && endDate != null) 
                                 "${sdf.format(startDate!!)} - ${sdf.format(endDate!!)}" 
-                            else "Son 30 Gün (Varsayılan)",
+                            else stringResource(R.string.ui_last_30_days_default),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -63,15 +65,15 @@ fun PatientDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Geri")
+                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = stringResource(R.string.ui_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { onNavigateToChat(patientName) }) {
-                        Icon(Icons.Default.Chat, contentDescription = "Mesaj Gönder")
+                        Icon(Icons.Default.Chat, contentDescription = stringResource(R.string.ui_send_message))
                     }
                     IconButton(onClick = { showDateRangePicker = true }) {
-                        Icon(Icons.Default.DateRange, contentDescription = "Tarih Seç")
+                        Icon(Icons.Default.DateRange, contentDescription = stringResource(R.string.ui_select_date))
                     }
                 }
             )
@@ -85,7 +87,7 @@ fun PatientDetailScreen(
                 .padding(16.dp)
         ) {
             var selectedTab by remember { mutableIntStateOf(0) }
-            val tabs = listOf("Profil", "Kalori", "Performans", "Görevler", "Geçmiş", "Analiz")
+            val tabs = listOf(stringResource(R.string.ui_profile), stringResource(R.string.ui_calories_tab), stringResource(R.string.ui_performance_tab), stringResource(R.string.ui_tasks), stringResource(R.string.ui_history), stringResource(R.string.ui_analysis))
 
             ScrollableTabRow(
                 selectedTabIndex = selectedTab,
@@ -109,34 +111,34 @@ fun PatientDetailScreen(
                     if (patient != null) {
                         PatientProfileSection(patient)
                     } else {
-                        Text("Hasta bilgileri yüklenemedi.")
+                        Text(stringResource(R.string.ui_patient_info_load_failed))
                     }
                 }
                 1 -> {
-                    Text("Kalori Yakımı", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_calorie_burn), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(16.dp))
                     if (stats.dailyCalories.isNotEmpty()) {
                         CalorieBarChart(data = stats.dailyCalories)
                     } else {
-                        EmptyDataState("Bu tarihler arasında kalori verisi bulunamadı.")
+                        EmptyDataState(stringResource(R.string.ui_no_calorie_data_range))
                     }
                 }
                 2 -> {
-                    Text("Form Puanı Trendi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_form_score_trend_label), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(16.dp))
                     if (stats.scoreTrend.isNotEmpty()) {
                         FormScoreLineChart(data = stats.scoreTrend)
                     } else {
-                        EmptyDataState("Bu tarihler arasında performans verisi bulunamadı.")
+                        EmptyDataState(stringResource(R.string.ui_no_performance_data_range))
                     }
                 }
                 3 -> {
-                    Text("Görev Durumu", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_task_status_label), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(16.dp))
                     if (stats.completionStats.isNotEmpty()) {
                         TaskPieChart(stats = stats.completionStats)
                     } else {
-                        EmptyDataState("Atanmış görev bulunamadı.")
+                        EmptyDataState(stringResource(R.string.ui_no_assigned_tasks))
                     }
                 }
                 4 -> {
@@ -145,8 +147,8 @@ fun PatientDetailScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Son Antrenmanlar", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("${stats.recentReports.size} Kayıt", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.ui_recent_workouts), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.ui_records_count, stats.recentReports.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     
@@ -160,7 +162,7 @@ fun PatientDetailScreen(
                                 border = BorderStroke(1.dp, Color(0xFFF0F0F0))
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
-                                    val reportDate = report.timestamp?.let { java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault()).format(it) } ?: "Bilinmeyen Tarih"
+                                    val reportDate = report.timestamp?.let { java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault()).format(it) } ?: stringResource(R.string.ui_unknown_date)
                                     
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
@@ -178,7 +180,7 @@ fun PatientDetailScreen(
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Column {
                                                 Text(
-                                                    text = report.exerciseName.ifEmpty { "Egzersiz" }.uppercase(),
+                                                    text = report.exerciseName.ifEmpty { stringResource(R.string.ui_exercise) }.uppercase(),
                                                     style = MaterialTheme.typography.titleMedium,
                                                     fontWeight = FontWeight.ExtraBold,
                                                     color = Color(0xFF1B5E20)
@@ -193,7 +195,7 @@ fun PatientDetailScreen(
                                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                                                 color = if (report.score >= 80) Color(0xFF2E7D32) else Color(0xFFC62828)
                                             )
-                                            Text("Puan", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                            Text(stringResource(R.string.ui_point), style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                                         }
                                     }
                                     
@@ -205,7 +207,7 @@ fun PatientDetailScreen(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("${report.reps} Tekrar", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
+                                            Text("${report.reps} ${stringResource(R.string.ui_reps)}", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
                                         }
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
@@ -214,7 +216,7 @@ fun PatientDetailScreen(
                                         }
                                     }
                                     
-                                    if (!report.feedback.isNullOrBlank() && report.feedback != "Mükemmel Form") {
+                                    if (!report.feedback.isNullOrBlank() && report.feedback != stringResource(R.string.ui_perfect_form)) {
                                         Spacer(modifier = Modifier.height(12.dp))
                                         Surface(
                                             color = Color(0xFFFFFBFA),
@@ -232,14 +234,14 @@ fun PatientDetailScreen(
                             }
                         }
                     } else {
-                        EmptyDataState("Antrenman geçmişi bulunamadı.")
+                        EmptyDataState(stringResource(R.string.ui_no_workout_history))
                     }
                 }
                 5 -> {
                     val exerciseStats = detailedAnalysis["exerciseStats"] as? Map<String, Map<String, Any>> ?: emptyMap()
                     
-                    Text("Klinik Egzersiz Analizi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Egzersiz bazlı performans ve form puanı ortalamaları", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text(stringResource(R.string.ui_clinical_exercise_analysis), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_exercise_analysis_desc), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     
                     Spacer(modifier = Modifier.height(20.dp))
                     
@@ -272,7 +274,7 @@ fun PatientDetailScreen(
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
                                             Text(
-                                                text = "AVG: ${String.format("%.1f", avgScore)}",
+                                                text = "${stringResource(R.string.ui_avg_score_label)}: ${String.format("%.1f", avgScore)}",
                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                                 style = MaterialTheme.typography.labelMedium,
                                                 fontWeight = FontWeight.Bold,
@@ -293,15 +295,15 @@ fun PatientDetailScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        AnalysisMiniStat("Toplam Tekrar", "$totalReps")
-                                        AnalysisMiniStat("Seans Sayısı", "$sessionCount")
-                                        AnalysisMiniStat("Verimlilik", "%${String.format("%.0f", avgScore)}")
+                                        AnalysisMiniStat(stringResource(R.string.ui_total_reps), "$totalReps")
+                                        AnalysisMiniStat(stringResource(R.string.ui_session_count), "$sessionCount")
+                                        AnalysisMiniStat(stringResource(R.string.ui_efficiency), "%${String.format("%.0f", avgScore)}")
                                     }
                                 }
                             }
                         }
                     } else {
-                        EmptyDataState("Detaylı analiz verisi henüz hazır değil.")
+                        EmptyDataState(stringResource(R.string.ui_detailed_analysis_not_ready))
                     }
                 }
             } // when(selectedTab) ends
@@ -314,14 +316,14 @@ fun PatientDetailScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("İstatistik Özeti", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.ui_statistics_summary), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(12.dp))
                         val totalKcal = stats.dailyCalories.sumOf { it.second.toDouble() }.toInt()
                         val avgScore = if (stats.scoreTrend.isNotEmpty()) stats.scoreTrend.map { it.second }.average().toInt() else 0
                         
-                        SummaryItem(Icons.Default.LocalFireDepartment, "Toplam Yakılan:", "$totalKcal kcal")
-                        SummaryItem(Icons.Default.Star, "Ortalama Puan:", "$avgScore / 100")
-                        SummaryItem(Icons.Default.TaskAlt, "Tamamlanan Görev:", "${stats.completionStats["COMPLETED"] ?: 0}")
+                        SummaryItem(Icons.Default.LocalFireDepartment, stringResource(R.string.ui_total_burned), "$totalKcal kcal")
+                        SummaryItem(Icons.Default.Star, stringResource(R.string.ui_avg_score), "$avgScore / 100")
+                        SummaryItem(Icons.Default.TaskAlt, stringResource(R.string.ui_completed_task), "${stats.completionStats["COMPLETED"] ?: 0}")
                     }
                 }
             }
@@ -340,12 +342,12 @@ fun PatientDetailScreen(
                     endDate = dateRangePickerState.selectedEndDateMillis?.let { Date(it) }
                     showDateRangePicker = false
                 }) {
-                    Text("Uygula")
+                    Text(stringResource(R.string.ui_apply))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDateRangePicker = false }) {
-                    Text("İptal")
+                    Text(stringResource(R.string.ui_cancel))
                 }
             }
         ) {
@@ -360,70 +362,70 @@ fun PatientDetailScreen(
 @Composable
 private fun PatientProfileSection(user: com.example.exerciseformanalyzer.data.local.entity.UserEntity) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Profil Bilgileri", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.ui_profile_info), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ProfileInfoRow(Icons.Default.Person, "Ad Soyad", user.fullName)
-                ProfileInfoRow(Icons.Default.Email, "E-posta", user.email)
-                ProfileInfoRow(Icons.Default.Wc, "Cinsiyet", if (user.gender == "MALE") "Erkek" else "Kadın")
+                ProfileInfoRow(Icons.Default.Person, stringResource(R.string.ui_full_name), user.fullName)
+                ProfileInfoRow(Icons.Default.Email, stringResource(R.string.email_label), user.email)
+                ProfileInfoRow(Icons.Default.Wc, stringResource(R.string.ui_gender), if (user.gender == "MALE") stringResource(R.string.ui_male) else stringResource(R.string.ui_female))
                 Divider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.weight(1f)) {
-                        ProfileInfoRow(Icons.Default.Cake, "Yaş", "${user.age ?: "-"} Yaş")
+                        ProfileInfoRow(Icons.Default.Cake, stringResource(R.string.ui_age), stringResource(R.string.ui_years_old, user.age ?: "-"))
                     }
                     Column(modifier = Modifier.weight(1f)) {
-                        ProfileInfoRow(Icons.Default.Height, "Boy", "${user.heightCm ?: "-"} cm")
+                        ProfileInfoRow(Icons.Default.Height, stringResource(R.string.height_label), "${user.heightCm ?: "-"} cm")
                     }
                 }
                 
                 Row(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.weight(1f)) {
-                        ProfileInfoRow(Icons.Default.MonitorWeight, "Kilo", "${user.weightKg ?: "-"} kg")
+                        ProfileInfoRow(Icons.Default.MonitorWeight, stringResource(R.string.weight_label), "${user.weightKg ?: "-"} kg")
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         val bmi = if (user.heightCm != null && user.heightCm!! > 0 && user.weightKg != null) {
                             val h = user.heightCm!! / 100f
                             user.weightKg!! / (h * h)
                         } else null
-                        ProfileInfoRow(Icons.Default.Speed, "VKİ", bmi?.let { String.format("%.1f", it) } ?: "-")
+                        ProfileInfoRow(Icons.Default.Speed, stringResource(R.string.ui_bmi), bmi?.let { String.format("%.1f", it) } ?: "-")
                     }
                 }
             }
         }
 
-        Text("Sağlık ve Aktivite", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.ui_health_and_activity), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ProfileInfoRow(Icons.Default.DirectionsRun, "Aktivite Seviyesi", 
+                ProfileInfoRow(Icons.Default.DirectionsRun, stringResource(R.string.ui_activity_level), 
                     when(user.activityLevel) {
-                        "low" -> "Az Hareketli"
-                        "medium" -> "Orta Hareketli"
-                        "high" -> "Çok Hareketli"
-                        else -> user.activityLevel ?: "Bilinmiyor"
+                        "low" -> stringResource(R.string.ui_low_activity)
+                        "medium" -> stringResource(R.string.ui_medium_activity)
+                        "high" -> stringResource(R.string.ui_high_activity)
+                        else -> user.activityLevel ?: stringResource(R.string.ui_unknown)
                     }
                 )
-                ProfileInfoRow(Icons.Default.Flag, "Hedef", user.goal ?: "Belirtilmemiş")
+                ProfileInfoRow(Icons.Default.Flag, stringResource(R.string.goal_label), user.goal ?: stringResource(R.string.ui_not_specified_goal))
                 
                 Divider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 
-                Text("Hastalıklar / Durumlar", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.ui_diseases_conditions), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 Text(
-                    text = if (user.diseaseInfo.isNullOrBlank()) "Kayıtlı hastalık bilgisi yok." else user.diseaseInfo!!,
+                    text = if (user.diseaseInfo.isNullOrBlank()) stringResource(R.string.ui_no_disease_record) else user.diseaseInfo!!,
                     style = MaterialTheme.typography.bodyMedium
                 )
                 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (user.hasHernia) Badge(containerColor = MaterialTheme.colorScheme.errorContainer) { Text("Fıtık") }
-                    if (user.hasMeniscus) Badge(containerColor = MaterialTheme.colorScheme.errorContainer) { Text("Menisküs") }
-                    if (user.isSmoker) Badge { Text("Sigara") }
+                    if (user.hasHernia) Badge(containerColor = MaterialTheme.colorScheme.errorContainer) { Text(stringResource(R.string.ui_hernia)) }
+                    if (user.hasMeniscus) Badge(containerColor = MaterialTheme.colorScheme.errorContainer) { Text(stringResource(R.string.ui_meniscus)) }
+                    if (user.isSmoker) Badge { Text(stringResource(R.string.ui_smoker)) }
                 }
             }
         }

@@ -107,7 +107,7 @@ fun ProfileScreen(
 
                 if (originalBitmap == null) {
                     isUploading = false
-                    snackbarHostState.showSnackbar("Error: Could not decode image")
+                    snackbarHostState.showSnackbar(context.getString(R.string.profile_image_decode_error))
                     return@launch
                 }
 
@@ -134,15 +134,15 @@ fun ProfileScreen(
                 viewModel.uploadProfileImage(data) { result: Result<String> ->
                     isUploading = false
                     if (result.isSuccess) {
-                        scope.launch { snackbarHostState.showSnackbar("Profile image updated successfully") }
+                        scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.profile_image_updated)) }
                     } else {
-                        val error = result.exceptionOrNull()?.message ?: "Unknown error"
-                        scope.launch { snackbarHostState.showSnackbar("Upload failed: $error") }
+                        val error = result.exceptionOrNull()?.message ?: context.getString(R.string.unknown_error)
+                        scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.upload_failed, error)) }
                     }
                 }
             } catch (e: Exception) {
                 isUploading = false
-                snackbarHostState.showSnackbar("Error processing image")
+                snackbarHostState.showSnackbar(context.getString(R.string.profile_image_processing_error))
             }
         }
     }
@@ -261,9 +261,10 @@ fun ProfileScreen(
                                 onChangePasswordClick = {
                                     viewModel.sendPasswordReset { success, error ->
                                         if (success) {
-                                            scope.launch { snackbarHostState.showSnackbar("Şifre sıfırlama e-postası gönderildi.") }
+                                            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.password_reset_sent)) }
                                         } else {
-                                            scope.launch { snackbarHostState.showSnackbar("Hata: $error") }
+                                            val message = error ?: context.getString(R.string.unknown_error)
+                                            scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.ui_error_with_message, message)) }
                                         }
                                     }
                                 }
@@ -605,7 +606,7 @@ fun ProfileHeader(user: UserEntity, isUploading: Boolean = false, onImageClick: 
             shape = RoundedCornerShape(12.dp)
         ) {
             Text(
-                text = if (user.role == "EXPERT") stringResource(R.string.role_expert) else "Fitness Tracking User",
+                text = if (user.role == "EXPERT") stringResource(R.string.role_expert) else stringResource(R.string.ui_fitness_tracking_user),
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary
@@ -705,15 +706,15 @@ fun PersonalInfoSection(user: UserEntity) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             
-            InfoRow(Icons.Default.Cake, stringResource(R.string.age_label), "${user.age ?: "-"} year")
+            InfoRow(Icons.Default.Cake, stringResource(R.string.age_label), stringResource(R.string.ui_years_old, user.age ?: "-"))
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
             InfoRow(Icons.Default.MonitorWeight, stringResource(R.string.weight_label), "${user.weightKg ?: "-"} ${stringResource(R.string.kg_unit)}")
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-            InfoRow(Icons.Default.Timer, stringResource(R.string.rest_time), "${user.defaultRestSeconds} sec")
+            InfoRow(Icons.Default.Timer, stringResource(R.string.rest_time), "${user.defaultRestSeconds} ${stringResource(R.string.ui_seconds)}")
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-            InfoRow(Icons.Default.Height, "Height", "${user.heightCm ?: "-"} cm")
+            InfoRow(Icons.Default.Height, stringResource(R.string.height_label), "${user.heightCm ?: "-"} cm")
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-            InfoRow(Icons.Default.Flag, stringResource(R.string.goal_label), user.goal?.replace("_", " ")?.replaceFirstChar { it.uppercase() } ?: stringResource(R.string.none_label))
+            InfoRow(Icons.Default.Flag, stringResource(R.string.goal_label), user.goal?.let { getGoalLabel(it) } ?: stringResource(R.string.none_label))
             
             if (user.weightKg != null && user.heightCm != null && user.heightCm!! > 0) {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -731,10 +732,10 @@ fun BMISection(weightKg: Float?, heightCm: Int?) {
     val bmi = weightKg / (heightM * heightM)
     
     val (category, color) = when {
-        bmi < 18.5 -> "Underweight" to Color(0xFF03A9F4)
-        bmi < 25.0 -> "Normal" to Color(0xFF4CAF50)
-        bmi < 30.0 -> "Overweight" to Color(0xFFFFC107)
-        else -> "Obese" to Color(0xFFF44336)
+        bmi < 18.5 -> stringResource(R.string.ui_underweight) to Color(0xFF03A9F4)
+        bmi < 25.0 -> stringResource(R.string.ui_normal_weight) to Color(0xFF4CAF50)
+        bmi < 30.0 -> stringResource(R.string.ui_overweight) to Color(0xFFFFC107)
+        else -> stringResource(R.string.ui_obese) to Color(0xFFF44336)
     }
 
     Card(
@@ -748,7 +749,7 @@ fun BMISection(weightKg: Float?, heightCm: Int?) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text("BMI Index", style = MaterialTheme.typography.labelMedium, color = color)
+                Text(stringResource(R.string.ui_bmi_index), style = MaterialTheme.typography.labelMedium, color = color)
                 Text(String.format("%.1f", bmi), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), color = color)
             }
             Surface(color = color, shape = RoundedCornerShape(8.dp)) {
@@ -887,14 +888,14 @@ fun EditProfileContent(
             OutlinedTextField(
                 value = firstName,
                 onValueChange = { firstName = it },
-                label = { Text("Ad") },
+                label = { Text(stringResource(R.string.first_name)) },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp)
             )
             OutlinedTextField(
                 value = lastName,
                 onValueChange = { lastName = it },
-                label = { Text("Soyad") },
+                label = { Text(stringResource(R.string.last_name)) },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp)
             )
@@ -927,7 +928,7 @@ fun EditProfileContent(
             OutlinedTextField(
                 value = heightStr,
                 onValueChange = { heightStr = it },
-                label = { Text("Height (cm)") },
+                label = { Text(stringResource(R.string.ui_height_cm)) },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
@@ -935,7 +936,7 @@ fun EditProfileContent(
             OutlinedTextField(
                 value = restSecondsStr,
                 onValueChange = { restSecondsStr = it },
-                label = { Text("Rest (sec)") },
+                label = { Text(stringResource(R.string.ui_rest_sec)) },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
@@ -946,13 +947,13 @@ fun EditProfileContent(
         BMISection(weightStr.toFloatOrNull(), heightStr.toIntOrNull())
 
         Spacer(modifier = Modifier.height(20.dp))
-        Text("Gender", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+        Text(stringResource(R.string.ui_gender), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
         Row(verticalAlignment = Alignment.CenterVertically) {
             RadioButton(selected = gender == "MALE", onClick = { gender = "MALE" })
-            Text("Male", modifier = Modifier.clickable { gender = "MALE" })
+            Text(stringResource(R.string.ui_male), modifier = Modifier.clickable { gender = "MALE" })
             Spacer(modifier = Modifier.width(16.dp))
             RadioButton(selected = gender == "FEMALE", onClick = { gender = "FEMALE" })
-            Text("Female", modifier = Modifier.clickable { gender = "FEMALE" })
+            Text(stringResource(R.string.ui_female), modifier = Modifier.clickable { gender = "FEMALE" })
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -963,7 +964,7 @@ fun EditProfileContent(
                 FilterChip(
                     selected = goal == g,
                     onClick = { goal = g },
-                    label = { Text(g.replace("_", " ").replaceFirstChar { it.uppercase() }) },
+                    label = { Text(getGoalLabel(g)) },
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.padding(end = 8.dp)
                 )
@@ -982,7 +983,7 @@ fun EditProfileContent(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Physical Conditions", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+        Text(stringResource(R.string.ui_physical_conditions), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
         Spacer(modifier = Modifier.height(8.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -993,12 +994,12 @@ fun EditProfileContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = hasHernia, onCheckedChange = { hasHernia = it })
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text("Hernia history?")
+                    Text(stringResource(R.string.ui_has_hernia_q))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Switch(checked = hasMeniscus, onCheckedChange = { hasMeniscus = it })
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text("Meniscus history?")
+                    Text(stringResource(R.string.ui_has_meniscus_q))
                 }
             }
         }
@@ -1060,7 +1061,7 @@ fun DiseaseSelector(
     val commonDiseases = listOf("Diabetes", "Hypertension", "Knee Problems", "Back Pain")
     
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Known Diseases", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+        Text(stringResource(R.string.ui_known_diseases), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
         Spacer(modifier = Modifier.height(8.dp))
         
         FlowRow(modifier = Modifier.fillMaxWidth()) {
@@ -1072,7 +1073,7 @@ fun DiseaseSelector(
                         if (isSelected) onDiseasesChanged(selectedDiseases - disease)
                         else onDiseasesChanged(selectedDiseases + disease)
                     },
-                    label = { Text(disease) },
+                    label = { Text(getDiseaseLabel(disease)) },
                     modifier = Modifier.padding(end = 8.dp),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -1084,7 +1085,7 @@ fun DiseaseSelector(
                     if (isOtherSelected) onDiseasesChanged(selectedDiseases - "Other")
                     else onDiseasesChanged(selectedDiseases + "Other")
                 },
-                label = { Text("Other") },
+                label = { Text(stringResource(R.string.ui_other)) },
                 shape = RoundedCornerShape(12.dp)
             )
         }
@@ -1094,7 +1095,7 @@ fun DiseaseSelector(
             OutlinedTextField(
                 value = otherDisease,
                 onValueChange = onOtherDiseaseChanged,
-                label = { Text("Describe other conditions") },
+                label = { Text(stringResource(R.string.ui_describe_other_conditions)) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             )
@@ -1108,13 +1109,13 @@ fun ActivitySelector(
     onLevelSelected: (String) -> Unit
 ) {
     val levels = listOf(
-        "low" to ("Low Activity" to "Mostly sitting during the day, no regular exercise"),
-        "medium" to ("Moderate Activity" to "Regular movement, light exercise 1-3 days a week"),
-        "high" to ("High Activity" to "Active lifestyle, intense exercise 4-7 days a week")
+        "low" to (stringResource(R.string.ui_low_activity) to stringResource(R.string.ui_activity_desc_low)),
+        "medium" to (stringResource(R.string.ui_medium_activity) to stringResource(R.string.ui_activity_desc_medium)),
+        "high" to (stringResource(R.string.ui_high_activity) to stringResource(R.string.ui_activity_desc_high))
     )
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Physical Activity Level", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+        Text(stringResource(R.string.ui_activity_level), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
         Spacer(modifier = Modifier.height(8.dp))
         
         levels.forEach { (key, info) ->
@@ -1145,6 +1146,25 @@ fun ActivitySelector(
             }
         }
     }
+}
+
+@Composable
+private fun getGoalLabel(goal: String): String = when (goal) {
+    "lose_weight" -> stringResource(R.string.ui_lose_weight)
+    "gain_muscle" -> stringResource(R.string.ui_gain_muscle)
+    "rehab" -> stringResource(R.string.ui_rehab)
+    "general_health" -> stringResource(R.string.ui_general_health)
+    else -> goal.replace("_", " ").replaceFirstChar { it.uppercase() }
+}
+
+@Composable
+private fun getDiseaseLabel(disease: String): String = when (disease) {
+    "Diabetes" -> stringResource(R.string.ui_disease_diabetes)
+    "Hypertension" -> stringResource(R.string.ui_disease_hypertension)
+    "Knee Problems" -> stringResource(R.string.ui_disease_knee_problems)
+    "Back Pain" -> stringResource(R.string.ui_disease_back_pain)
+    "Other" -> stringResource(R.string.ui_other)
+    else -> disease
 }
 
 private fun rotateBitmap(source: Bitmap, degrees: Float): Bitmap {

@@ -1,5 +1,7 @@
 package com.example.exerciseformanalyzer.ui.history
 
+import androidx.compose.ui.res.stringResource
+import com.example.exerciseformanalyzer.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,9 +35,9 @@ fun HistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Egzersiz Geçmişi") },
+                title = { Text(stringResource(R.string.ui_exercise_history)) },
                 navigationIcon = {
-                    TextButton(onClick = onNavigateBack) { Text("Geri") }
+                    TextButton(onClick = onNavigateBack) { Text(stringResource(R.string.ui_back)) }
                 }
             )
         }
@@ -48,14 +50,14 @@ fun HistoryScreen(
         ) {
             item {
                 if (reports.isEmpty()) {
-                    Text("Henüz kaydedilmiş bir egzersiz raporu bulunmuyor.")
+                    Text(stringResource(R.string.ui_no_reports_yet))
                 }
             }
 
             groupedReports.forEach { (key, group) ->
                 val first = group.first()
                 val isTask = key.startsWith("task_")
-                val dateStr = java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale("tr")).format(java.util.Date(first.timestamp))
+                val dateStr = java.text.SimpleDateFormat("dd MMMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(first.timestamp))
 
                 item {
                     Card(
@@ -72,7 +74,7 @@ fun HistoryScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = if (isTask) (first.taskTitle ?: "Görev Raporu") else "Serbest Egzersiz",
+                                    text = if (isTask) (first.taskTitle ?: stringResource(R.string.ui_task_report)) else stringResource(R.string.ui_free_exercise),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                                 )
@@ -90,17 +92,17 @@ fun HistoryScreen(
                                     )
                                     Row(modifier = Modifier.fillMaxWidth()) {
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(text = "Skor: %${report.score}", style = MaterialTheme.typography.bodySmall)
-                                            Text(text = "Tekrar: ${report.reps}", style = MaterialTheme.typography.bodySmall)
+                                            Text(text = stringResource(R.string.ui_score_label, report.score), style = MaterialTheme.typography.bodySmall)
+                                            Text(text = stringResource(R.string.ui_reps_report_label, report.reps), style = MaterialTheme.typography.bodySmall)
                                         }
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(text = "Süre: ${report.totalTimeSeconds} sn", style = MaterialTheme.typography.bodySmall)
-                                            Text(text = "Kalori: ${report.caloriesBurned.toInt()} kcal", style = MaterialTheme.typography.bodySmall)
+                                            Text(text = stringResource(R.string.ui_duration_sec_report, report.totalTimeSeconds), style = MaterialTheme.typography.bodySmall)
+                                            Text(text = stringResource(R.string.ui_calories_label, report.caloriesBurned.toInt()), style = MaterialTheme.typography.bodySmall)
                                         }
                                     }
                                     if (!report.feedback.isNullOrEmpty()) {
                                         Text(
-                                            text = "Geri Bildirim: ${report.feedback}",
+                                            text = stringResource(R.string.ui_feedback_label, report.feedback ?: ""),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.secondary,
                                             modifier = Modifier.padding(top = 2.dp)
@@ -116,7 +118,7 @@ fun HistoryScreen(
                                 val totalCals = group.sumOf { it.caloriesBurned.toDouble() }.toInt()
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Toplam Yakılan: $totalCals kcal",
+                                    text = stringResource(R.string.ui_total_burned_label, totalCals),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
