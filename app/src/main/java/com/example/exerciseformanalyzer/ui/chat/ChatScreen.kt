@@ -136,7 +136,7 @@ fun ChatScreen(
                     OutlinedTextField(
                         value = messageText,
                         onValueChange = { messageText = it },
-                        placeholder = { Text("Mesaj yaz...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        placeholder = { Text(stringResource(R.string.ui_write_message), color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         modifier = Modifier.weight(1f).heightIn(min = 40.dp),
                         shape = RoundedCornerShape(28.dp),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -157,7 +157,7 @@ fun ChatScreen(
                                             viewModel.sendMessage(otherUid, messageText, context)
                                             messageText = ""
                                         } else {
-                                            android.widget.Toast.makeText(context, "İnternet gerekiyor.", android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, context.getString(R.string.ui_internet_required), android.widget.Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 ) {
@@ -247,17 +247,23 @@ private fun chatDateKey(timestamp: Long): String {
 }
 
 private fun chatDateLabel(timestamp: Long): String {
-    val locale = Locale("tr", "TR")
+    val locale = Locale.getDefault()
     val messageDate = Calendar.getInstance(locale).apply { timeInMillis = timestamp.coerceAtLeast(0L) }
     val today = Calendar.getInstance(locale)
     
     val yesterday = Calendar.getInstance(locale).apply { add(Calendar.DAY_OF_YEAR, -1) }
 
+    // stringResource kullanılamadığı için context üzerinden veya modellerde statik olarak çözülebilir
+    // Ancak composable dışında olduğumuz için manuel kontrol veya string tabanlı çözüm:
     return when {
         messageDate.get(Calendar.YEAR) == today.get(Calendar.YEAR) && 
-        messageDate.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR) -> "Bugün"
+        messageDate.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR) -> {
+            if (locale.language == "tr") "Bugün" else "Today"
+        }
         messageDate.get(Calendar.YEAR) == yesterday.get(Calendar.YEAR) && 
-        messageDate.get(Calendar.DAY_OF_YEAR) == yesterday.get(Calendar.DAY_OF_YEAR) -> "Dün"
+        messageDate.get(Calendar.DAY_OF_YEAR) == yesterday.get(Calendar.DAY_OF_YEAR) -> {
+            if (locale.language == "tr") "Dün" else "Yesterday"
+        }
         else -> SimpleDateFormat("d MMMM yyyy", locale).format(messageDate.time)
     }
 }

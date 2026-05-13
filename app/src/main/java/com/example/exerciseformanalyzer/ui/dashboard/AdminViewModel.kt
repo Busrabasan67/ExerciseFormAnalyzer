@@ -226,4 +226,23 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
             if (success) fetchAllGroups()
         }
     }
+
+    fun sendAdminPasswordReset(onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val email = authRepo.currentUserEmail
+            if (email != null) {
+                val result = authRepo.sendPasswordResetEmail(email)
+                when (result) {
+                    is com.example.exerciseformanalyzer.domain.model.AuthResult.Success -> {
+                        val message = getApplication<android.app.Application>().getString(com.example.exerciseformanalyzer.R.string.ui_password_reset_sent_to, email)
+                        onResult(true, message)
+                    }
+                    is com.example.exerciseformanalyzer.domain.model.AuthResult.Error -> onResult(false, result.message)
+                    is com.example.exerciseformanalyzer.domain.model.AuthResult.Loading -> { /* Do nothing for loading state here */ }
+                }
+            } else {
+                onResult(false, "E-posta adresi bulunamadı.")
+            }
+        }
+    }
 }

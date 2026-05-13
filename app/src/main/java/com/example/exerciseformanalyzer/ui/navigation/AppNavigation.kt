@@ -281,6 +281,7 @@ fun AppNavigation(
         composable(Route.AdminDashboard.route) {
             com.example.exerciseformanalyzer.ui.admin.AdminDashboardScreen(
                 viewModel = adminViewModel,
+                mainViewModel = mainViewModel,
                 patientViewModel = patientViewModel,
                 expertViewModel = expertViewModel,
                 onNavigateToCamera = { exerciseType ->

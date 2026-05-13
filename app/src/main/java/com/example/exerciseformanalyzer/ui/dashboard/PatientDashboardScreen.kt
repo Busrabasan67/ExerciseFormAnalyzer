@@ -804,7 +804,7 @@ private fun PatientTaskCard(
             // ── İlerleme çubuğu ──
             Spacer(modifier = Modifier.height(10.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(R.string.ui_progress_sets), style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.ui_progress_sets, completedSets, totalSets), style = MaterialTheme.typography.labelSmall)
                 Text("%${(percent * 100).toInt()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -990,7 +990,7 @@ private fun ExerciseStartRow(
                 )
                 if (restTime != null && restTime > 0) {
                     Text("•", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                    Text("${stringResource(R.string.ui_rest_abbr)}: ${restTime}sn", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    Text("${stringResource(R.string.ui_rest_abbr)}: ${restTime}${stringResource(R.string.ui_seconds_abbr)}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
             }
         }
@@ -1192,7 +1192,7 @@ fun PatientReportCard(report: WorkoutReportEntity) {
                 ReportInfoItem(
                     icon = Icons.Default.Timer,
                     label = stringResource(R.string.ui_duration_label),
-                    value = "${report.totalTimeSeconds}sn"
+                    value = "${report.totalTimeSeconds}${stringResource(R.string.ui_seconds_abbr)}"
                 )
                 ReportInfoItem(
                     icon = Icons.Default.Whatshot,

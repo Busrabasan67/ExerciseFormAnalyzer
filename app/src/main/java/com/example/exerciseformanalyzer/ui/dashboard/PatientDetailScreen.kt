@@ -212,7 +212,7 @@ fun PatientDetailScreen(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.Gray)
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("${report.durationSeconds / 60}dk ${report.durationSeconds % 60}sn", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
+                                            Text("${report.durationSeconds / 60}${stringResource(R.string.ui_minutes_abbr)} ${report.durationSeconds % 60}${stringResource(R.string.ui_seconds_abbr)}", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
                                         }
                                     }
                                     

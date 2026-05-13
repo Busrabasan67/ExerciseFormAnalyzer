@@ -776,6 +776,9 @@
     <string name="ui_connection_lost">Bağlantı kesildi.</string>
     <string name="ui_note_label">Not</string>
     <string name="ui_seconds_abbr">Sn</string>
+    <string name="ui_minutes_abbr">Dk</string>
+    <string name="ui_internet_required">İnternet bağlantısı gerekiyor.</string>
+    <string name="ui_password_reset_sent_to">Şifre sıfırlama e-postası %1$s adresine gönderildi.</string>
     <string name="ui_err_exercise_details">Egzersiz detayları okunamadı</string>
     <string name="ui_task_completed_success">Tüm Görev Tamamlandı!</string>
     <string name="ui_task_inactive_msg">Bu görev artık aktif değil.</string>
@@ -795,6 +798,8 @@
     <string name="ui_reject_failed">Reddedilemedi: %1$s</string>
     <string name="ui_user_invited">%1$s davet edildi.</string>
     <string name="ui_invite_send_failed">Davet gönderilemedi: %1$s</string>
+    <string name="ui_delete_badge_title">Rozeti Sil</string>
+    <string name="ui_delete_badge_confirm">Bu rozeti sistemden tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz.</string>
     <string name="ui_joined_group">%1$s grubuna katıldınız.</string>
     <string name="ui_invite_rejected">Davet reddedildi.</string>
     <string name="ui_members_load_failed">Üyeler yüklenemedi.</string>

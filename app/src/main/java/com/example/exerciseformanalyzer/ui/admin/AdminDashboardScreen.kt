@@ -20,6 +20,7 @@ import com.example.exerciseformanalyzer.ui.dashboard.AdminPanelType
 import com.example.exerciseformanalyzer.ui.components.LogoutConfirmationDialog
 import com.example.exerciseformanalyzer.ui.dashboard.components.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -30,13 +31,13 @@ import androidx.compose.ui.graphics.Color
 @Composable
 fun AdminDashboardScreen(
     viewModel: AdminViewModel,
+    mainViewModel: com.example.exerciseformanalyzer.ui.MainViewModel,
     patientViewModel: com.example.exerciseformanalyzer.ui.dashboard.PatientViewModel,
     expertViewModel: com.example.exerciseformanalyzer.ui.dashboard.ExpertViewModel,
     onNavigateToCamera: (com.example.exerciseformanalyzer.model.ExerciseType?) -> Unit,
     onNavigateToTaskExercise: (com.example.exerciseformanalyzer.ui.dashboard.TaskExerciseStartParams) -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToGroups: () -> Unit,
-
     onNavigateToLeaderboard: () -> Unit,
     onNavigateToPatientDetail: (String) -> Unit,
     onLogout: () -> Unit
@@ -66,6 +67,23 @@ fun AdminDashboardScreen(
                 TopAppBar(
                     title = { Text(stringResource(R.string.ui_admin_panel)) },
                     actions = {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        val isDarkMode by mainViewModel.isDarkMode.collectAsState()
+                        
+                        IconButton(onClick = { mainViewModel.setDarkMode(!isDarkMode) }) {
+                            Icon(
+                                imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                contentDescription = "Toggle Dark Mode"
+                            )
+                        }
+
+                        IconButton(onClick = { 
+                            viewModel.sendAdminPasswordReset { success, message ->
+                                android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }) {
+                            Icon(imageVector = Icons.Default.VpnKey, contentDescription = stringResource(R.string.change_password))
+                        }
                         IconButton(onClick = { viewModel.setShowLogoutDialog(true) }) {
                             Icon(imageVector = Icons.Default.Logout, contentDescription = stringResource(R.string.ui_logout))
                         }
@@ -458,6 +476,32 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
         viewModel.fetchBadges()
     }
 
+    var badgeToDeleteId by remember { mutableStateOf<String?>(null) }
+
+    if (badgeToDeleteId != null) {
+        AlertDialog(
+            onDismissRequest = { badgeToDeleteId = null },
+            title = { Text(stringResource(R.string.ui_delete_badge_title)) },
+            text = { Text(stringResource(R.string.ui_delete_badge_confirm)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        badgeToDeleteId?.let { viewModel.deleteBadge(it) }
+                        badgeToDeleteId = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.ui_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { badgeToDeleteId = null }) {
+                    Text(stringResource(R.string.ui_cancel))
+                }
+            }
+        )
+    }
+
     Column {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
@@ -489,7 +533,10 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
                 items(badges) { (id, badge) ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     ) {
                         Row(
                             modifier = Modifier.padding(16.dp),
@@ -516,17 +563,17 @@ fun BadgeManagementTab(viewModel: AdminViewModel) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Badge(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
                                         val targetText = if (badge.category == "CALORIES") "${badge.targetValue} kcal" else "${badge.targetValue} ${badge.category}"
-                                        Text(targetText, modifier = Modifier.padding(4.dp))
+                                        Text(targetText, modifier = Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall)
                                     }
                                     Badge(containerColor = MaterialTheme.colorScheme.tertiaryContainer) {
-                                        Text("+${badge.xpReward} XP", modifier = Modifier.padding(4.dp))
+                                        Text("+${badge.xpReward} XP", modifier = Modifier.padding(4.dp), style = MaterialTheme.typography.labelSmall)
                                     }
                                 }
                             }
                             IconButton(onClick = { openDialogForEdit(id, badge) }) {
                                 Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.ui_edit), tint = MaterialTheme.colorScheme.primary)
                             }
-                            IconButton(onClick = { viewModel.deleteBadge(id) }) {
+                            IconButton(onClick = { badgeToDeleteId = id }) {
                                 Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_delete), tint = MaterialTheme.colorScheme.error)
                             }
                         }
@@ -713,7 +760,7 @@ fun AdminGroupListItem(
                 }
                 
                 Row {
-                    IconButton(onClick = { viewModel.updateGroupVisibility(group.id, !group.isPrivate) }) {
+                    IconButton(onClick = { viewModel.updateGroupVisibility(group.id, group.isPrivate) }) {
                         Icon(
                             imageVector = if (!group.isPrivate) Icons.Default.Public else Icons.Default.Lock,
                             contentDescription = stringResource(R.string.ui_privacy),
@@ -751,7 +798,8 @@ fun AdminGroupListItem(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Badge(containerColor = if (!group.isPrivate) Color(0xFFE8F5E9) else Color(0xFFFFF3E0)) {
-                    Text(if (!group.isPrivate) stringResource(R.string.ui_public) else stringResource(R.string.ui_private), style = MaterialTheme.typography.labelSmall)
+                    val statusText = if (!group.isPrivate) stringResource(R.string.ui_public) else stringResource(R.string.ui_private)
+                    Text(statusText, style = MaterialTheme.typography.labelSmall)
                 }
                 Text(stringResource(R.string.ui_created_date, group.createdAt?.let { java.text.SimpleDateFormat("dd/MM/yyyy").format(it) } ?: "-"), 
                      style = MaterialTheme.typography.labelSmall, color = Color.Gray)
@@ -811,66 +859,103 @@ fun GroupMemberManagementDialog(
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     items(members) { member ->
                         val userInfo = allUsers.find { it.uid == member.userId }
+                        val isCreator = group.creatorId == member.userId
+                        
                         Card(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (group.creatorId == member.userId) 
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) 
-                                else MaterialTheme.colorScheme.surface
-                            )
+                                containerColor = if (isCreator) 
+                                    Color(0xFFFFF8E1) 
+                                else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)
+                            ),
+                            border = null
                         ) {
-                            Row(
-                                modifier = Modifier.padding(8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(userInfo?.fullName ?: stringResource(R.string.ui_unknown_user), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                                    userInfo?.email?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = Color.Gray) }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(member.role, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                        if (group.creatorId == member.userId) {
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Badge(containerColor = MaterialTheme.colorScheme.primaryContainer) {
-                                                Text(stringResource(R.string.ui_creator_admin), style = MaterialTheme.typography.labelSmall)
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            userInfo?.fullName ?: stringResource(R.string.ui_unknown_user), 
+                                            style = MaterialTheme.typography.titleSmall, 
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        userInfo?.email?.let { 
+                                            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                                        }
+                                        
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Badge(
+                                                containerColor = when(member.role.lowercase()) {
+                                                    "admin" -> MaterialTheme.colorScheme.primaryContainer
+                                                    "moderator" -> MaterialTheme.colorScheme.secondaryContainer
+                                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                                }
+                                            ) {
+                                                Text(member.role.uppercase(), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp))
                                             }
+                                            
+                                            if (isCreator) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Badge(containerColor = MaterialTheme.colorScheme.tertiaryContainer) {
+                                                    Text(stringResource(R.string.ui_creator_admin), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp))
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (!isCreator) {
+                                        IconButton(
+                                            onClick = { memberToRemove = member },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_remove), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
                                         }
                                     }
                                 }
                                 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (group.creatorId == member.userId) {
-                                        // Mevcut Yönetici - Dokunulmaz
-                                        Badge(containerColor = MaterialTheme.colorScheme.primaryContainer) {
-                                            Text(stringResource(R.string.ui_group_creator_cap), style = MaterialTheme.typography.labelSmall)
-                                        }
-                                    } else {
+                                if (!isCreator) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         // Yetkili/Yetki Al (Moderator Yönetimi)
                                         TextButton(
-                                            onClick = { memberToChangeRole = member }
+                                            onClick = { memberToChangeRole = member },
+                                            modifier = Modifier.height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp)
                                         ) {
+                                            val actionText = if (member.role.lowercase() == "moderator") 
+                                                stringResource(R.string.ui_revoke_authority) 
+                                            else stringResource(R.string.ui_grant_authority)
+                                            
                                             Text(
-                                                if (member.role.lowercase() == "moderator") stringResource(R.string.ui_revoke_authority) else stringResource(R.string.ui_grant_authority),
+                                                actionText,
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = if (member.role.lowercase() == "moderator") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                                color = if (member.role.lowercase() == "moderator") 
+                                                    MaterialTheme.colorScheme.error 
+                                                else MaterialTheme.colorScheme.primary
                                             )
                                         }
 
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
 
                                         // Yönetici Yap (Lideri Değiştir)
                                         Button(
                                             onClick = { memberToMakeCreator = member },
-                                            modifier = Modifier.height(28.dp),
-                                            contentPadding = PaddingValues(horizontal = 8.dp),
+                                            modifier = Modifier.height(32.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp),
                                             shape = RoundedCornerShape(8.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFA000))
                                         ) {
                                             Text(stringResource(R.string.ui_make_admin), style = MaterialTheme.typography.labelSmall)
-                                        }
-
-                                        IconButton(onClick = { memberToRemove = member }) {
-                                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_remove), tint = Color.Gray, modifier = Modifier.size(16.dp))
                                         }
                                     }
                                 }

@@ -776,6 +776,9 @@
     <string name="ui_connection_lost">Connection lost.</string>
     <string name="ui_note_label">Note</string>
     <string name="ui_seconds_abbr">Sec</string>
+    <string name="ui_minutes_abbr">Min</string>
+    <string name="ui_internet_required">Internet connection required.</string>
+    <string name="ui_password_reset_sent_to">Password reset email sent to %1$s.</string>
     <string name="ui_err_exercise_details">Exercise details could not be read</string>
     <string name="ui_task_completed_success">All tasks completed!</string>
     <string name="ui_task_inactive_msg">This task is no longer active.</string>
@@ -795,6 +798,8 @@
     <string name="ui_reject_failed">Could not reject: %1$s</string>
     <string name="ui_user_invited">%1$s was invited.</string>
     <string name="ui_invite_send_failed">Failed to send invite: %1$s</string>
+    <string name="ui_delete_badge_title">Delete Badge</string>
+    <string name="ui_delete_badge_confirm">Are you sure you want to completely delete this badge from the system? This action cannot be undone.</string>
     <string name="ui_joined_group">You joined %1$s.</string>
     <string name="ui_invite_rejected">Invite rejected.</string>
     <string name="ui_members_load_failed">Failed to load members.</string>

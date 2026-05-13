@@ -122,7 +122,9 @@ data class FirestoreGroup(
     val name: String = "",
     val description: String = "",
     val creatorId: String = "",
-    val isPrivate: Boolean = false,
+    @get:com.google.firebase.firestore.PropertyName("isPrivate")
+    @set:com.google.firebase.firestore.PropertyName("isPrivate")
+    var isPrivate: Boolean = false,
     val coverImageUrl: String? = null,
     val allowMemberPhotoUpload: Boolean = false,
     @com.google.firebase.firestore.ServerTimestamp val createdAt: java.util.Date? = null

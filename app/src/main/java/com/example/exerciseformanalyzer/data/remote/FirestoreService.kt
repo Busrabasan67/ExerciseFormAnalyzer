@@ -888,40 +888,39 @@ class FirestoreService {
 
                 android.util.Log.d("BadgeRetro", "  Toplam ilerleme: $totalProgress / Hedef: ${badge.targetValue}")
 
-                if (totalProgress > 0) {
-                    val docRef = db.collection("user_badges").document("${userId}_${badgeId}")
-                    val existing = docRef.get().await()
-                    val alreadyUnlocked = existing.getBoolean("isUnlocked") ?: false
+                val docRef = db.collection("user_badges").document("${userId}_${badgeId}")
+                val existing = docRef.get().await()
+                val alreadyUnlocked = existing.getBoolean("isUnlocked") ?: false
+                
+                val willUnlock = totalProgress >= badge.targetValue
 
-                    if (!alreadyUnlocked) {
-                        val willUnlock = totalProgress >= badge.targetValue
-                        val data = mapOf(
-                            "userId" to userId,
-                            "badgeId" to badgeId,
-                            "currentProgress" to totalProgress,
-                            "targetValue" to badge.targetValue,
-                            "isUnlocked" to willUnlock,
-                            "unlockedAt" to if (willUnlock) System.currentTimeMillis() else null
-                        )
-                        if (willUnlock) {
-                            // Eğer daha önce açılmamışsa XP ver (tekrar XP vermemek için kontrol)
-                            val existingProgress = db.collection(USERS).document(userId)
-                                .collection("user_badges").document(badgeId)
-                                .get().await().toObject<FirestoreUserBadgeProgress>()
-                                
-                            if (existingProgress == null || !existingProgress.isUnlocked) {
-                                incrementUserXp(userId, badge.xpReward)
-                                android.util.Log.d("BadgeRetro", "User $userId earned retroactive badge: ${badge.name}. Awarded ${badge.xpReward} XP.")
-                            }
-                        }
-                        
-                        docRef.set(data).await()
-                        android.util.Log.d("BadgeRetro", if (willUnlock) "  🏆 ROZET VERİLDİ: $userId" else "  📊 İlerleme kaydedildi: $totalProgress")
-                    } else {
-                        android.util.Log.d("BadgeRetro", "  ⏭ Zaten açık, atlandı")
+                // Eğer durum değişmişse veya ilerleme güncellenmişse kaydet
+                // (Örn: Eskiden unlocked idi ama şimdi hedef arttığı için locked olmalı, 
+                // ya da tam tersi, ya da sadece totalProgress güncellenmiş)
+                
+                if (willUnlock != alreadyUnlocked || (existing.exists() && existing.getLong("currentProgress")?.toInt() != totalProgress)) {
+                    val data = mutableMapOf<String, Any>(
+                        "userId" to userId,
+                        "badgeId" to badgeId,
+                        "currentProgress" to totalProgress,
+                        "targetValue" to badge.targetValue,
+                        "isUnlocked" to willUnlock
+                    )
+                    
+                    if (willUnlock && !alreadyUnlocked) {
+                        data["unlockedAt"] = System.currentTimeMillis()
+                        // Daha önce hiç açılmamışsa veya sistemde kaydı yoksa XP ver
+                        incrementUserXp(userId, badge.xpReward)
+                        android.util.Log.d("BadgeRetro", "User $userId earned retroactive badge: ${badge.name}")
+                    } else if (!willUnlock && alreadyUnlocked) {
+                        data["unlockedAt"] = com.google.firebase.firestore.FieldValue.delete()
+                        android.util.Log.d("BadgeRetro", "User $userId lost badge due to updated criteria: ${badge.name}")
                     }
+                    
+                    docRef.set(data, com.google.firebase.firestore.SetOptions.merge()).await()
+                    android.util.Log.d("BadgeRetro", "  Status updated for $userId: isUnlocked=$willUnlock, progress=$totalProgress")
                 } else {
-                    android.util.Log.d("BadgeRetro", "  ⏭ Sıfır ilerleme, kayıt yapılmadı")
+                    android.util.Log.d("BadgeRetro", "  ⏭ Değişiklik yok, atlandı ($userId)")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("BadgeRetro", "  HATA (userId=$userId): ${e.message}", e)
@@ -1045,7 +1044,13 @@ class FirestoreService {
     suspend fun getAllGroupsAdmin(): List<com.example.exerciseformanalyzer.model.firestore.FirestoreGroup> {
         return db.collection(GROUPS)
             .get().await()
-            .documents.mapNotNull { it.toObject<com.example.exerciseformanalyzer.model.firestore.FirestoreGroup>() }
+            .documents.mapNotNull { doc ->
+                doc.toObject<com.example.exerciseformanalyzer.model.firestore.FirestoreGroup>()?.apply {
+                    // isPrivate field mapping check
+                    val isPriv = doc.getBoolean("isPrivate") ?: doc.getBoolean("private") ?: isPrivate
+                    this.isPrivate = isPriv
+                }
+            }
     }
 
     /** Bir grubu ve tüm alt koleksiyonlarını (istatistikler vb.) temizle. */
