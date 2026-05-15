@@ -820,4 +820,6 @@
     <string name="ui_permissions_updated">İzinler güncellendi.</string>
     <string name="ui_invite_instruction">%1$s grubuna davet etmek istediğiniz kişinin e-posta adresini girin.</string>
     <string name="ui_email_address">E-posta adresi</string>
+    <string name="ui_error_camera_permission_required">Kamera izni verilmedi. Fotoğraf çekmek için izne ihtiyaç var.</string>
+    <string name="ui_group_name_updated">Grup ismi güncellendi.</string>
 </resources>

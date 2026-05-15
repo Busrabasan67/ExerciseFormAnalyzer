@@ -10,9 +10,7 @@ data class FsGroup(
     val groupId: String = "",
     val name: String = "",
     val description: String = "",
-    @get:com.google.firebase.firestore.PropertyName("isPrivate")
-    @set:com.google.firebase.firestore.PropertyName("isPrivate")
-    var isPrivate: Boolean = false,
+    val isPrivate: Boolean = false,
     val creatorId: String = "",
     val creatorName: String = "",
     val coverImageUrl: String? = null,

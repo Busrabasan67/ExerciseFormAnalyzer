@@ -1032,4 +1032,18 @@ class CommunityFirestoreService {
             throw IllegalStateException("Bu ayarı sadece grup yöneticisi değiştirebilir.")
         }
     }
+
+    suspend fun updateGroupName(groupId: String, actorUserId: String, newName: String): Result<Unit> = runCatching {
+        if (newName.isBlank()) throw IllegalArgumentException("Grup ismi boş olamaz.")
+        
+        val actorRef = db.collection(GROUP_MEMBERS).document("${groupId}_${actorUserId}")
+        val actor = actorRef.get().await()
+        val role = normalizeRole(actor.getString("role") ?: "")
+        
+        if (role == "admin") {
+            db.collection(GROUPS).document(groupId).update("name", newName).await()
+        } else {
+            throw IllegalStateException("Grup ismini sadece yönetici değiştirebilir.")
+        }
+    }
 }

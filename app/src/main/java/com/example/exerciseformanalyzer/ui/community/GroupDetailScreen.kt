@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -61,6 +62,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -125,10 +127,12 @@ fun GroupDetailScreen(
     val labelMembers = stringResource(R.string.ui_members)
     val labelGroupClosed = stringResource(R.string.ui_group_closed)
     val labelLeftGroup = stringResource(R.string.ui_left_group)
-    val tabs = when {
-        canInvite -> listOf(stringResource(R.string.ui_chat), stringResource(R.string.ui_info), labelMembers, stringResource(R.string.ui_invite))
-        isCurrentMember -> listOf(stringResource(R.string.ui_chat), stringResource(R.string.ui_info), labelMembers)
-        else -> listOf(stringResource(R.string.ui_info), labelMembers)
+    val tabs = remember(canInvite, isCurrentMember) {
+        when {
+            canInvite -> listOf(R.string.ui_chat, R.string.ui_info, R.string.ui_members, R.string.ui_invite)
+            isCurrentMember -> listOf(R.string.ui_chat, R.string.ui_info, R.string.ui_members)
+            else -> listOf(R.string.ui_info, R.string.ui_members)
+        }
     }
 
     var inviteQuery by remember { mutableStateOf("") }
@@ -136,6 +140,7 @@ fun GroupDetailScreen(
     var memberPendingRemoval by remember { mutableStateOf<FsGroupMember?>(null) }
     var showCloseGroupDialog by remember { mutableStateOf(false) }
     var showLeaveGroupDialog by remember { mutableStateOf(false) }
+    var showEditNameDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(group?.groupId) {
         group?.groupId?.let { viewModel.loadGroupMembers(it) }
@@ -167,7 +172,7 @@ fun GroupDetailScreen(
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState()
     var showImageSourceDialog by remember { mutableStateOf(false) }
-    var tempPhotoUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var tempPhotoUri by rememberSaveable { mutableStateOf<android.net.Uri?>(null) }
 
     fun handleImageUpload(uri: android.net.Uri) {
         scope.launch {
@@ -178,11 +183,6 @@ fun GroupDetailScreen(
         }
     }
 
-    val pickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri -> uri?.let { handleImageUpload(it) } }
-    )
-
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
         onResult = { success ->
@@ -190,6 +190,24 @@ fun GroupDetailScreen(
                 tempPhotoUri?.let { handleImageUpload(it) }
             }
         }
+    )
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                val uri = ImageUtils.createTempUri(context, "group_update_")
+                tempPhotoUri = uri
+                cameraLauncher.launch(uri)
+            } else {
+                scope.launch { snackbarHost.showSnackbar(context.getString(R.string.ui_error_camera_permission_required)) }
+            }
+        }
+    )
+
+    val pickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri -> uri?.let { handleImageUpload(it) } }
     )
 
     Scaffold(
@@ -207,11 +225,11 @@ fun GroupDetailScreen(
                     )
                 )
                 TabRow(selectedTabIndex = selectedTab) {
-                    tabs.forEachIndexed { index, title ->
+                    tabs.forEachIndexed { index, resId ->
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
-                            text = { Text(title) }
+                            text = { Text(stringResource(resId)) }
                         )
                     }
                 }
@@ -219,7 +237,8 @@ fun GroupDetailScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHost) }
     ) { padding ->
-        if (tabs[selectedTab] == "Chat") {
+        val currentTabRes = tabs.getOrNull(selectedTab) ?: R.string.ui_info
+        if (currentTabRes == R.string.ui_chat) {
             ChatSectionFixed(
                 messages = messages,
                 programs = programs,
@@ -238,8 +257,8 @@ fun GroupDetailScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                when (tabs[selectedTab]) {
-                    "Info" -> {
+                when (currentTabRes) {
+                    R.string.ui_info -> {
                         item {
                             GroupInfoCard(
                                 group = group,
@@ -247,6 +266,7 @@ fun GroupDetailScreen(
                                 canLeaveGroup = canLeaveGroup,
                                 canUpdatePrivacy = canManageRoles,
                                 canUploadPhoto = canManageRoles || (group?.allowMemberPhotoUpload == true && isCurrentMember),
+                                canEditName = canManageRoles,
                                 onPrivacyChange = { isPrivate ->
                                     group?.let { viewModel.updateGroupPrivacy(it.groupId, isPrivate) }
                                 },
@@ -254,12 +274,13 @@ fun GroupDetailScreen(
                                 onUpdateMemberUploadPermission = { allowed ->
                                     group?.let { viewModel.updateGroupMemberUploadPermission(it.groupId, allowed) }
                                 },
+                                onEditName = { showEditNameDialog = true },
                                 onLeaveGroup = { showLeaveGroupDialog = true },
                                 onCloseGroup = { showCloseGroupDialog = true }
                             )
                         }
                     }
-                    labelMembers -> {
+                    R.string.ui_members -> {
                         if (members.isEmpty()) {
                             item {
                                 Box(
@@ -292,7 +313,7 @@ fun GroupDetailScreen(
                             }
                         }
                     }
-                    "Invite" -> {
+                    R.string.ui_invite -> {
                         item {
                             InviteSection(
                                 query = inviteQuery,
@@ -405,6 +426,42 @@ fun GroupDetailScreen(
             }
         )
     }
+
+    if (showEditNameDialog) {
+        var newName by remember { mutableStateOf(group?.name ?: "") }
+        AlertDialog(
+            onDismissRequest = { showEditNameDialog = false },
+            title = { Text(stringResource(R.string.ui_edit)) },
+            text = {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text(stringResource(R.string.ui_group_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val currentGroup = group
+                        if (newName.isNotBlank() && currentGroup != null) {
+                            viewModel.updateGroupName(currentGroup.groupId, newName.trim())
+                            showEditNameDialog = false
+                        }
+                    },
+                    enabled = newName.isNotBlank() && newName != group?.name
+                ) {
+                    Text(stringResource(R.string.ui_save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditNameDialog = false }) {
+                    Text(stringResource(R.string.ui_cancel))
+                }
+            }
+        )
+    }
     if (showImageSourceDialog) {
         ModalBottomSheet(
             onDismissRequest = { showImageSourceDialog = false },
@@ -440,9 +497,17 @@ fun GroupDetailScreen(
                 Surface(
                     onClick = {
                         showImageSourceDialog = false
-                        val uri = ImageUtils.createTempUri(context, "group_update_")
-                        tempPhotoUri = uri
-                        cameraLauncher.launch(uri)
+                        val permissionCheck = androidx.core.content.ContextCompat.checkSelfPermission(
+                            context,
+                            android.Manifest.permission.CAMERA
+                        )
+                        if (permissionCheck == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            val uri = ImageUtils.createTempUri(context, "group_update_")
+                            tempPhotoUri = uri
+                            cameraLauncher.launch(uri)
+                        } else {
+                            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                        }
                     },
                     shape = RoundedCornerShape(16.dp),
                     color = androidx.compose.ui.graphics.Color.Transparent,
@@ -557,9 +622,11 @@ private fun GroupInfoCard(
     canLeaveGroup: Boolean,
     canUpdatePrivacy: Boolean,
     canUploadPhoto: Boolean,
+    canEditName: Boolean,
     onPrivacyChange: (Boolean) -> Unit,
     onUploadPhoto: () -> Unit,
     onUpdateMemberUploadPermission: (Boolean) -> Unit,
+    onEditName: () -> Unit,
     onLeaveGroup: () -> Unit,
     onCloseGroup: () -> Unit
 ) {
@@ -612,11 +679,27 @@ private fun GroupInfoCard(
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = group.name,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = group.name,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (canEditName) {
+                                IconButton(
+                                    onClick = onEditName,
+                                    modifier = Modifier.size(32.dp).padding(start = 8.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = stringResource(R.string.ui_edit),
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
                         Text(
                             text = if (group.isPrivate) stringResource(R.string.ui_private_group) else stringResource(R.string.ui_public),
                             style = MaterialTheme.typography.bodySmall,

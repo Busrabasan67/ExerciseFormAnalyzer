@@ -768,4 +768,30 @@ class CommunityViewModel(application: Application) : AndroidViewModel(applicatio
                 }
         }
     }
+
+    fun updateGroupName(groupId: String, newName: String) {
+        val uid = currentUid
+        if (uid.isEmpty()) return
+        if (newName.isBlank()) return
+        
+        viewModelScope.launch {
+            communityRepo.updateGroupName(groupId, uid, newName)
+                .onSuccess {
+                    _event.value = CommunityEvent.Success(s(R.string.ui_group_name_updated))
+                    val updatedGroup = _selectedGroup.value?.copy(name = newName)
+                    _selectedGroup.value = updatedGroup
+                    
+                    // Update lists
+                    _myGroups.value = _myGroups.value.map {
+                        if (it.groupId == groupId) it.copy(name = newName) else it
+                    }
+                    _exploreGroups.value = _exploreGroups.value.map {
+                        if (it.group.groupId == groupId) it.copy(group = it.group.copy(name = newName)) else it
+                    }
+                }
+                .onFailure {
+                    _event.value = CommunityEvent.Error(s(R.string.ui_error_occurred))
+                }
+        }
+    }
 }

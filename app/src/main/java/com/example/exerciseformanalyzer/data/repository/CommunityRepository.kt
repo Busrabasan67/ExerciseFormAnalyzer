@@ -267,4 +267,7 @@ class CommunityRepository(
 
     suspend fun updateGroupMemberUploadPermission(groupId: String, actorUserId: String, allowed: Boolean): Result<Unit> =
         service.updateGroupMemberUploadPermission(groupId, actorUserId, allowed)
+
+    suspend fun updateGroupName(groupId: String, actorUserId: String, newName: String): Result<Unit> =
+        service.updateGroupName(groupId, actorUserId, newName)
 }

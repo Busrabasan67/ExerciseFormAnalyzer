@@ -820,4 +820,6 @@
     <string name="ui_permissions_updated">Permissions updated.</string>
     <string name="ui_invite_instruction">Enter the email address of the person you want to invite to %1$s.</string>
     <string name="ui_email_address">Email address</string>
+    <string name="ui_error_camera_permission_required">Camera permission denied. Permission is needed to take a photo.</string>
+    <string name="ui_group_name_updated">Group name updated.</string>
 </resources>
