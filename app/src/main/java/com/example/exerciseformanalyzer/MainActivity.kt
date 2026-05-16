@@ -21,6 +21,8 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+
 /**
  * Uygulamanın tek Activity'si — Compose + MVVM mimarisi.
  * AppCompatActivity: per-app locale switching için gerekli.
@@ -37,7 +39,26 @@ class MainActivity : AppCompatActivity() {
 
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        
+        // Sistem splash screen çıkış animasyonu (Opsiyonel ama şık)
+        splashScreen.setOnExitAnimationListener { splashScreenView ->
+            val slideUp = android.view.animation.TranslateAnimation(0f, 0f, 0f, -splashScreenView.view.height.toFloat()).apply {
+                duration = 500L
+                interpolator = android.view.animation.AccelerateInterpolator()
+            }
+            val fadeOut = android.view.animation.AlphaAnimation(1f, 0f).apply {
+                duration = 500L
+            }
+            
+            splashScreenView.view.startAnimation(slideUp)
+            splashScreenView.view.startAnimation(fadeOut)
+            
+            // Animasyon bitince ekranı kaldır
+            splashScreenView.remove()
+        }
+
         enableEdgeToEdge()
 
         setContent {
